@@ -1,0 +1,14 @@
+ # Server
+ server.port=8080
+
+ # PostgreSQL Database
+ spring.datasource.url=jdbc:postgresql://localhost:5432/vulse
+ spring.datasource.username=postgres
+ spring.datasource.password=PAROLA_TA_AICI
+
+ # Hibernate (creeaza tabelele automat)
+ spring.jpa.hibernate.ddl-auto=update
+ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+ # JWT Secret Key
+ application.security.jwt.secret-key=INSEREAZA_CHEIA_AICI
