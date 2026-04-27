@@ -24,6 +24,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/error").permitAll() //lasa toate rutele de login libere
+                        .requestMatchers("/api/posts/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
