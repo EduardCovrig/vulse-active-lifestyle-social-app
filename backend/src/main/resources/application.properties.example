@@ -5,11 +5,16 @@
  # PostgreSQL Database
  spring.datasource.url=jdbc:postgresql://localhost:5432/vulse
  spring.datasource.username=postgres
- spring.datasource.password=PAROLA_TA_AICI
+ spring.datasource.password=
 
  # Hibernate (creeaza tabelele automat)
  spring.jpa.hibernate.ddl-auto=update/validate
  spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 
  # JWT Secret Key
- application.security.jwt.secret-key=INSEREAZA_CHEIA_AICI
+ application.security.jwt.secret-key=
+
+ #cloudinary
+ cloudinary.cloud-name=
+ cloudinary.api-key=
+ cloudinary.api-secret=
