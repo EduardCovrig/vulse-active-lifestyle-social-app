@@ -1,3 +1,4 @@
+ spring.application.name=backend
  # Server
  server.port=8080
 
@@ -7,7 +8,7 @@
  spring.datasource.password=PAROLA_TA_AICI
 
  # Hibernate (creeaza tabelele automat)
- spring.jpa.hibernate.ddl-auto=update
+ spring.jpa.hibernate.ddl-auto=update/validate
  spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
 
  # JWT Secret Key
