@@ -18,7 +18,7 @@ export default function App() {
           <Stack.Screen name="Register" component={RegisterScreen} />
         </Stack.Navigator>
       </NavigationContainer>
-      <StatusBar style="light" />
+      <StatusBar style="auto" />
     </AuthProvider>
   );
 }
