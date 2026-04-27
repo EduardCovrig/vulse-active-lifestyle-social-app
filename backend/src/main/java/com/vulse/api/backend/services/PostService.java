@@ -28,19 +28,25 @@ public class PostService {
         // 1. Upload main media (Video/Image)
         Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "auto"));
         String mediaUrl = uploadResult.get("secure_url").toString();
+        String mediaPublicId = uploadResult.get("public_id").toString(); // <--- EXTRACTION
+
         String frontMediaUrl = null;
+        String frontMediaPublicId = null;
 
         // 2. Upload front media if it's a BeReal style post
         if (type == PostType.DAILY && frontFile != null) {
             Map frontUploadResult = cloudinary.uploader().upload(frontFile.getBytes(), ObjectUtils.asMap("resource_type", "auto"));
             frontMediaUrl = frontUploadResult.get("secure_url").toString();
+            frontMediaPublicId = frontUploadResult.get("public_id").toString(); // <--- EXTRACTION
         }
 
         // 3. Build and save entity
         Post post = Post.builder()
                 .user(user)
                 .mediaUrl(mediaUrl)
+                .mediaPublicId(mediaPublicId) // <--- SAVED
                 .frontMediaUrl(frontMediaUrl)
+                .frontMediaPublicId(frontMediaPublicId) // <--- SAVED
                 .caption(caption)
                 .type(type)
                 .calories(calories)
@@ -69,6 +75,19 @@ public class PostService {
         // Security: Only the author can delete
         if (!post.getUser().getId().equals(user.getId())) {
             throw new RuntimeException("Unauthorized: You can only delete your own posts.");
+        }
+
+        // Clean up Cloudinary storage
+        try {
+            cloudinary.uploader().destroy(post.getMediaPublicId(), ObjectUtils.emptyMap());
+
+            // If it's a BeReal post, delete the front camera picture too
+            if (post.getFrontMediaPublicId() != null) {
+                cloudinary.uploader().destroy(post.getFrontMediaPublicId(), ObjectUtils.emptyMap());
+            }
+        } catch (IOException e) {
+            // We catch the exception so if Cloudinary fails, we still delete the DB record
+            System.err.println("Warning: Failed to delete media from Cloudinary for post " + postId);
         }
 
         postRepository.delete(post);
@@ -101,5 +120,13 @@ public class PostService {
                 .createdAt(post.getCreatedAt())
                 .author(authorDto)
                 .build();
+    }
+
+    // Fetch all posts for the logged-in user (useful for Profile/Calendar history)
+    public java.util.List<PostResponse> getMyPosts(User user) {
+        return postRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 }

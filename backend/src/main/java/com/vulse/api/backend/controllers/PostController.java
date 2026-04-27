@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -63,5 +64,11 @@ public class PostController {
             @RequestParam(value = "size", defaultValue = "10") int size) {
 
         return ResponseEntity.ok(postService.getFeedByType(type, PageRequest.of(page, size)));
+    }
+
+    // GET /api/posts/my-posts
+    @GetMapping("/my-posts")
+    public ResponseEntity<List<PostResponse>> getMyPosts(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(postService.getMyPosts(user));
     }
 }
