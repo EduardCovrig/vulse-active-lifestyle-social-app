@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, useColorScheme } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
@@ -8,21 +8,23 @@ export default function RegisterScreen({ navigation }: any) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const theme = useColorScheme();
   
   const { register } = useContext(AuthContext);
 
   const handleRegister = async () => {
     if (!username || !email || !password) {
-      Alert.alert('Eroare', 'Te rog completează toate câmpurile.');
+      Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
 
     try {
       await register({ username, email, password });
-      console.log("Înregistrare cu succes!");
+      console.log("Registration successful!");
     } catch (error: any) {
-      console.log("Eroare register:", error.response?.data || error.message);
-      Alert.alert('Înregistrare eșuată', 'Verifică datele introduse.');
+      console.log("Registration error:", error.response?.data || error.message);
+      Alert.alert('Error registering', 'Please check your password or email.');
     }
   };
 
@@ -36,7 +38,7 @@ export default function RegisterScreen({ navigation }: any) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="w-full max-w-md">
         <View className="mb-8 items-center">
           <Text className="text-4xl font-extrabold text-white tracking-widest uppercase mb-2">Vulse</Text>
-          <Text className="text-on-surface-variant text-base tracking-wider">Join the elite.</Text>
+          <Text className="text-on-surface-variant text-base tracking-wider">Join your friends on a healthy journey.</Text>
         </View>
 
         <BlurView intensity={40} tint="dark" className="overflow-hidden rounded-[32px] border border-white/15 p-8">
@@ -49,6 +51,7 @@ export default function RegisterScreen({ navigation }: any) {
                 placeholder="fit_warrior"
                 placeholderTextColor="#bec8ce80"
                 autoCapitalize="none"
+                keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
                 value={username}
                 onChangeText={setUsername}
               />
@@ -60,8 +63,8 @@ export default function RegisterScreen({ navigation }: any) {
                 className="w-full h-14 bg-black/20 rounded-2xl px-5 text-white border border-white/10 focus:border-tertiary/50"
                 placeholder="you@example.com"
                 placeholderTextColor="#bec8ce80"
-                keyboardType="email-address"
                 autoCapitalize="none"
+                keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
                 value={email}
                 onChangeText={setEmail}
               />
@@ -73,6 +76,7 @@ export default function RegisterScreen({ navigation }: any) {
                 className="w-full h-14 bg-black/20 rounded-2xl px-5 text-white border border-white/10 focus:border-tertiary/50"
                 placeholder="••••••••"
                 placeholderTextColor="#bec8ce80"
+                keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
@@ -91,7 +95,7 @@ export default function RegisterScreen({ navigation }: any) {
             </TouchableOpacity>
 
             <View className="flex-row justify-center mt-4 gap-2">
-              <Text className="text-on-surface-variant">Already elite?</Text>
+              <Text className="text-on-surface-variant">Already a VULSE member?</Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')}>
                 <Text className="text-primary font-bold">Sign In</Text>
               </TouchableOpacity>

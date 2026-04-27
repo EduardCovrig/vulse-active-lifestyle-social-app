@@ -1,31 +1,30 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, useColorScheme} from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AuthContext } from '../context/AuthContext'; // Importăm contextul creat
+import { AuthContext } from '../context/AuthContext';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const theme = useColorScheme();
   
-  // Tragem funcția de logare din AuthContext
   const { login } = useContext(AuthContext);
 
   const handleLogin = async () => {
-    // Validare simplă ca să nu trimitem request-uri goale
+    //validare inainte de trimitere request
     if (!email || !password) {
-      Alert.alert('Eroare', 'Te rog completează email-ul și parola.');
+      Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
 
     try {
       await login({ email, password });
       console.log("Logare cu succes!");
-      // Odată autentificat, AuthContext se va schimba,
-      // iar aplicația ta va trebui să randeze feed-ul automat!
     } catch (error: any) {
       console.log("Eroare login:", error.response?.data || error.message);
-      Alert.alert('Logare eșuată', 'Email sau parolă incorectă.');
+      Alert.alert('Login Failed', 'Your email or password is incorrect.');
     }
   };
 
@@ -64,6 +63,7 @@ export default function LoginScreen({ navigation }: any) {
                 placeholderTextColor="#bec8ce80"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
                 value={email}
                 onChangeText={setEmail}
               />
@@ -75,6 +75,7 @@ export default function LoginScreen({ navigation }: any) {
                 className="w-full h-14 bg-black/20 rounded-2xl px-5 text-white border border-white/10 focus:border-secondary/50"
                 placeholder="••••••••"
                 placeholderTextColor="#bec8ce80"
+                keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
@@ -92,8 +93,8 @@ export default function LoginScreen({ navigation }: any) {
                 end={{ x: 1, y: 1 }}
                 className="w-full h-14 rounded-2xl items-center justify-center"
               >
-                <Text className="text-[#0b1326] text-lg font-bold tracking-wider">
-                  IGNITE
+                <Text className="text-[#0b1326] text-xl font-bold tracking-wider">
+                  LOG IN
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -101,7 +102,7 @@ export default function LoginScreen({ navigation }: any) {
             <View className="flex-row justify-center mt-4 gap-2">
               <Text className="text-on-surface-variant">New here?</Text>
               <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                <Text className="text-primary font-bold">Join the movement</Text>
+                <Text className="text-primary font-bold">Join VULSE</Text>
               </TouchableOpacity>
             </View>
 
