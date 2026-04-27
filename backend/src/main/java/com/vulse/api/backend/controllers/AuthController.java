@@ -1,8 +1,8 @@
 package com.vulse.api.backend.controllers;
 
-import com.vulse.api.backend.dtos.AuthResponse;
-import com.vulse.api.backend.dtos.LoginRequest;
-import com.vulse.api.backend.dtos.RegisterRequest;
+import com.vulse.api.backend.dtos.auth.AuthResponse;
+import com.vulse.api.backend.dtos.auth.LoginRequest;
+import com.vulse.api.backend.dtos.auth.RegisterRequest;
 import com.vulse.api.backend.services.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

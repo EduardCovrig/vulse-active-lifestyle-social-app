@@ -1,4 +1,4 @@
-package com.vulse.api.backend.dtos;
+package com.vulse.api.backend.dtos.auth;
 
 public record AuthResponse(
         String token,

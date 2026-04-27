@@ -1,4 +1,4 @@
-package com.vulse.api.backend.dtos;
+package com.vulse.api.backend.dtos.auth;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
