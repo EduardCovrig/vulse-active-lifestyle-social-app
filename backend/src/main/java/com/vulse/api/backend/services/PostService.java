@@ -6,8 +6,12 @@ import com.vulse.api.backend.dtos.post.PostAuthorDto;
 import com.vulse.api.backend.dtos.post.PostResponse;
 import com.vulse.api.backend.models.Post;
 import com.vulse.api.backend.models.PostType;
+import com.vulse.api.backend.models.Reaction;
 import com.vulse.api.backend.models.User;
+import com.vulse.api.backend.repositories.CommentRepository;
+import com.vulse.api.backend.repositories.LikeRepository;
 import com.vulse.api.backend.repositories.PostRepository;
+import com.vulse.api.backend.repositories.ReactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,8 +29,11 @@ import java.util.UUID;
 public class PostService {
     private final PostRepository postRepository;
     private final Cloudinary cloudinary;
+    private final CommentRepository commentRepository;
+    private final LikeRepository likeRepository;
+    private final ReactionRepository reactionRepository;
 
-    public PostResponse createPost(User user, MultipartFile file, MultipartFile frontFile, String caption, PostType type, Integer calories) throws IOException {
+    public PostResponse createPost(User user, MultipartFile file, MultipartFile frontFile, String caption, PostType type, Integer calories, Integer proteinGrams, Integer carbsGrams, Integer fatGrams) throws IOException {
 
         // Business Rule: Only 1 DAILY post allowed per day
         if (type == PostType.DAILY) {
@@ -62,10 +69,13 @@ public class PostService {
                 .caption(caption)
                 .type(type)
                 .calories(calories)
+                .proteinGrams(proteinGrams)
+                .carbsGrams(carbsGrams)
+                .fatGrams(fatGrams)
                 .build();
 
         Post savedPost = postRepository.save(post);
-        return mapToResponse(savedPost);
+        return mapToResponse(savedPost, user);
     }
 
     public PostResponse updateCaption(UUID postId, String newCaption, User user) {
@@ -77,7 +87,7 @@ public class PostService {
 
         post.setCaption(newCaption);
         Post updatedPost = postRepository.save(post);
-        return mapToResponse(updatedPost);
+        return mapToResponse(updatedPost, user);
     }
 
     public void deletePost(UUID postId, User user) {
@@ -102,15 +112,15 @@ public class PostService {
         postRepository.delete(post);
     }
 
-    public Page<PostResponse> getFeedByType(PostType type, Pageable pageable) {
+    public Page<PostResponse> getFeedByType(User user, PostType type, Pageable pageable) {
         return postRepository.findAllByTypeOrderByCreatedAtDesc(type, pageable)
-                .map(this::mapToResponse);
+                .map(post -> mapToResponse(post, user));
     }
 
     public java.util.List<PostResponse> getMyPosts(User user) {
         return postRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
                 .stream()
-                .map(this::mapToResponse)
+                .map(post -> mapToResponse(post, user))
                 .toList();
     }
 
@@ -119,21 +129,42 @@ public class PostService {
                 .orElseThrow(() -> new IllegalStateException("Post not found."));
     }
 
-    private PostResponse mapToResponse(Post post) {
+    private PostResponse mapToResponse(Post post, User currentUser) {
         PostAuthorDto authorDto = PostAuthorDto.builder()
                 .id(post.getUser().getId())
                 .username(post.getUser().getUsername())
                 .build();
 
+        boolean isLiked = likeRepository.existsByUserIdAndPostId(currentUser.getId(), post.getId());
+        long likesCount = likeRepository.countByPostId(post.getId());
+
+        // Tragem din baza de date numarul de comentarii
+        long commentsCount = commentRepository.countByPostId(post.getId());
+
+        java.util.List<String> reactions = reactionRepository.findTop3ByPostIdOrderByCreatedAtDesc(post.getId())
+                .stream()
+                .map(Reaction::getMediaUrl)
+                .toList();
+
         return PostResponse.builder()
                 .id(post.getId())
                 .mediaUrl(post.getMediaUrl())
                 .frontMediaUrl(post.getFrontMediaUrl())
+
+                // --- Mapam MACRO-urile ---
                 .calories(post.getCalories())
+                .proteinGrams(post.getProteinGrams())
+                .carbsGrams(post.getCarbsGrams())
+                .fatGrams(post.getFatGrams())
+
                 .caption(post.getCaption())
                 .type(post.getType())
                 .createdAt(post.getCreatedAt())
                 .author(authorDto)
+                .isLiked(isLiked)
+                .likesCount(likesCount)
+                .commentsCount(commentsCount)
+                .recentReactions(reactions)
                 .build();
     }
 }
