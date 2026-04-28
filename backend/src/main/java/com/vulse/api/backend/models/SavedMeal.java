@@ -6,16 +6,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "posts")
+@Table(name = "saved_meals")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Post {
+public class SavedMeal {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -25,33 +26,30 @@ public class Post {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    // dirrectly from a post
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "post_id")
+    private Post originalPost;
+
+    // or manually
     @Column(nullable = false)
-    private String mediaUrl; // URL Cloudinary of the pic/video
-
-    private String frontMediaUrl; // Only for daily pic (face pic)
-
-    private Integer calories; //nullable, completed by AI if it's a meal pic
+    private Integer calories;
     private Integer proteinGrams;
     private Integer carbsGrams;
     private Integer fatGrams;
 
-    private String caption;
-
-    @Enumerated(EnumType.STRING)
+    // meal date ( for possible graphs)
     @Column(nullable = false)
-    private PostType type;
+    private LocalDate consumedDate;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    private String mediaPublicId; // Required to delete the file from Cloudinary later
-
-    private String frontMediaPublicId; // For BeReal dual-camera deletion
-
-
-
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (consumedDate == null) {
+            consumedDate = LocalDate.now();
+        }
     }
 }
