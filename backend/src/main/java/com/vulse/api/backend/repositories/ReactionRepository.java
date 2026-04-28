@@ -8,4 +8,6 @@ import java.util.UUID;
 public interface ReactionRepository extends JpaRepository<Reaction, UUID> {
     // Fetch only the latest 3 reactions for the feed UI cluster
     List<Reaction> findTop3ByPostIdOrderByCreatedAtDesc(UUID postId);
+    List<Reaction> findByPostId(UUID postId);
+    List<Reaction> findByUserId(UUID userId);
 }

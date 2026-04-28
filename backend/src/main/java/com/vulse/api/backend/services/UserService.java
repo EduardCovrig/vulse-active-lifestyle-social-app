@@ -62,7 +62,6 @@ public class UserService {
     }
 
     /**
-     * GDPR Compliance: Right to be forgotten (Delete Account).
      * Fully cascades deletions to prevent DB crashes and cleans Cloudinary to prevent billing issues.
      */
     @Transactional
@@ -70,51 +69,31 @@ public class UserService {
         User dbUser = userRepository.findById(user.getId())
                 .orElseThrow(() -> new IllegalStateException("User not found"));
 
-        // 1. DELETE PROFILE PICTURE FROM CLOUDINARY
         if (dbUser.getProfilePicPublicId() != null) {
             try {
                 cloudinary.uploader().destroy(dbUser.getProfilePicPublicId(), ObjectUtils.emptyMap());
             } catch (Exception ignored) {}
         }
 
-        // 2. DELETE ALL POSTS BY USER
-        // (This triggers PostService which safely deletes attached likes, comments, and Cloudinary images)
         List<Post> userPosts = postRepository.findByUserIdOrderByCreatedAtDesc(dbUser.getId());
         for (Post post : userPosts) {
             postService.deletePost(post.getId(), dbUser);
         }
 
-        // 3. DELETE REMAINING INTERACTIONS BY USER ON OTHER PEOPLE'S POSTS
-
-        // Reactions (Safely clears Cloudinary via InteractionService)
-        List<Reaction> userReactions = reactionRepository.findAll().stream()
-                .filter(r -> r.getUser().getId().equals(dbUser.getId()))
-                .toList();
+        // 3. DELETE REMAINING INTERACTIONS EFFICIENTLY
+        List<Reaction> userReactions = reactionRepository.findByUserId(dbUser.getId());
         for (Reaction reaction : userReactions) {
             interactionService.deleteReaction(dbUser, reaction.getId());
         }
 
-        // Likes & Comments
-        likeRepository.findAll().stream()
-                .filter(l -> l.getUser().getId().equals(dbUser.getId()))
-                .forEach(likeRepository::delete);
+        likeRepository.deleteAll(likeRepository.findByUserId(dbUser.getId()));
+        commentRepository.deleteAll(commentRepository.findByUserId(dbUser.getId()));
+        savedMealRepository.deleteAll(savedMealRepository.findByUserId(dbUser.getId()));
 
-        commentRepository.findAll().stream()
-                .filter(c -> c.getUser().getId().equals(dbUser.getId()))
-                .forEach(commentRepository::delete);
-
-        // Saved Meals
-        savedMealRepository.findAll().stream()
-                .filter(m -> m.getUser().getId().equals(dbUser.getId()))
-                .forEach(savedMealRepository::delete);
-
-        // Follows (both as follower and following)
-        List<Follow> follows = followRepository.findAll().stream()
-                .filter(f -> f.getFollower().getId().equals(dbUser.getId()) || f.getFollowing().getId().equals(dbUser.getId()))
-                .toList();
+        List<Follow> follows = followRepository.findByFollowerId(dbUser.getId());
+        follows.addAll(followRepository.findByFollowingId(dbUser.getId()));
         followRepository.deleteAll(follows);
 
-        // 4. FINALLY, DELETE THE USER
         userRepository.delete(dbUser);
     }
 }

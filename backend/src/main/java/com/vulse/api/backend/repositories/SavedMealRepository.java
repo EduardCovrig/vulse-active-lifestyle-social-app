@@ -10,4 +10,7 @@ import java.util.UUID;
 public interface SavedMealRepository extends JpaRepository<SavedMeal, UUID> {
     // all meals from a day
     List<SavedMeal> findByUserIdAndConsumedDate(UUID userId, LocalDate date);
+
+    List<SavedMeal> findByOriginalPostId(UUID postId);
+    List<SavedMeal> findByUserId(UUID userId);
 }
