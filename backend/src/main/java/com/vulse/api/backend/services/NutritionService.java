@@ -52,4 +52,17 @@ public class NutritionService {
         }
         savedMealRepository.delete(meal);
     }
+
+    // Add manual meal without a post
+    public void addManualMeal(User user, Integer calories, Integer protein, Integer carbs, Integer fat) {
+        SavedMeal meal = SavedMeal.builder()
+                .user(user)
+                .calories(calories)
+                .proteinGrams(protein != null ? protein : 0)
+                .carbsGrams(carbs != null ? carbs : 0)
+                .fatGrams(fat != null ? fat : 0)
+                .consumedDate(LocalDate.now())
+                .build();
+        savedMealRepository.save(meal);
+    }
 }
