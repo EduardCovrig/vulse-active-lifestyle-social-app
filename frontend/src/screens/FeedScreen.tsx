@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, FlatList, Dimensions, Animated } from 'react-native';
+import { View, FlatList, Dimensions, Animated, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import LiquidPostCard from '../components/LiquidPostCard';
 import GlassTabBar from '../components/GlassTabBar';
 
 const { height, width } = Dimensions.get('window');
+
+// Generam niste timpuri relative pentru mock data
+const now = Date.now();
 
 const mockData = [
   {
@@ -14,6 +17,7 @@ const mockData = [
     mediaUrl: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&q=80',
     frontMediaUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=400&q=80',
     calories: null,
+    createdAt: new Date(now - 15 * 60000).toISOString(), // Acum 15 minute
     caption: 'Back on the grind. Niciun pas inapoi!'
   },
   {
@@ -22,15 +26,8 @@ const mockData = [
     mediaUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80',
     frontMediaUrl: null,
     calories: 650,
+    createdAt: new Date(now - 2 * 3600000).toISOString(), // Acum 2 ore
     caption: 'Post-workout recovery bowl'
-  },
-  {
-    id: '3',
-    author: { username: 'David_K' },
-    mediaUrl: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=800&q=80',
-    frontMediaUrl: null,
-    calories: null,
-    caption: 'Morning run 🏃‍♂️'
   }
 ];
 
@@ -54,43 +51,31 @@ export default function FeedScreen() {
       ).start();
     };
 
-    floatOrb(orb1Anim, 20000);
-    floatOrb(orb2Anim, 25000);
-    floatOrb(orb3Anim, 18000);
+    floatOrb(orb1Anim, 22000);
+    floatOrb(orb2Anim, 28000);
+    floatOrb(orb3Anim, 20000);
   }, []);
 
-  const orb1X = orb1Anim.interpolate({ inputRange: [0, 1], outputRange: [-50, 100] });
-  const orb1Y = orb1Anim.interpolate({ inputRange: [0, 1], outputRange: [-50, 150] });
+  const orb1X = orb1Anim.interpolate({ inputRange: [0, 1], outputRange: [-100, 150] });
+  const orb1Y = orb1Anim.interpolate({ inputRange: [0, 1], outputRange: [-50, 200] });
 
-  const orb2X = orb2Anim.interpolate({ inputRange: [0, 1], outputRange: [width - 100, width - 250] });
-  const orb2Y = orb2Anim.interpolate({ inputRange: [0, 1], outputRange: [height / 2, height / 2 - 150] });
+  const orb2X = orb2Anim.interpolate({ inputRange: [0, 1], outputRange: [width - 150, width - 350] });
+  const orb2Y = orb2Anim.interpolate({ inputRange: [0, 1], outputRange: [height / 2, height / 2 - 200] });
 
-  const orb3X = orb3Anim.interpolate({ inputRange: [0, 1], outputRange: [50, -100] });
-  const orb3Y = orb3Anim.interpolate({ inputRange: [0, 1], outputRange: [height - 100, height - 300] });
+  const orb3X = orb3Anim.interpolate({ inputRange: [0, 1], outputRange: [100, -150] });
+  const orb3Y = orb3Anim.interpolate({ inputRange: [0, 1], outputRange: [height - 100, height - 400] });
 
   return (
-    <View className="flex-1 bg-[#050A15]">
+    <View style={StyleSheet.absoluteFill} className="bg-[#050A15]">
       
-      {/* 🌌 STRATUL 1: Petele de culoare (Vibrante) */}
-      <View className="absolute inset-0 overflow-hidden pointer-events-none">
-        <Animated.View 
-          style={{ transform: [{ translateX: orb1X }, { translateY: orb1Y }] }} 
-          className="absolute top-[-100px] left-[-100px] w-[500px] h-[500px] bg-[#7dd3fc] opacity-60 rounded-full blur-3xl"
-        />
-        <Animated.View 
-          style={{ transform: [{ translateX: orb2X }, { translateY: orb2Y }] }} 
-          className="absolute w-[600px] h-[600px] bg-[#c5eaff] opacity-50 rounded-full blur-3xl"
-        />
-        <Animated.View 
-          style={{ transform: [{ translateX: orb3X }, { translateY: orb3Y }] }} 
-          className="absolute w-[550px] h-[550px] bg-[#7ad7c6] opacity-40 rounded-full blur-3xl"
-        />
+      <View style={StyleSheet.absoluteFill} className="overflow-hidden pointer-events-none">
+        <Animated.View style={{ transform: [{ translateX: orb1X }, { translateY: orb1Y }], backgroundColor: '#7dd3fc', width: 400, height: 400, borderRadius: 200, position: 'absolute', opacity: 0.5 }} />
+        <Animated.View style={{ transform: [{ translateX: orb2X }, { translateY: orb2Y }], backgroundColor: '#c5eaff', width: 500, height: 500, borderRadius: 250, position: 'absolute', opacity: 0.4 }} />
+        <Animated.View style={{ transform: [{ translateX: orb3X }, { translateY: orb3Y }], backgroundColor: '#7ad7c6', width: 450, height: 450, borderRadius: 225, position: 'absolute', opacity: 0.3 }} />
       </View>
 
-      {/* 🌌 STRATUL 2: O peliculă fină de sticlă pentru a uniformiza culorile, FĂRĂ tint negru agresiv */}
-      <View className="absolute inset-0 bg-black/40 pointer-events-none" />
+      <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} className="pointer-events-none" />
 
-      {/* STRATUL 3: Continutul (FlatList) */}
       <View className="flex-1" style={{ paddingTop: insets.top }}>
         <FlatList 
           data={mockData}
@@ -107,4 +92,4 @@ export default function FeedScreen() {
       <GlassTabBar activeTab={activeTab} onTabPress={(tab) => setActiveTab(tab as any)} />
     </View>
   );
-} 
+}
