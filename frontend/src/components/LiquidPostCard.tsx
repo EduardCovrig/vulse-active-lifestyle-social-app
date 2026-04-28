@@ -11,6 +11,21 @@ interface LiquidPostCardProps {
   cardHeight: number;
 }
 
+const getRelativeTime = (dateString?: string) => {
+  if (!dateString) return 'Just now';
+  const diff = Date.now() - new Date(dateString).getTime();
+  const mins = Math.floor(diff / 60000);
+  
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
+
 export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps) {
   const [showMacros, setShowMacros] = useState(false);
   const [touchPos, setTouchPos] = useState({ x: 0, y: 0 });
@@ -20,22 +35,20 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
   const [isTakingSelfie, setIsTakingSelfie] = useState(false);
   const [floatingReacts, setFloatingReacts] = useState<any[]>([]);
 
-  // Referinte animate pentru card si tooltip
   const cardScale = useRef(new Animated.Value(1)).current;
   const tooltipScale = useRef(new Animated.Value(0)).current;
   const tooltipOpacity = useRef(new Animated.Value(0)).current;
-  
-  // Inima de double tap (doar Scale, fara Opacity ca sa evitam bug-ul gri)
   const bigHeartScale = useRef(new Animated.Value(0)).current;
 
-  // Animatii continue pentru avatarele prietenilor (Idle Bobbing)
   const avatarAnim1 = useRef(new Animated.Value(0)).current;
   const avatarAnim2 = useRef(new Animated.Value(0)).current;
   const avatarAnim3 = useRef(new Animated.Value(0)).current;
 
   const lastTapRef = useRef(0);
+  
+  // NOU: Track-uim daca meniul este blocat deschis (pentru Apple 3D Hover style)
+  const isMenuLocked = useRef(false);
 
-  // Pornim bucla infinita de plutire pentru avatare cand se incarca componenta
   useEffect(() => {
     const createBobbingAnimation = (animValue: Animated.Value, duration: number) => {
       return Animated.loop(
@@ -47,20 +60,17 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
       );
     };
 
-    // Timpi diferiti ca sa nu se miste toate perfect in sincron (efect organic)
     createBobbingAnimation(avatarAnim1, 1500).start();
     createBobbingAnimation(avatarAnim2, 2100).start();
     createBobbingAnimation(avatarAnim3, 1800).start();
   }, []);
 
   const handlePressIn = (e: any) => {
+    // Daca meniul e deja deschis, ignoram squish-ul ca sa nu facem glitch-uri
+    if (isMenuLocked.current) return;
+
     setTouchPos({ x: e.nativeEvent.locationX, y: e.nativeEvent.locationY });
-    Animated.spring(cardScale, { 
-      toValue: 0.96, 
-      useNativeDriver: true, 
-      speed: 40, 
-      bounciness: 10 
-    }).start();
+    Animated.spring(cardScale, { toValue: 0.96, useNativeDriver: true, speed: 40, bounciness: 10 }).start();
   };
 
   const spawnFloatingReaction = (imageUrl: string) => {
@@ -75,8 +85,8 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
 
     Animated.parallel([
       Animated.spring(animScale, { toValue: 1, useNativeDriver: true, bounciness: 15 }),
-      Animated.timing(animY, { toValue: -350, duration: 4000, useNativeDriver: true }),
-      Animated.timing(animOpacity, { toValue: 0, duration: 2000, delay: 2000, useNativeDriver: true })
+      Animated.timing(animY, { toValue: -400, duration: 4500, useNativeDriver: true }),
+      Animated.timing(animOpacity, { toValue: 0, duration: 2000, delay: 2500, useNativeDriver: true })
     ]).start(() => {
       setFloatingReacts(prev => prev.filter(r => r.id !== id));
     });
@@ -90,6 +100,8 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
   };
 
   const handlePress = () => {
+    if (isMenuLocked.current) return; // Dezactivam double tap cand e meniul deschis
+
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 300;
 
@@ -101,33 +113,38 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
         setLikesCount(prev => prev + 1);
       }
 
-      // Animatie reparata: Sare la 1.2, sta o secunda, apoi face implozie la 0. Sticla ramane perfecta.
       Animated.sequence([
         Animated.spring(bigHeartScale, { toValue: 1.2, useNativeDriver: true, bounciness: 20 }),
-        Animated.delay(600),
-        Animated.spring(bigHeartScale, { toValue: 0, useNativeDriver: true, speed: 30, bounciness: 0 })
+        Animated.delay(500),
+        Animated.spring(bigHeartScale, { toValue: 0, useNativeDriver: true, speed: 40, bounciness: 0 })
       ]).start();
     }
     lastTapRef.current = now;
   };
 
   const handleLongPress = () => {
-    if (!post.calories) return; 
+    if (!post.calories || isMenuLocked.current) return; 
     
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    isMenuLocked.current = true; // Blocam meniul sa nu se inchida cand ridici degetul
     setShowMacros(true);
 
     Animated.spring(cardScale, { toValue: 0.92, useNativeDriver: true, speed: 30, bounciness: 12 }).start();
-    Animated.parallel([
-      Animated.timing(tooltipOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
-      Animated.spring(tooltipScale, { toValue: 1, useNativeDriver: true, speed: 24, bounciness: 15 })
-    ]).start();
+    Animated.spring(tooltipScale, { toValue: 1, useNativeDriver: true, speed: 24, bounciness: 15 }).start();
+    Animated.timing(tooltipOpacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
   };
 
   const handlePressOut = () => {
-    if (showMacros) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    // Daca meniul e blocat, IGNORAM PressOut. Userul poate lua degetul de pe ecran linistit.
+    if (isMenuLocked.current) return;
+
+    Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 35, bounciness: 15 }).start();
+  };
+
+  // Functia care inchide meniul cand apesi pe fundal sau pe "Save"
+  const closeMenu = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    isMenuLocked.current = false;
 
     Animated.parallel([
       Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 35, bounciness: 15 }),
@@ -136,7 +153,6 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
     ]).start(() => setShowMacros(false));
   };
 
-  // Interpolari pentru avatarele care plutesc usor
   const bob1 = avatarAnim1.interpolate({ inputRange: [-1, 1], outputRange: [-2, 2] });
   const bob2 = avatarAnim2.interpolate({ inputRange: [-1, 1], outputRange: [-3, 3] });
   const bob3 = avatarAnim3.interpolate({ inputRange: [-1, 1], outputRange: [-1.5, 1.5] });
@@ -150,7 +166,6 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
           onLongPress={handleLongPress}
           onPressOut={handlePressOut}
           delayLongPress={200}
-          android_ripple={{ color: 'transparent' }}
           style={{ flex: 1, position: 'relative' }}
         >
           <Image source={{ uri: post.mediaUrl }} className="absolute inset-0 w-full h-full object-cover" />
@@ -159,7 +174,7 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
           <View className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
           <View className="absolute bottom-0 inset-x-0 h-48 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
 
-          {/* INIMA URIASA (Reparata: foloseste strict scale, sticla nu se mai strica) */}
+          {/* INIMA FROSTED GLASS */}
           <Animated.View 
             pointerEvents="none" 
             style={{ 
@@ -167,10 +182,8 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
               transform: [{ scale: bigHeartScale }] 
             }}
           >
-            <View className="rounded-full overflow-hidden border border-white/20">
-              <BlurView intensity={60} tint="dark" className="w-32 h-32 items-center justify-center">
-                 <Ionicons name="heart" size={70} color="#ff4b4b" />
-              </BlurView>
+            <View className="w-32 h-32 rounded-full items-center justify-center bg-black/60 border border-white/20 shadow-2xl shadow-black">
+               <Ionicons name="heart" size={70} color="#ff4b4b" />
             </View>
           </Animated.View>
 
@@ -183,7 +196,7 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
                 </View>
                 <View>
                   <Text className="text-white text-sm font-black tracking-widest uppercase">{post.author.username}</Text>
-                  <Text className="text-white/60 text-[10px] font-bold tracking-widest uppercase">2h ago</Text>
+                  <Text className="text-white/70 text-[10px] font-bold uppercase mt-0.5">{getRelativeTime(post.createdAt)}</Text>
                 </View>
               </BlurView>
             </View>
@@ -219,8 +232,6 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
 
           {/* FOOTER */}
           <View className="absolute bottom-6 inset-x-5 flex-row justify-between items-end pointer-events-none z-10">
-            
-            {/* Cluster prieteni care plutesc usor (Idle Animation) */}
             <TouchableOpacity className="pointer-events-auto flex-row items-center active:scale-95 transition-transform">
               <View className="flex-row">
                 <Animated.View style={{ transform: [{ translateY: bob1 }, { translateX: bob2 }] }} className="z-30">
@@ -256,24 +267,60 @@ export default function LiquidPostCard({ post, cardHeight }: LiquidPostCardProps
             </TouchableOpacity>
           </View>
 
-          {/* SMART TOOLTIP PENTRU MANCARE */}
+          {/* OVERLAY INVIZIBIL PENTRU INCHIDEREA MENIULUI (Cand apesi afara lui) */}
+          {showMacros && (
+            <Pressable 
+              className="absolute inset-0 z-50" 
+              onPress={closeMenu} 
+            />
+          )}
+
+          {/* SMART TOOLTIP HAPTIC TOUCH (Acum este Frosted Glass perfect, interactiv) */}
           {showMacros && post.calories && (
             <Animated.View 
               style={{ 
                 position: 'absolute',
-                left: Math.min(Math.max(touchPos.x - 60, 16), width - 140), 
-                top: Math.max(touchPos.y - 70, 16), 
+                left: Math.min(Math.max(touchPos.x - 110, 16), width - 240), 
+                top: Math.max(touchPos.y - 120, 16), 
                 opacity: tooltipOpacity,
                 transform: [{ scale: tooltipScale }],
-                zIndex: 100,
+                zIndex: 60,
+                width: 220
               }}
-              pointerEvents="none"
+              pointerEvents="auto" // ATENTIE: Modificat la auto ca sa poti apasa pe buton
             >
-              <View className="rounded-full overflow-hidden border border-secondary/50 shadow-[0_0_20px_rgba(122,215,198,0.4)]">
-                <BlurView intensity={80} tint="dark" className="flex-row items-center gap-2 px-5 py-3">
-                  <Ionicons name="sparkles" size={16} color="#7ad7c6" />
-                  <Text className="text-white font-black tracking-widest text-sm">{post.calories} KCAL</Text>
-                </BlurView>
+              <View className="rounded-[32px] overflow-hidden border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.8)] bg-black/80 p-4">
+                <Text className="text-white/60 text-[10px] font-black tracking-widest uppercase mb-3">Vulse AI Analysis ✨</Text>
+                
+                <View className="flex-row flex-wrap gap-2 mb-4">
+                  <View className="bg-secondary/20 border border-secondary/30 rounded-full px-2.5 py-1.5 flex-row items-center gap-1">
+                    <Ionicons name="flame" size={12} color="#7ad7c6" />
+                    <Text className="text-secondary font-black text-xs">{post.calories}</Text>
+                  </View>
+                  <View className="bg-white/10 border border-white/10 rounded-full px-2.5 py-1.5">
+                    <Text className="text-white font-bold text-xs">45g Pro</Text>
+                  </View>
+                  <View className="bg-white/10 border border-white/10 rounded-full px-2.5 py-1.5">
+                    <Text className="text-white font-bold text-xs">50g Carb</Text>
+                  </View>
+                  <View className="bg-white/10 border border-white/10 rounded-full px-2.5 py-1.5">
+                    <Text className="text-white font-bold text-xs">15g Fat</Text>
+                  </View>
+                </View>
+
+                {/* BUTON FUNCTIONAL SAVE */}
+                <TouchableOpacity 
+                  activeOpacity={0.7} 
+                  onPress={() => {
+                    // Aici in viitor pui logica de adaugare la mesele zilei in backend
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    closeMenu();
+                  }}
+                  className="w-full bg-primary py-3 rounded-full flex-row items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(197,234,255,0.3)]"
+                >
+                  <Ionicons name="bookmark" size={14} color="#0b1326" />
+                  <Text className="text-[#0b1326] font-black tracking-widest uppercase text-[10px]">Save to Your Meals</Text>
+                </TouchableOpacity>
               </View>
             </Animated.View>
           )}
