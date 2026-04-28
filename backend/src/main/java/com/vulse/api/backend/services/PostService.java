@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -133,15 +134,14 @@ public class PostService {
         PostAuthorDto authorDto = PostAuthorDto.builder()
                 .id(post.getUser().getId())
                 .username(post.getUser().getUsername())
+                .profilePicUrl(post.getUser().getProfilePicUrl()) // Mapped correctly now
                 .build();
 
         boolean isLiked = likeRepository.existsByUserIdAndPostId(currentUser.getId(), post.getId());
         long likesCount = likeRepository.countByPostId(post.getId());
-
-        // Tragem din baza de date numarul de comentarii
         long commentsCount = commentRepository.countByPostId(post.getId());
 
-        java.util.List<String> reactions = reactionRepository.findTop3ByPostIdOrderByCreatedAtDesc(post.getId())
+        List<String> reactions = reactionRepository.findTop3ByPostIdOrderByCreatedAtDesc(post.getId())
                 .stream()
                 .map(Reaction::getMediaUrl)
                 .toList();
@@ -150,13 +150,10 @@ public class PostService {
                 .id(post.getId())
                 .mediaUrl(post.getMediaUrl())
                 .frontMediaUrl(post.getFrontMediaUrl())
-
-                // --- Mapam MACRO-urile ---
                 .calories(post.getCalories())
                 .proteinGrams(post.getProteinGrams())
                 .carbsGrams(post.getCarbsGrams())
                 .fatGrams(post.getFatGrams())
-
                 .caption(post.getCaption())
                 .type(post.getType())
                 .createdAt(post.getCreatedAt())
