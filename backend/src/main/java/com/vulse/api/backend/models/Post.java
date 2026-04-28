@@ -41,6 +41,10 @@ public class Post {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    private String mediaPublicId; // Required to delete the file from Cloudinary later
+
+    private String frontMediaPublicId; // For BeReal dual-camera deletion
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
