@@ -202,4 +202,10 @@ public class PostService {
                 .recentReactions(reactions)
                 .build();
     }
+
+    // Fetch a single post by ID formatted for UI
+    public PostResponse getSinglePost(UUID postId, User currentUser) {
+        Post post = getPostById(postId);
+        return mapToResponse(post, currentUser);
+    }
 }

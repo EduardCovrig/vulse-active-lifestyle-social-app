@@ -67,4 +67,11 @@ public class PostController {
     public ResponseEntity<List<PostResponse>> getMyPosts(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(postService.getMyPosts(user));
     }
+    // Get single post details
+    @GetMapping("/{postId}")
+    public ResponseEntity<PostResponse> getSinglePost(
+            @AuthenticationPrincipal User user,
+            @PathVariable UUID postId) {
+        return ResponseEntity.ok(postService.getSinglePost(postId, user));
+    }
 }

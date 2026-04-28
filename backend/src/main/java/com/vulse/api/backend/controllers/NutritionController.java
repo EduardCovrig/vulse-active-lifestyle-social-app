@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -34,5 +35,21 @@ public class NutritionController {
     public ResponseEntity<Void> deleteMeal(@AuthenticationPrincipal User user, @PathVariable UUID mealId) {
         nutritionService.deleteMeal(user, mealId);
         return ResponseEntity.noContent().build();
+    }
+
+    // Endpoint for manual meal entry
+    @PostMapping("/manual")
+    public ResponseEntity<Void> addManualMeal(
+            @AuthenticationPrincipal User user,
+            @RequestBody Map<String, Integer> macros) {
+
+        nutritionService.addManualMeal(
+                user,
+                macros.get("calories"),
+                macros.get("protein"),
+                macros.get("carbs"),
+                macros.get("fat")
+        );
+        return ResponseEntity.ok().build();
     }
 }

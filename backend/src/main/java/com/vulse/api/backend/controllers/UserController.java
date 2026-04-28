@@ -4,11 +4,14 @@ import com.vulse.api.backend.models.Follow;
 import com.vulse.api.backend.models.User;
 import com.vulse.api.backend.repositories.FollowRepository;
 import com.vulse.api.backend.repositories.UserRepository;
+import com.vulse.api.backend.services.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +24,7 @@ import java.util.stream.Collectors;
 public class UserController {
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
+    private final UserService userService;
 
     @GetMapping("/search")
     public ResponseEntity<List<Map<String, Object>>> searchUsers(@RequestParam String query) {
@@ -59,5 +63,15 @@ public class UserController {
         profile.put("followersCount", followRepository.findByFollowingId(user.getId()).size());
         profile.put("isFollowing", followRepository.existsByFollowerIdAndFollowingId(currentUser.getId(), user.getId()));
         return ResponseEntity.ok(profile);
+    }
+
+    // NEW: Update Profile Endpoint
+    @PutMapping("/me")
+    public ResponseEntity<Void> updateProfile(
+            @AuthenticationPrincipal User user,
+            @RequestParam(value = "bio", required = false) String bio,
+            @RequestParam(value = "profilePic", required = false) MultipartFile profilePic) throws IOException {
+        userService.updateProfile(user, bio, profilePic);
+        return ResponseEntity.ok().build();
     }
 }
