@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,31 +24,41 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PostService {
     private final PostRepository postRepository;
-    private final Cloudinary cloudinary; //bean comes from security/CloudinaryConfig
+    private final Cloudinary cloudinary;
 
     public PostResponse createPost(User user, MultipartFile file, MultipartFile frontFile, String caption, PostType type, Integer calories) throws IOException {
-        // 1. Upload main media (Video/Image)
+
+        // Business Rule: Only 1 DAILY post allowed per day
+        if (type == PostType.DAILY) {
+            LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+            boolean alreadyPostedToday = postRepository.existsByUserIdAndTypeAndCreatedAtAfter(user.getId(), PostType.DAILY, startOfDay);
+            if (alreadyPostedToday) {
+                throw new IllegalStateException("You have already posted your Daily Snap today!");
+            }
+        }
+
+        // 1. Upload main media
         Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("resource_type", "auto"));
         String mediaUrl = uploadResult.get("secure_url").toString();
-        String mediaPublicId = uploadResult.get("public_id").toString(); // <--- EXTRACTION
+        String mediaPublicId = uploadResult.get("public_id").toString();
 
         String frontMediaUrl = null;
         String frontMediaPublicId = null;
 
-        // 2. Upload front media if it's a BeReal style post
+        // 2. Upload front media for BeReal style
         if (type == PostType.DAILY && frontFile != null) {
             Map frontUploadResult = cloudinary.uploader().upload(frontFile.getBytes(), ObjectUtils.asMap("resource_type", "auto"));
             frontMediaUrl = frontUploadResult.get("secure_url").toString();
-            frontMediaPublicId = frontUploadResult.get("public_id").toString(); // <--- EXTRACTION
+            frontMediaPublicId = frontUploadResult.get("public_id").toString();
         }
 
-        // 3. Build and save entity
+        // 3. Save to database
         Post post = Post.builder()
                 .user(user)
                 .mediaUrl(mediaUrl)
-                .mediaPublicId(mediaPublicId) // <--- SAVED
+                .mediaPublicId(mediaPublicId)
                 .frontMediaUrl(frontMediaUrl)
-                .frontMediaPublicId(frontMediaPublicId) // <--- SAVED
+                .frontMediaPublicId(frontMediaPublicId)
                 .caption(caption)
                 .type(type)
                 .calories(calories)
@@ -59,9 +71,8 @@ public class PostService {
     public PostResponse updateCaption(UUID postId, String newCaption, User user) {
         Post post = getPostById(postId);
 
-        // Security: Only the author can edit
         if (!post.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized: You can only edit your own posts.");
+            throw new IllegalStateException("Unauthorized: You can only edit your own posts.");
         }
 
         post.setCaption(newCaption);
@@ -72,21 +83,19 @@ public class PostService {
     public void deletePost(UUID postId, User user) {
         Post post = getPostById(postId);
 
-        // Security: Only the author can delete
         if (!post.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized: You can only delete your own posts.");
+            throw new IllegalStateException("Unauthorized: You can only delete your own posts.");
         }
 
-        // Clean up Cloudinary storage
+        // Clean up Cloudinary safely
         try {
-            cloudinary.uploader().destroy(post.getMediaPublicId(), ObjectUtils.emptyMap());
-
-            // If it's a BeReal post, delete the front camera picture too
+            if (post.getMediaPublicId() != null) {
+                cloudinary.uploader().destroy(post.getMediaPublicId(), ObjectUtils.emptyMap());
+            }
             if (post.getFrontMediaPublicId() != null) {
                 cloudinary.uploader().destroy(post.getFrontMediaPublicId(), ObjectUtils.emptyMap());
             }
         } catch (IOException e) {
-            // We catch the exception so if Cloudinary fails, we still delete the DB record
             System.err.println("Warning: Failed to delete media from Cloudinary for post " + postId);
         }
 
@@ -98,10 +107,16 @@ public class PostService {
                 .map(this::mapToResponse);
     }
 
-    // --- Helper Methods ---
+    public java.util.List<PostResponse> getMyPosts(User user) {
+        return postRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     private Post getPostById(UUID id) {
         return postRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Post not found."));
+                .orElseThrow(() -> new IllegalStateException("Post not found."));
     }
 
     private PostResponse mapToResponse(Post post) {
@@ -120,13 +135,5 @@ public class PostService {
                 .createdAt(post.getCreatedAt())
                 .author(authorDto)
                 .build();
-    }
-
-    // Fetch all posts for the logged-in user (useful for Profile/Calendar history)
-    public java.util.List<PostResponse> getMyPosts(User user) {
-        return postRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
     }
 }
