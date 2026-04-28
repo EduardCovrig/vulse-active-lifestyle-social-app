@@ -22,7 +22,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final Cloudinary cloudinary;
 
-    // Injectam dependentele necesare pentru curatenia de GDPR
+    // Dependencies required for GDPR cleanup
     private final PostRepository postRepository;
     private final PostService postService;
     private final ReactionRepository reactionRepository;
@@ -32,6 +32,9 @@ public class UserService {
     private final SavedMealRepository savedMealRepository;
     private final FollowRepository followRepository;
 
+    /**
+     * Updates bio and profile picture.
+     */
     @Transactional
     public void updateProfile(User user, String bio, MultipartFile profilePic) throws IOException {
         User dbUser = userRepository.findById(user.getId())
@@ -42,12 +45,14 @@ public class UserService {
         }
 
         if (profilePic != null && !profilePic.isEmpty()) {
+            // Delete old profile picture from Cloudinary if it exists
             if (dbUser.getProfilePicPublicId() != null) {
                 try {
                     cloudinary.uploader().destroy(dbUser.getProfilePicPublicId(), ObjectUtils.emptyMap());
                 } catch (Exception ignored) {}
             }
 
+            // Upload new picture
             Map uploadResult = cloudinary.uploader().upload(profilePic.getBytes(), ObjectUtils.asMap("resource_type", "image"));
             dbUser.setProfilePicUrl(uploadResult.get("secure_url").toString());
             dbUser.setProfilePicPublicId(uploadResult.get("public_id").toString());
@@ -56,6 +61,10 @@ public class UserService {
         userRepository.save(dbUser);
     }
 
+    /**
+     * GDPR Compliance: Right to be forgotten (Delete Account).
+     * Fully cascades deletions to prevent DB crashes and cleans Cloudinary to prevent billing issues.
+     */
     @Transactional
     public void deleteAccount(User user) {
         User dbUser = userRepository.findById(user.getId())
@@ -68,13 +77,16 @@ public class UserService {
             } catch (Exception ignored) {}
         }
 
-        // 2. DELETE ALL POSTS (This triggers PostService to delete Cloudinary images too)
+        // 2. DELETE ALL POSTS BY USER
+        // (This triggers PostService which safely deletes attached likes, comments, and Cloudinary images)
         List<Post> userPosts = postRepository.findByUserIdOrderByCreatedAtDesc(dbUser.getId());
         for (Post post : userPosts) {
             postService.deletePost(post.getId(), dbUser);
         }
 
-        // 3. DELETE ALL REACTIONS (RealMojis - Triggers Cloudinary cleanup)
+        // 3. DELETE REMAINING INTERACTIONS BY USER ON OTHER PEOPLE'S POSTS
+
+        // Reactions (Safely clears Cloudinary via InteractionService)
         List<Reaction> userReactions = reactionRepository.findAll().stream()
                 .filter(r -> r.getUser().getId().equals(dbUser.getId()))
                 .toList();
@@ -82,7 +94,7 @@ public class UserService {
             interactionService.deleteReaction(dbUser, reaction.getId());
         }
 
-        // 4. CLEAN UP DATABASE ASSOCIATIONS (Likes, Comments, Meals, Follows)
+        // Likes & Comments
         likeRepository.findAll().stream()
                 .filter(l -> l.getUser().getId().equals(dbUser.getId()))
                 .forEach(likeRepository::delete);
@@ -91,17 +103,18 @@ public class UserService {
                 .filter(c -> c.getUser().getId().equals(dbUser.getId()))
                 .forEach(commentRepository::delete);
 
+        // Saved Meals
         savedMealRepository.findAll().stream()
                 .filter(m -> m.getUser().getId().equals(dbUser.getId()))
                 .forEach(savedMealRepository::delete);
 
-        // Delete follows where user is follower OR following
+        // Follows (both as follower and following)
         List<Follow> follows = followRepository.findAll().stream()
                 .filter(f -> f.getFollower().getId().equals(dbUser.getId()) || f.getFollowing().getId().equals(dbUser.getId()))
                 .toList();
         followRepository.deleteAll(follows);
 
-        // 5. FINALLY, DELETE THE USER
+        // 4. FINALLY, DELETE THE USER
         userRepository.delete(dbUser);
     }
 }

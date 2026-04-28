@@ -12,6 +12,7 @@ import com.vulse.api.backend.repositories.CommentRepository;
 import com.vulse.api.backend.repositories.LikeRepository;
 import com.vulse.api.backend.repositories.PostRepository;
 import com.vulse.api.backend.repositories.ReactionRepository;
+import com.vulse.api.backend.repositories.SavedMealRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -37,6 +38,7 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final LikeRepository likeRepository;
     private final ReactionRepository reactionRepository;
+    private final SavedMealRepository savedMealRepository; // Needed for cleanup
     private final AIService aiService;
 
     /**
@@ -109,7 +111,8 @@ public class PostService {
     }
 
     /**
-     * Deletes a post and its associated media from Cloudinary.
+     * Deletes a post, all its interactions, and its associated media from Cloudinary.
+     * Fully GDPR and DB Foreign Key compliant.
      */
     @Transactional
     public void deletePost(UUID postId, User user) {
@@ -118,6 +121,39 @@ public class PostService {
             throw new IllegalStateException("Unauthorized: You don't own this post.");
         }
 
+        // 1. Delete all Reactions attached to this post AND their Cloudinary images
+        List<Reaction> postReactions = reactionRepository.findAll().stream()
+                .filter(r -> r.getPost().getId().equals(postId))
+                .toList();
+        for (Reaction reaction : postReactions) {
+            try {
+                if (reaction.getMediaPublicId() != null) {
+                    cloudinary.uploader().destroy(reaction.getMediaPublicId(), ObjectUtils.emptyMap());
+                }
+            } catch (IOException e) {
+                System.err.println("Warning: Cloudinary asset failed to delete for reaction: " + reaction.getId());
+            }
+            reactionRepository.delete(reaction);
+        }
+
+        // 2. Delete all Comments and Likes attached to this post
+        commentRepository.findAll().stream()
+                .filter(c -> c.getPost().getId().equals(postId))
+                .forEach(commentRepository::delete);
+
+        likeRepository.findAll().stream()
+                .filter(l -> l.getPost().getId().equals(postId))
+                .forEach(likeRepository::delete);
+
+        // 3. Nullify originalPost reference in SavedMeals to prevent FK crash
+        savedMealRepository.findAll().stream()
+                .filter(m -> m.getOriginalPost() != null && m.getOriginalPost().getId().equals(postId))
+                .forEach(m -> {
+                    m.setOriginalPost(null);
+                    savedMealRepository.save(m);
+                });
+
+        // 4. Clean up the Post's own Cloudinary media
         try {
             if (post.getMediaPublicId() != null) {
                 cloudinary.uploader().destroy(post.getMediaPublicId(), ObjectUtils.emptyMap());
@@ -129,6 +165,7 @@ public class PostService {
             System.err.println("Warning: Cloudinary assets failed to delete for post: " + postId);
         }
 
+        // 5. Finally, delete the post from DB
         postRepository.delete(post);
     }
 
@@ -157,6 +194,14 @@ public class PostService {
                 .stream()
                 .map(post -> mapToResponse(post, user))
                 .toList();
+    }
+
+    /**
+     * Fetch a single post by ID formatted for UI
+     */
+    public PostResponse getSinglePost(UUID postId, User currentUser) {
+        Post post = getPostById(postId);
+        return mapToResponse(post, currentUser);
     }
 
     private Post getPostById(UUID id) {
@@ -201,11 +246,5 @@ public class PostService {
                 .commentsCount(commentsCount)
                 .recentReactions(reactions)
                 .build();
-    }
-
-    // Fetch a single post by ID formatted for UI
-    public PostResponse getSinglePost(UUID postId, User currentUser) {
-        Post post = getPostById(postId);
-        return mapToResponse(post, currentUser);
     }
 }
