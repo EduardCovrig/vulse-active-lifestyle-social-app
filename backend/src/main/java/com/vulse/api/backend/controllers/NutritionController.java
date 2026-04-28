@@ -25,11 +25,14 @@ public class NutritionController {
     }
 
     @GetMapping("/log")
-    public ResponseEntity<List<SavedMeal>> getDailyLog(
-            @AuthenticationPrincipal User user,
-            @RequestParam("date") String dateString) {
-        //frontt YYYY-MM-DD
-        LocalDate date = LocalDate.parse(dateString);
+    public ResponseEntity<List<SavedMeal>> getDailyLog(@AuthenticationPrincipal User user, @RequestParam("date") String dateString) {
+        LocalDate date = LocalDate.parse(dateString); // Expected format: YYYY-MM-DD
         return ResponseEntity.ok(nutritionService.getDailyLog(user, date));
+    }
+
+    @DeleteMapping("/{mealId}")
+    public ResponseEntity<Void> deleteMeal(@AuthenticationPrincipal User user, @PathVariable UUID mealId) {
+        nutritionService.deleteMeal(user, mealId);
+        return ResponseEntity.noContent().build();
     }
 }

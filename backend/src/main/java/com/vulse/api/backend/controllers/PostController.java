@@ -1,11 +1,8 @@
 package com.vulse.api.backend.controllers;
 
-import com.cloudinary.utils.ObjectUtils;
 import com.vulse.api.backend.dtos.post.PostResponse;
-import com.vulse.api.backend.models.Post;
 import com.vulse.api.backend.models.PostType;
 import com.vulse.api.backend.models.User;
-import com.vulse.api.backend.repositories.PostRepository;
 import com.vulse.api.backend.services.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -33,9 +30,12 @@ public class PostController {
             @RequestParam(value = "frontFile", required = false) MultipartFile frontFile,
             @RequestParam(value = "caption", required = false) String caption,
             @RequestParam(value = "calories", required = false) Integer calories,
+            @RequestParam(value = "proteinGrams", required = false) Integer proteinGrams,
+            @RequestParam(value = "carbsGrams", required = false) Integer carbsGrams,
+            @RequestParam(value = "fatGrams", required = false) Integer fatGrams,
             @RequestParam("type") PostType postType) throws IOException {
 
-        return ResponseEntity.ok(postService.createPost(user, file, frontFile, caption, postType, calories));
+        return ResponseEntity.ok(postService.createPost(user, file, frontFile, caption, postType, calories, proteinGrams, carbsGrams, fatGrams));
     }
 
     @PatchMapping("/{postId}/caption")
@@ -43,7 +43,6 @@ public class PostController {
             @PathVariable UUID postId,
             @RequestParam("caption") String newCaption,
             @AuthenticationPrincipal User user) {
-
         return ResponseEntity.ok(postService.updateCaption(postId, newCaption, user));
     }
 
@@ -51,22 +50,19 @@ public class PostController {
     public ResponseEntity<Void> deletePost(
             @PathVariable UUID postId,
             @AuthenticationPrincipal User user) {
-
         postService.deletePost(postId, user);
-        return ResponseEntity.noContent().build(); // 204 No Content is standard for successful deletion
+        return ResponseEntity.noContent().build();
     }
 
-    // Example: GET /api/posts/feed?type=REEL&page=0&size=10
     @GetMapping("/feed")
     public ResponseEntity<Page<PostResponse>> getFeed(
+            @AuthenticationPrincipal User user,
             @RequestParam("type") PostType type,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size) {
-
-        return ResponseEntity.ok(postService.getFeedByType(type, PageRequest.of(page, size)));
+        return ResponseEntity.ok(postService.getFeedByType(user, type, PageRequest.of(page, size)));
     }
 
-    // GET /api/posts/my-posts
     @GetMapping("/my-posts")
     public ResponseEntity<List<PostResponse>> getMyPosts(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(postService.getMyPosts(user));

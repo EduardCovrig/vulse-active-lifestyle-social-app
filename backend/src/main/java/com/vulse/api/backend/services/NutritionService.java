@@ -7,7 +7,6 @@ import com.vulse.api.backend.repositories.PostRepository;
 import com.vulse.api.backend.repositories.SavedMealRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,13 +18,12 @@ public class NutritionService {
     private final SavedMealRepository savedMealRepository;
     private final PostRepository postRepository;
 
-    @Transactional
-    public SavedMeal saveMealFromPost(User user, UUID postId) {
+    public void saveMealFromPost(User user, UUID postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalStateException("Post not found"));
 
         if (post.getCalories() == null) {
-            throw new IllegalStateException("This post does not have nutritional data.");
+            throw new IllegalStateException("Post lacks nutritional data.");
         }
 
         SavedMeal meal = SavedMeal.builder()
@@ -38,10 +36,20 @@ public class NutritionService {
                 .consumedDate(LocalDate.now())
                 .build();
 
-        return savedMealRepository.save(meal);
+        savedMealRepository.save(meal);
     }
 
     public List<SavedMeal> getDailyLog(User user, LocalDate date) {
         return savedMealRepository.findByUserIdAndConsumedDate(user.getId(), date);
+    }
+
+    public void deleteMeal(User user, UUID mealId) {
+        SavedMeal meal = savedMealRepository.findById(mealId)
+                .orElseThrow(() -> new IllegalStateException("Meal not found"));
+
+        if (!meal.getUser().getId().equals(user.getId())) {
+            throw new IllegalStateException("Unauthorized: You can only delete your own meals");
+        }
+        savedMealRepository.delete(meal);
     }
 }
