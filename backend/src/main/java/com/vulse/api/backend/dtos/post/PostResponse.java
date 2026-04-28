@@ -12,23 +12,17 @@ public record PostResponse(
         UUID id,
         String mediaUrl,
         String frontMediaUrl,
-
-        // macros
         Integer calories,
         Integer proteinGrams,
         Integer carbsGrams,
         Integer fatGrams,
-        // -----------------------------------------
-
         String caption,
         PostType type,
         LocalDateTime createdAt,
         PostAuthorDto author,
-
-        // social data
         boolean isLiked,
         long likesCount,
         long commentsCount,
-        List<String> recentReactions //friends feed reactions
+        List<String> recentReactions
 ) {
 }

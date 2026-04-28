@@ -33,4 +33,14 @@ public class CommentService {
     public List<Comment> getCommentsForPost(UUID postId) {
         return commentRepository.findByPostIdOrderByCreatedAtDesc(postId);
     }
+
+    public void deleteComment(User user, UUID commentId) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalStateException("Comment not found"));
+
+        if (!comment.getUser().getId().equals(user.getId())) {
+            throw new IllegalStateException("Unauthorized: You can only delete your own comments");
+        }
+        commentRepository.delete(comment);
+    }
 }

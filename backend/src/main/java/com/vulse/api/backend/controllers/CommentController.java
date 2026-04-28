@@ -9,7 +9,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -18,12 +17,8 @@ import java.util.UUID;
 public class CommentController {
     private final CommentService commentService;
 
-    // Body is just a "text" JSON field
     @PostMapping("/{postId}")
-    public ResponseEntity<Void> addComment(
-            @AuthenticationPrincipal User user,
-            @PathVariable UUID postId,
-            @RequestBody Map<String, String> body) {
+    public ResponseEntity<Void> addComment(@AuthenticationPrincipal User user, @PathVariable UUID postId, @RequestBody java.util.Map<String, String> body) {
         commentService.addComment(user, postId, body.get("text"));
         return ResponseEntity.ok().build();
     }
@@ -31,5 +26,11 @@ public class CommentController {
     @GetMapping("/{postId}")
     public ResponseEntity<List<Comment>> getComments(@PathVariable UUID postId) {
         return ResponseEntity.ok(commentService.getCommentsForPost(postId));
+    }
+
+    @DeleteMapping("/{commentId}")
+    public ResponseEntity<Void> deleteComment(@AuthenticationPrincipal User user, @PathVariable UUID commentId) {
+        commentService.deleteComment(user, commentId);
+        return ResponseEntity.noContent().build();
     }
 }
