@@ -4,6 +4,7 @@ import com.vulse.api.backend.models.Block;
 import com.vulse.api.backend.models.Post;
 import com.vulse.api.backend.models.Report;
 import com.vulse.api.backend.models.User;
+import com.vulse.api.backend.repositories.BlockRepository;
 import com.vulse.api.backend.repositories.PostRepository;
 import com.vulse.api.backend.repositories.UserRepository;
 import jakarta.persistence.EntityManager;
@@ -23,20 +24,31 @@ public class SafetyController {
 
     private final UserRepository userRepository;
     private final PostRepository postRepository;
+    private final BlockRepository blockRepository;
     private final EntityManager entityManager;
 
     @PostMapping("/block/{userId}")
     @Transactional
-    public ResponseEntity<Void> blockUser(@AuthenticationPrincipal User currentUser, @PathVariable UUID userId) {
-        User userToBlock = userRepository.findById(userId).orElseThrow();
-        Block block = Block.builder().blocker(currentUser).blocked(userToBlock).build();
-        entityManager.persist(block);
+    public ResponseEntity<Void> toggleBlock(@AuthenticationPrincipal User currentUser, @PathVariable UUID userId) {
+        if (currentUser.getId().equals(userId)) {
+            return ResponseEntity.badRequest().build(); // Can't block yourself
+        }
 
-        // Conform politicilor, daca ii dai block, ii dai si unfollow automat (daca il urmareai)
-        entityManager.createQuery("DELETE FROM Follow f WHERE f.follower.id = :cId AND f.following.id = :uId")
-                .setParameter("cId", currentUser.getId())
-                .setParameter("uId", userId)
-                .executeUpdate();
+        User userToBlock = userRepository.findById(userId).orElseThrow();
+
+        // Toggle logic: If blocked, unblock. If not, block.
+        blockRepository.findByBlockerIdAndBlockedId(currentUser.getId(), userId)
+                .ifPresentOrElse(
+                        blockRepository::delete,
+                        () -> {
+                            blockRepository.save(Block.builder().blocker(currentUser).blocked(userToBlock).build());
+                            // Automatically unfollow if blocking
+                            entityManager.createQuery("DELETE FROM Follow f WHERE f.follower.id = :cId AND f.following.id = :uId")
+                                    .setParameter("cId", currentUser.getId())
+                                    .setParameter("uId", userId)
+                                    .executeUpdate();
+                        }
+                );
 
         return ResponseEntity.ok().build();
     }

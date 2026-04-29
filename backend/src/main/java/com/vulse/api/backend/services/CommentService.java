@@ -38,9 +38,13 @@ public class CommentService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalStateException("Comment not found"));
 
-        if (!comment.getUser().getId().equals(user.getId())) {
-            throw new IllegalStateException("Unauthorized: You can only delete your own comments");
+        boolean isCommentOwner = comment.getUser().getId().equals(user.getId());
+        boolean isPostOwner = comment.getPost().getUser().getId().equals(user.getId());
+
+        if (!isCommentOwner && !isPostOwner) {
+            throw new IllegalStateException("Unauthorized: You can only delete your own comments or comments on your posts");
         }
+
         commentRepository.delete(comment);
     }
 }

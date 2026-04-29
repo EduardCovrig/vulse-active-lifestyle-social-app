@@ -41,6 +41,9 @@ public class UserController {
 
     @PostMapping("/{userId}/follow")
     public ResponseEntity<Void> followUser(@AuthenticationPrincipal User currentUser, @PathVariable UUID userId) {
+        if (currentUser.getId().equals(userId)) {
+            throw new IllegalArgumentException("You cannot follow yourself.");
+        }
         User toFollow = userRepository.findById(userId).orElseThrow();
         if (followRepository.existsByFollowerIdAndFollowingId(currentUser.getId(), userId)) {
             Follow follow = followRepository.findByFollowerIdAndFollowingId(currentUser.getId(), userId).orElseThrow();

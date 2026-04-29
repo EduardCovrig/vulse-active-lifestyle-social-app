@@ -34,6 +34,7 @@ public class PostService {
     private final SavedMealRepository savedMealRepository; // Needed for cleanup
     private final AIService aiService;
     private final ReportRepository reportRepository;
+    private final BlockRepository blockRepository;
 
     /**
      * Creates a new post with optional dual-camera (DAILY) or AI analysis (MEAL).
@@ -188,9 +189,15 @@ public class PostService {
      */
     public PostResponse getSinglePost(UUID postId, User currentUser) {
         Post post = getPostById(postId);
+
+        // SECURITATE: Check if blocked
+        if (blockRepository.existsByBlockerIdAndBlockedId(currentUser.getId(), post.getUser().getId()) ||
+                blockRepository.existsByBlockerIdAndBlockedId(post.getUser().getId(), currentUser.getId())) {
+            throw new IllegalStateException("Content unavailable.");
+        }
+
         return mapToResponse(post, currentUser);
     }
-
     private Post getPostById(UUID id) {
         return postRepository.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Post not found."));
