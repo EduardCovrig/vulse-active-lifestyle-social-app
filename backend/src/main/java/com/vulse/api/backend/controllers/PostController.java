@@ -60,7 +60,11 @@ public class PostController {
             @RequestParam("type") PostType type,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size) {
-        return ResponseEntity.ok(postService.getFeedByType(user, type, PageRequest.of(page, size)));
+
+        // SECURITY: not more than 50 at once.
+        int safeSize = Math.min(size, 50);
+
+        return ResponseEntity.ok(postService.getFeedByType(user, type, PageRequest.of(page, safeSize)));
     }
 
     @GetMapping("/my-posts")

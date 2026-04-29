@@ -2,10 +2,7 @@ package com.vulse.api.backend.services;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.vulse.api.backend.models.Follow;
-import com.vulse.api.backend.models.Post;
-import com.vulse.api.backend.models.Reaction;
-import com.vulse.api.backend.models.User;
+import com.vulse.api.backend.models.*;
 import com.vulse.api.backend.repositories.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,6 +28,8 @@ public class UserService {
     private final CommentRepository commentRepository;
     private final SavedMealRepository savedMealRepository;
     private final FollowRepository followRepository;
+    private final ReportRepository reportRepository;
+    private final BlockRepository blockRepository;
 
     /**
      * Updates bio and profile picture.
@@ -94,6 +93,11 @@ public class UserService {
         follows.addAll(followRepository.findByFollowingId(dbUser.getId()));
         followRepository.deleteAll(follows);
 
+        reportRepository.deleteAll(reportRepository.findByReporterId(dbUser.getId()));
+
+        List<Block> blocks = blockRepository.findByBlockerId(dbUser.getId());
+        blocks.addAll(blockRepository.findByBlockedId(dbUser.getId()));
+        blockRepository.deleteAll(blocks);
         userRepository.delete(dbUser);
     }
 }

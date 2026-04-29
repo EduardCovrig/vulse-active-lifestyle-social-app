@@ -19,10 +19,18 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
     // Check if a user has already posted a specific type of post after a given time
     boolean existsByUserIdAndTypeAndCreatedAtAfter(UUID userId, PostType type, LocalDateTime time);
 
-    @Query("SELECT p FROM Post p WHERE p.user.id IN " +
-            "(SELECT f.following.id FROM Follow f WHERE f.follower.id = :currentUserId) " +
+    @Query("SELECT p FROM Post p WHERE (p.user.id = :currentUserId OR p.user.id IN " +
+            "(SELECT f.following.id FROM Follow f WHERE f.follower.id = :currentUserId)) " +
+            "AND p.user.id NOT IN (SELECT b.blocked.id FROM Block b WHERE b.blocker.id = :currentUserId) " +
             "AND p.type = :type ORDER BY p.createdAt DESC")
     Page<Post> findFriendsFeed(@Param("currentUserId") UUID currentUserId,
                                @Param("type") PostType type,
                                Pageable pageable);
+
+    @Query("SELECT p FROM Post p WHERE p.type = :type AND p.user.id NOT IN " +
+            "(SELECT b.blocked.id FROM Block b WHERE b.blocker.id = :currentUserId) " +
+            "ORDER BY p.createdAt DESC")
+    Page<Post> findSafeReelsFeed(@Param("currentUserId") UUID currentUserId,
+                                 @Param("type") PostType type,
+                                 Pageable pageable);
 }

@@ -5,11 +5,7 @@ import com.cloudinary.utils.ObjectUtils;
 import com.vulse.api.backend.dtos.post.PostAuthorDto;
 import com.vulse.api.backend.dtos.post.PostResponse;
 import com.vulse.api.backend.models.*;
-import com.vulse.api.backend.repositories.CommentRepository;
-import com.vulse.api.backend.repositories.LikeRepository;
-import com.vulse.api.backend.repositories.PostRepository;
-import com.vulse.api.backend.repositories.ReactionRepository;
-import com.vulse.api.backend.repositories.SavedMealRepository;
+import com.vulse.api.backend.repositories.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -37,6 +33,7 @@ public class PostService {
     private final ReactionRepository reactionRepository;
     private final SavedMealRepository savedMealRepository; // Needed for cleanup
     private final AIService aiService;
+    private final ReportRepository reportRepository;
 
     /**
      * Creates a new post with optional dual-camera (DAILY) or AI analysis (MEAL).
@@ -132,6 +129,7 @@ public class PostService {
         }
 
         // 2. Delete Comments and Likes
+        reportRepository.deleteAll(reportRepository.findByPostId(postId));
         commentRepository.deleteAll(commentRepository.findByPostId(postId));
         likeRepository.deleteAll(likeRepository.findByPostId(postId));
 
