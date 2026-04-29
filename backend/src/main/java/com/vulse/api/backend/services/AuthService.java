@@ -22,22 +22,30 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
 
     public AuthResponse register(RegisterRequest request) {
-        // base user
+        // SEcurity checks username
+        if (repository.existsByUsername(request.username())) {
+            throw new IllegalArgumentException("Username is already taken.");
+        }
+
+        // SECURITY checks email
+        if (repository.existsByEmail(request.email())) {
+            throw new IllegalArgumentException("Email is already registered.");
+        }
+
         var user = User.builder()
                 .username(request.username())
                 .email(request.email())
-                .password(passwordEncoder.encode(request.password())) // encrypt password
+                .password(passwordEncoder.encode(request.password()))
                 .role(Role.USER)
                 .build();
 
-        repository.save(user); //save in database
+        repository.save(user);
 
-        var jwtToken = jwtService.generateToken(user); //generates the token for 30days.
+        var jwtToken = jwtService.generateToken(user);
         return new AuthResponse(jwtToken, user.getUsername());
     }
 
     public AuthResponse login(LoginRequest request) {
-        //checks if email & password are right
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.email(),
@@ -45,11 +53,10 @@ public class AuthService {
                 )
         );
 
-        //if the code runs 'til here, we extract the user email as everything is alright.
         var user = repository.findByEmail(request.email())
                 .orElseThrow();
 
-        var jwtToken = jwtService.generateToken(user); //we generate the token
-        return new AuthResponse(jwtToken, user.getUsername()); //return the dto
+        var jwtToken = jwtService.generateToken(user);
+        return new AuthResponse(jwtToken, user.getUsername());
     }
 }

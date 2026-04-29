@@ -65,7 +65,7 @@ public class UserController {
         return ResponseEntity.ok(profile);
     }
 
-    // NEW: Update Profile Endpoint
+    // Update Profile Endpoint
     @PutMapping("/me")
     public ResponseEntity<Void> updateProfile(
             @AuthenticationPrincipal User user,
@@ -74,4 +74,12 @@ public class UserController {
         userService.updateProfile(user, bio, profilePic);
         return ResponseEntity.ok().build();
     }
+
+    // GDPR Delete Account Endpoint
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal User user) {
+        userService.deleteAccount(user);
+        return ResponseEntity.noContent().build();
+    }
+
 }
