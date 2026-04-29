@@ -4,10 +4,7 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.vulse.api.backend.dtos.post.PostAuthorDto;
 import com.vulse.api.backend.dtos.post.PostResponse;
-import com.vulse.api.backend.models.Post;
-import com.vulse.api.backend.models.PostType;
-import com.vulse.api.backend.models.Reaction;
-import com.vulse.api.backend.models.User;
+import com.vulse.api.backend.models.*;
 import com.vulse.api.backend.repositories.CommentRepository;
 import com.vulse.api.backend.repositories.LikeRepository;
 import com.vulse.api.backend.repositories.PostRepository;
@@ -121,10 +118,8 @@ public class PostService {
             throw new IllegalStateException("Unauthorized: You don't own this post.");
         }
 
-        // 1. Delete all Reactions attached to this post AND their Cloudinary images
-        List<Reaction> postReactions = reactionRepository.findAll().stream()
-                .filter(r -> r.getPost().getId().equals(postId))
-                .toList();
+        // 1. Delete Reactions - MULT MAI EFICIENT (Doar query pe DB, nu pe tot tabelul)
+        List<Reaction> postReactions = reactionRepository.findByPostId(postId);
         for (Reaction reaction : postReactions) {
             try {
                 if (reaction.getMediaPublicId() != null) {
@@ -136,24 +131,18 @@ public class PostService {
             reactionRepository.delete(reaction);
         }
 
-        // 2. Delete all Comments and Likes attached to this post
-        commentRepository.findAll().stream()
-                .filter(c -> c.getPost().getId().equals(postId))
-                .forEach(commentRepository::delete);
+        // 2. Delete Comments and Likes
+        commentRepository.deleteAll(commentRepository.findByPostId(postId));
+        likeRepository.deleteAll(likeRepository.findByPostId(postId));
 
-        likeRepository.findAll().stream()
-                .filter(l -> l.getPost().getId().equals(postId))
-                .forEach(likeRepository::delete);
+        // 3. Nullify originalPost reference in SavedMeals
+        List<SavedMeal> linkedMeals = savedMealRepository.findByOriginalPostId(postId);
+        for(SavedMeal meal : linkedMeals) {
+            meal.setOriginalPost(null);
+            savedMealRepository.save(meal);
+        }
 
-        // 3. Nullify originalPost reference in SavedMeals to prevent FK crash
-        savedMealRepository.findAll().stream()
-                .filter(m -> m.getOriginalPost() != null && m.getOriginalPost().getId().equals(postId))
-                .forEach(m -> {
-                    m.setOriginalPost(null);
-                    savedMealRepository.save(m);
-                });
-
-        // 4. Clean up the Post's own Cloudinary media
+        // 4. Clean up Post's Cloudinary media
         try {
             if (post.getMediaPublicId() != null) {
                 cloudinary.uploader().destroy(post.getMediaPublicId(), ObjectUtils.emptyMap());
@@ -165,7 +154,7 @@ public class PostService {
             System.err.println("Warning: Cloudinary assets failed to delete for post: " + postId);
         }
 
-        // 5. Finally, delete the post from DB
+        // 5. Delete post
         postRepository.delete(post);
     }
 

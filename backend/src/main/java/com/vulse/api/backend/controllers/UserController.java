@@ -82,4 +82,20 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<Map<String, Object>> getCurrentUser(@AuthenticationPrincipal User user) {
+        User dbUser = userRepository.findById(user.getId()).orElseThrow();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", dbUser.getId());
+        response.put("username", dbUser.getUsername());
+        response.put("email", dbUser.getEmail());
+        response.put("bio", dbUser.getBio());
+        response.put("profilePicUrl", dbUser.getProfilePicUrl());
+        response.put("followingCount", followRepository.findByFollowerId(dbUser.getId()).size());
+        response.put("followersCount", followRepository.findByFollowingId(dbUser.getId()).size());
+
+        return ResponseEntity.ok(response);
+    }
+
 }
