@@ -9,6 +9,7 @@ import ProfileScreen from './ProfileScreen';
 
 const { height, width } = Dimensions.get('window');
 
+// Generam niste timpuri relative pentru mock data
 const now = Date.now();
 
 const mockData = [

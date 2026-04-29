@@ -47,7 +47,28 @@ public class GlobalExceptionHandler {
     }
 
     /**
+<<<<<<< HEAD
      * 3. Any other error (Fallback)
+=======
+     *
+     * 3 duplicate username
+     *
+     */
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                "Conflict",
+                ex.getMessage(),
+                LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
+    /**
+     * 4. Any other error (Fallback)
+>>>>>>> main
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericExceptions(Exception ex) {

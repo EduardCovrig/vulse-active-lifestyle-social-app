@@ -17,4 +17,12 @@
  #cloudinary
  cloudinary.cloud-name=
  cloudinary.api-key=
+<<<<<<< HEAD
  cloudinary.api-secret=
+=======
+ cloudinary.api-secret=
+
+ # File Upload Limits (Security - Prevent Cloudinary Bankruptcy)
+ spring.servlet.multipart.max-file-size=10MB
+ spring.servlet.multipart.max-request-size=10MB
+>>>>>>> main

@@ -13,13 +13,19 @@ const Stack = createNativeStackNavigator();
 
 const RootNavigator = () => {
   const { isAuthenticated, isLoading } = useContext(AuthContext);
-  if (isLoading) return null; 
+
+  if (isLoading) {
+    // Aici în viitor poți pune un Splash Screen animat de loading
+    return null; 
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
       {isAuthenticated ? (
+        // Lumea Autentificată (Main App)
         <Stack.Screen name="Feed" component={FeedScreen} />
       ) : (
+        // Lumea Neautentificată (Auth)
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />

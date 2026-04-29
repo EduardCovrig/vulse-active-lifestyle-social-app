@@ -22,6 +22,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
 
     public AuthResponse register(RegisterRequest request) {
+<<<<<<< HEAD
         // base user
         var user = User.builder()
                 .username(request.username())
@@ -33,11 +34,36 @@ public class AuthService {
         repository.save(user); //save in database
 
         var jwtToken = jwtService.generateToken(user); //generates the token for 30days.
+=======
+        // SEcurity checks username
+        if (repository.existsByUsername(request.username())) {
+            throw new IllegalArgumentException("Username is already taken.");
+        }
+
+        // SECURITY checks email
+        if (repository.existsByEmail(request.email())) {
+            throw new IllegalArgumentException("Email is already registered.");
+        }
+
+        var user = User.builder()
+                .username(request.username())
+                .email(request.email())
+                .password(passwordEncoder.encode(request.password()))
+                .role(Role.USER)
+                .build();
+
+        repository.save(user);
+
+        var jwtToken = jwtService.generateToken(user);
+>>>>>>> main
         return new AuthResponse(jwtToken, user.getUsername());
     }
 
     public AuthResponse login(LoginRequest request) {
+<<<<<<< HEAD
         //checks if email & password are right
+=======
+>>>>>>> main
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.email(),
@@ -45,6 +71,7 @@ public class AuthService {
                 )
         );
 
+<<<<<<< HEAD
         //if the code runs 'til here, we extract the user email as everything is alright.
         var user = repository.findByEmail(request.email())
                 .orElseThrow();
@@ -53,3 +80,12 @@ public class AuthService {
         return new AuthResponse(jwtToken, user.getUsername()); //return the dto
     }
 }
+=======
+        var user = repository.findByEmail(request.email())
+                .orElseThrow();
+
+        var jwtToken = jwtService.generateToken(user);
+        return new AuthResponse(jwtToken, user.getUsername());
+    }
+}
+>>>>>>> main
