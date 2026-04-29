@@ -4,11 +4,12 @@ import com.vulse.api.backend.models.Comment;
 import com.vulse.api.backend.models.User;
 import com.vulse.api.backend.services.CommentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -24,8 +25,12 @@ public class CommentController {
     }
 
     @GetMapping("/{postId}")
-    public ResponseEntity<List<Comment>> getComments(@PathVariable UUID postId) {
-        return ResponseEntity.ok(commentService.getCommentsForPost(postId));
+    public ResponseEntity<Page<Comment>> getComments(
+            @PathVariable UUID postId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        // Limit comments to max 50 per request to prevent memory overload
+        return ResponseEntity.ok(commentService.getCommentsForPost(postId, PageRequest.of(page, Math.min(size, 50))));
     }
 
     @DeleteMapping("/{commentId}")

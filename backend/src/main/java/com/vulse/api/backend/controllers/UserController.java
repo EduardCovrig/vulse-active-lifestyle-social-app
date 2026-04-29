@@ -2,6 +2,7 @@ package com.vulse.api.backend.controllers;
 
 import com.vulse.api.backend.models.Follow;
 import com.vulse.api.backend.models.User;
+import com.vulse.api.backend.repositories.BlockRepository;
 import com.vulse.api.backend.repositories.FollowRepository;
 import com.vulse.api.backend.repositories.UserRepository;
 import com.vulse.api.backend.services.UserService;
@@ -25,6 +26,7 @@ public class UserController {
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final UserService userService;
+    private final BlockRepository blockRepository;
 
     @GetMapping("/search")
     public ResponseEntity<List<Map<String, Object>>> searchUsers(@RequestParam String query) {
@@ -44,6 +46,7 @@ public class UserController {
         if (currentUser.getId().equals(userId)) {
             throw new IllegalArgumentException("You cannot follow yourself.");
         }
+
         User toFollow = userRepository.findById(userId).orElseThrow();
         if (followRepository.existsByFollowerIdAndFollowingId(currentUser.getId(), userId)) {
             Follow follow = followRepository.findByFollowerIdAndFollowingId(currentUser.getId(), userId).orElseThrow();
@@ -57,6 +60,13 @@ public class UserController {
     @GetMapping("/{username}/profile")
     public ResponseEntity<Map<String, Object>> getProfile(@PathVariable String username, @AuthenticationPrincipal User currentUser) {
         User user = userRepository.findByUsername(username).orElseThrow();
+
+        // SECURITY CHECK: 2-Way Block verification
+        if (blockRepository.existsByBlockerIdAndBlockedId(currentUser.getId(), user.getId()) ||
+                blockRepository.existsByBlockerIdAndBlockedId(user.getId(), currentUser.getId())) {
+            throw new IllegalStateException("Profile is unavailable.");
+        }
+
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", user.getId());
         profile.put("username", user.getUsername());
@@ -100,5 +110,4 @@ public class UserController {
 
         return ResponseEntity.ok(response);
     }
-
 }

@@ -6,9 +6,10 @@ import com.vulse.api.backend.models.User;
 import com.vulse.api.backend.repositories.CommentRepository;
 import com.vulse.api.backend.repositories.PostRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -30,14 +31,15 @@ public class CommentService {
         commentRepository.save(comment);
     }
 
-    public List<Comment> getCommentsForPost(UUID postId) {
-        return commentRepository.findByPostIdOrderByCreatedAtDesc(postId);
+    public Page<Comment> getCommentsForPost(UUID postId, Pageable pageable) {
+        return commentRepository.findByPostIdOrderByCreatedAtDesc(postId, pageable);
     }
 
     public void deleteComment(User user, UUID commentId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalStateException("Comment not found"));
 
+        // Security: You can delete if you are the comment author OR the post author
         boolean isCommentOwner = comment.getUser().getId().equals(user.getId());
         boolean isPostOwner = comment.getPost().getUser().getId().equals(user.getId());
 

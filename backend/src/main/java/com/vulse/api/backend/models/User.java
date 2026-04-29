@@ -1,6 +1,6 @@
-// File: backend/src/main/java/com/vulse/api/backend/models/User.java
 package com.vulse.api.backend.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -23,12 +23,14 @@ public class User implements UserDetails {
     private UUID id;
 
     @Column(unique = true, nullable = false)
+    @JsonIgnore // Security: Hide email from public JSON responses
     private String email;
 
     @Column(unique = true, nullable = false, length = 50)
     private String username;
 
     @Column(nullable = false)
+    @JsonIgnore // Security: Completely hide hashed password from JSON
     private String password;
 
     private String profilePicUrl;
