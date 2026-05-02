@@ -47,6 +47,10 @@ public class UserService {
         if (fatGoal != null) dbUser.setFatGoal(fatGoal);
 
         if (profilePic != null && !profilePic.isEmpty()) {
+            String contentType = profilePic.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("Only images are allowed for profile pictures!");
+            }
             if (dbUser.getProfilePicPublicId() != null) {
                 try {
                     cloudinary.uploader().destroy(dbUser.getProfilePicPublicId(), ObjectUtils.emptyMap());

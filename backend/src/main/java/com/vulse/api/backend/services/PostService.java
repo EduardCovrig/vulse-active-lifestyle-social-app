@@ -44,6 +44,18 @@ public class PostService {
                                    String caption, PostType type, Integer calories,
                                    Integer proteinGrams, Integer carbsGrams, Integer fatGrams) throws IOException {
 
+        //check
+        String contentType = file.getContentType();
+        if (contentType == null || (!contentType.startsWith("image/") && !contentType.startsWith("video/"))) {
+            throw new IllegalArgumentException("Only images and videos are allowed!");
+        }
+        if (type == PostType.DAILY && frontFile != null) {
+            String frontType = frontFile.getContentType();
+            if (frontType == null || !frontType.startsWith("image/")) {
+                throw new IllegalArgumentException("Front camera snap must be an image!");
+            }
+        }
+
         // 1. Enforce Daily Limit: Only 1 post of type DAILY allowed per 24h
         if (type == PostType.DAILY) {
             LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
