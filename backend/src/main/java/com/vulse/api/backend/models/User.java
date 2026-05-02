@@ -41,6 +41,11 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private Role role;
 
+    private Integer dailyCaloriesGoal;
+    private Integer proteinGoal;
+    private Integer carbsGoal;
+    private Integer fatGoal;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

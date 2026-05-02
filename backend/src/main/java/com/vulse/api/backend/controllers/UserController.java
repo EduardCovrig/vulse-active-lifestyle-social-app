@@ -1,9 +1,11 @@
 package com.vulse.api.backend.controllers;
 
 import com.vulse.api.backend.models.Follow;
+import com.vulse.api.backend.models.PostType;
 import com.vulse.api.backend.models.User;
 import com.vulse.api.backend.repositories.BlockRepository;
 import com.vulse.api.backend.repositories.FollowRepository;
+import com.vulse.api.backend.repositories.PostRepository;
 import com.vulse.api.backend.repositories.UserRepository;
 import com.vulse.api.backend.services.UserService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +31,7 @@ public class UserController {
     private final FollowRepository followRepository;
     private final UserService userService;
     private final BlockRepository blockRepository;
+    private final PostRepository postRepository;
 
     @GetMapping("/search")
     public ResponseEntity<List<Map<String, Object>>> searchUsers(@RequestParam String query) {
@@ -57,6 +62,43 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
+    // ==========================================
+    // RUTA NOUA: Vulse Circle (Cine a postat azi)
+    // ==========================================
+    @GetMapping("/circle")
+    public ResponseEntity<List<Map<String, Object>>> getVulseCircle(@AuthenticationPrincipal User currentUser) {
+        List<User> following = followRepository.findByFollowerId(currentUser.getId())
+                .stream().map(Follow::getFollowing).toList();
+
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+
+        List<Map<String, Object>> circle = following.stream().map(friend -> {
+            boolean hasPosted = postRepository.existsByUserIdAndTypeAndCreatedAtAfter(friend.getId(), PostType.DAILY, startOfDay);
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", friend.getId());
+            map.put("name", friend.getUsername());
+            map.put("img", friend.getProfilePicUrl());
+            map.put("hasPosted", hasPosted);
+            map.put("isMe", false);
+            return map;
+        }).collect(Collectors.toList());
+
+        // Verificam si daca userul curent a postat azi
+        boolean iPosted = postRepository.existsByUserIdAndTypeAndCreatedAtAfter(currentUser.getId(), PostType.DAILY, startOfDay);
+        Map<String, Object> meMap = new HashMap<>();
+        meMap.put("id", currentUser.getId());
+        meMap.put("name", "Your Daily");
+        meMap.put("img", currentUser.getProfilePicUrl());
+        meMap.put("hasPosted", iPosted);
+        meMap.put("isMe", true);
+        circle.add(0, meMap);
+
+        return ResponseEntity.ok(circle);
+    }
+
+    // ==========================================
+    // Profilul Altor Useri
+    // ==========================================
     @GetMapping("/{username}/profile")
     public ResponseEntity<Map<String, Object>> getProfile(@PathVariable String username, @AuthenticationPrincipal User currentUser) {
         User user = userRepository.findByUsername(username).orElseThrow();
@@ -75,20 +117,31 @@ public class UserController {
         profile.put("followingCount", followRepository.findByFollowerId(user.getId()).size());
         profile.put("followersCount", followRepository.findByFollowingId(user.getId()).size());
         profile.put("isFollowing", followRepository.existsByFollowerIdAndFollowingId(currentUser.getId(), user.getId()));
+
+        // Date noi pentru UX-ul frontend-ului
+        profile.put("streak", calculateStreak(user.getId()));
+        profile.put("calendarSnaps", getCalendarSnaps(user.getId()));
+
         return ResponseEntity.ok(profile);
     }
 
-    // Update Profile Endpoint
+    // ==========================================
+    // Profilul Meu (Update & Get)
+    // ==========================================
     @PutMapping("/me")
     public ResponseEntity<Void> updateProfile(
             @AuthenticationPrincipal User user,
             @RequestParam(value = "bio", required = false) String bio,
-            @RequestParam(value = "profilePic", required = false) MultipartFile profilePic) throws IOException {
-        userService.updateProfile(user, bio, profilePic);
+            @RequestParam(value = "profilePic", required = false) MultipartFile profilePic,
+            @RequestParam(value = "dailyCaloriesGoal", required = false) Integer calGoal,
+            @RequestParam(value = "proteinGoal", required = false) Integer proGoal,
+            @RequestParam(value = "carbsGoal", required = false) Integer carbGoal,
+            @RequestParam(value = "fatGoal", required = false) Integer fatGoal) throws IOException {
+
+        userService.updateProfile(user, bio, profilePic, calGoal, proGoal, carbGoal, fatGoal);
         return ResponseEntity.ok().build();
     }
 
-    // GDPR Delete Account Endpoint
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal User user) {
         userService.deleteAccount(user);
@@ -99,15 +152,56 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> getCurrentUser(@AuthenticationPrincipal User user) {
         User dbUser = userRepository.findById(user.getId()).orElseThrow();
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", dbUser.getId());
-        response.put("username", dbUser.getUsername());
-        response.put("email", dbUser.getEmail());
-        response.put("bio", dbUser.getBio());
-        response.put("profilePicUrl", dbUser.getProfilePicUrl());
-        response.put("followingCount", followRepository.findByFollowerId(dbUser.getId()).size());
-        response.put("followersCount", followRepository.findByFollowingId(dbUser.getId()).size());
+        Map<String, Object> profile = new HashMap<>();
+        profile.put("id", dbUser.getId());
+        profile.put("username", dbUser.getUsername());
+        profile.put("email", dbUser.getEmail());
+        profile.put("bio", dbUser.getBio());
+        profile.put("profilePicUrl", dbUser.getProfilePicUrl());
+        profile.put("followingCount", followRepository.findByFollowerId(dbUser.getId()).size());
+        profile.put("followersCount", followRepository.findByFollowingId(dbUser.getId()).size());
 
-        return ResponseEntity.ok(response);
+        // Target-uri Macro
+        profile.put("dailyCaloriesGoal", dbUser.getDailyCaloriesGoal());
+        profile.put("proteinGoal", dbUser.getProteinGoal());
+        profile.put("carbsGoal", dbUser.getCarbsGoal());
+        profile.put("fatGoal", dbUser.getFatGoal());
+
+        profile.put("streak", calculateStreak(dbUser.getId()));
+        profile.put("calendarSnaps", getCalendarSnaps(dbUser.getId()));
+
+        return ResponseEntity.ok(profile);
+    }
+
+    // ==========================================
+    // Functii ajutatoare pentru Profil (Streak & Calendar)
+    // ==========================================
+    private int calculateStreak(UUID userId) {
+        List<LocalDate> postDates = postRepository.findTop30ByUserIdAndTypeOrderByCreatedAtDesc(userId, PostType.DAILY)
+                .stream().map(p -> p.getCreatedAt().toLocalDate()).distinct().toList();
+
+        if (postDates.isEmpty()) return 0;
+
+        int streak = 0;
+        LocalDate checkDate = LocalDate.now();
+
+        if (!postDates.contains(checkDate)) {
+            checkDate = checkDate.minusDays(1); // Daca n-a postat azi, inca nu si-a pierdut streak-ul (poate posta pana la 23:59)
+        }
+
+        for (LocalDate date : postDates) {
+            if (date.equals(checkDate)) {
+                streak++;
+                checkDate = checkDate.minusDays(1);
+            } else {
+                break;
+            }
+        }
+        return streak;
+    }
+
+    private List<String> getCalendarSnaps(UUID userId) {
+        return postRepository.findTop7ByUserIdAndTypeOrderByCreatedAtDesc(userId, PostType.DAILY)
+                .stream().map(com.vulse.api.backend.models.Post::getMediaUrl).toList();
     }
 }

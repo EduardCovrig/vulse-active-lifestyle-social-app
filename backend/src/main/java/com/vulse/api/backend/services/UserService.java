@@ -35,23 +35,23 @@ public class UserService {
      * Updates bio and profile picture.
      */
     @Transactional
-    public void updateProfile(User user, String bio, MultipartFile profilePic) throws IOException {
+    public void updateProfile(User user, String bio, MultipartFile profilePic,
+                              Integer calGoal, Integer proGoal, Integer carbGoal, Integer fatGoal) throws IOException {
         User dbUser = userRepository.findById(user.getId())
                 .orElseThrow(() -> new IllegalStateException("User not found"));
 
-        if (bio != null) {
-            dbUser.setBio(bio);
-        }
+        if (bio != null) dbUser.setBio(bio);
+        if (calGoal != null) dbUser.setDailyCaloriesGoal(calGoal);
+        if (proGoal != null) dbUser.setProteinGoal(proGoal);
+        if (carbGoal != null) dbUser.setCarbsGoal(carbGoal);
+        if (fatGoal != null) dbUser.setFatGoal(fatGoal);
 
         if (profilePic != null && !profilePic.isEmpty()) {
-            // Delete old profile picture from Cloudinary if it exists
             if (dbUser.getProfilePicPublicId() != null) {
                 try {
                     cloudinary.uploader().destroy(dbUser.getProfilePicPublicId(), ObjectUtils.emptyMap());
                 } catch (Exception ignored) {}
             }
-
-            // Upload new picture
             Map uploadResult = cloudinary.uploader().upload(profilePic.getBytes(), ObjectUtils.asMap("resource_type", "image"));
             dbUser.setProfilePicUrl(uploadResult.get("secure_url").toString());
             dbUser.setProfilePicPublicId(uploadResult.get("public_id").toString());

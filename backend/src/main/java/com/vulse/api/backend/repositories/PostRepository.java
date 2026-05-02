@@ -35,4 +35,10 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
     Page<Post> findSafeReelsFeed(@Param("currentUserId") UUID currentUserId,
                                  @Param("type") PostType type,
                                  Pageable pageable);
+
+    //last 30 posts for streak
+    List<Post> findTop30ByUserIdAndTypeOrderByCreatedAtDesc(UUID userId, PostType type);
+
+    // last 7 daily posts for visual calendar
+    List<Post> findTop7ByUserIdAndTypeOrderByCreatedAtDesc(UUID userId, PostType type);
 }
