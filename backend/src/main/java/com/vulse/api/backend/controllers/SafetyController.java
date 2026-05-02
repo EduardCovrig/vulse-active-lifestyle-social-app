@@ -14,6 +14,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -64,5 +66,20 @@ public class SafetyController {
                 .build();
         entityManager.persist(report);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/blocked")
+    public ResponseEntity<List<Map<String, Object>>> getBlockedUsers(@AuthenticationPrincipal User currentUser) {
+        List<Map<String, Object>> blockedUsers = blockRepository.findByBlockerId(currentUser.getId())
+                .stream()
+                .map(block -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", block.getBlocked().getId());
+                    map.put("username", block.getBlocked().getUsername());
+                    map.put("profilePicUrl", block.getBlocked().getProfilePicUrl());
+                    return map;
+                })
+                .collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(blockedUsers);
     }
 }

@@ -24,7 +24,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/usgers")
 @RequiredArgsConstructor
 public class UserController {
     private final UserRepository userRepository;
@@ -61,10 +61,6 @@ public class UserController {
         }
         return ResponseEntity.ok().build();
     }
-
-    // ==========================================
-    // RUTA NOUA: Vulse Circle (Cine a postat azi)
-    // ==========================================
     @GetMapping("/circle")
     public ResponseEntity<List<Map<String, Object>>> getVulseCircle(@AuthenticationPrincipal User currentUser) {
         List<User> following = followRepository.findByFollowerId(currentUser.getId())
@@ -96,9 +92,6 @@ public class UserController {
         return ResponseEntity.ok(circle);
     }
 
-    // ==========================================
-    // Profilul Altor Useri
-    // ==========================================
     @GetMapping("/{username}/profile")
     public ResponseEntity<Map<String, Object>> getProfile(@PathVariable String username, @AuthenticationPrincipal User currentUser) {
         User user = userRepository.findByUsername(username).orElseThrow();
@@ -125,9 +118,6 @@ public class UserController {
         return ResponseEntity.ok(profile);
     }
 
-    // ==========================================
-    // Profilul Meu (Update & Get)
-    // ==========================================
     @PutMapping("/me")
     public ResponseEntity<Void> updateProfile(
             @AuthenticationPrincipal User user,
@@ -173,9 +163,6 @@ public class UserController {
         return ResponseEntity.ok(profile);
     }
 
-    // ==========================================
-    // Functii ajutatoare pentru Profil (Streak & Calendar)
-    // ==========================================
     private int calculateStreak(UUID userId) {
         List<LocalDate> postDates = postRepository.findTop30ByUserIdAndTypeOrderByCreatedAtDesc(userId, PostType.DAILY)
                 .stream().map(p -> p.getCreatedAt().toLocalDate()).distinct().toList();
@@ -203,5 +190,20 @@ public class UserController {
     private List<String> getCalendarSnaps(UUID userId) {
         return postRepository.findTop7ByUserIdAndTypeOrderByCreatedAtDesc(userId, PostType.DAILY)
                 .stream().map(com.vulse.api.backend.models.Post::getMediaUrl).toList();
+    }
+
+    @PatchMapping("/me/picture")
+    public ResponseEntity<Map<String, String>> updateProfilePicture(
+            @AuthenticationPrincipal User user,
+            @RequestParam("file") MultipartFile file) throws IOException {
+
+        // Reuse existing method, with null fields
+        userService.updateProfile(user, null, file, null, null, null, null);
+
+        // return the new url to front
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        Map<String, String> response = new HashMap<>();
+        response.put("profilePicUrl", updatedUser.getProfilePicUrl());
+        return ResponseEntity.ok(response);
     }
 }
