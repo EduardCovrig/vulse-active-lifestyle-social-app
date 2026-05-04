@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, useColorScheme} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, useColorScheme, ActivityIndicator } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
@@ -7,52 +7,44 @@ import { AuthContext } from '../context/AuthContext';
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const theme = useColorScheme();
-  
   const { login } = useContext(AuthContext);
 
   const handleLogin = async () => {
-    //validare inainte de trimitere request
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      Alert.alert('Eroare', 'Te rog completează ambele câmpuri.');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await login({ email, password });
-      console.log("Logare cu succes!");
+      // Gata, logare reușită, te aruncă automat pe Feed!
     } catch (error: any) {
-      console.log("Eroare login:", error.response?.data || error.message);
-      Alert.alert('Login Failed', 'Your email or password is incorrect.');
+      // Captăm eroarea fix cum vine de la backend
+      const errorMessage = error.response?.data?.message || 'Email sau parolă incorectă. Încearcă din nou.';
+      Alert.alert('Autentificare eșuată', errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <View className="flex-1 bg-background relative justify-center items-center px-6">
       
-      {/* Decorative Glowing Orbs in Background */}
+      {/* Decorative Glowing Orbs */}
       <View className="absolute top-[-10%] left-[-20%] w-72 h-72 bg-primary/10 rounded-full" />
       <View className="absolute bottom-[-10%] right-[-20%] w-72 h-72 bg-secondary/10 rounded-full" />
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="w-full max-w-md"
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="w-full max-w-md">
         <View className="mb-10 items-center">
-          <Text className="text-4xl font-extrabold text-white tracking-widest uppercase mb-2">
-            Vulse
-          </Text>
-          <Text className="text-on-surface-variant text-base tracking-wider">
-            Enter your healthy era.
-          </Text>
+          <Text className="text-4xl font-extrabold text-white tracking-widest uppercase mb-2">Vulse</Text>
+          <Text className="text-on-surface-variant text-base tracking-wider">Enter your healthy era.</Text>
         </View>
 
-        <BlurView 
-          intensity={40} 
-          tint="dark" 
-          className="overflow-hidden rounded-[32px] border border-white/15 p-8"
-        >
+        <BlurView intensity={40} tint="dark" className="overflow-hidden rounded-[32px] border border-white/15 p-8">
           <View className="flex-col gap-6">
             
             <View className="flex-col gap-2">
@@ -82,20 +74,18 @@ export default function LoginScreen({ navigation }: any) {
               />
             </View>
 
-            <TouchableOpacity 
-              activeOpacity={0.8} 
-              onPress={handleLogin}
-              className="mt-4 shadow-lg shadow-secondary/50"
-            >
+            <TouchableOpacity activeOpacity={0.8} onPress={handleLogin} disabled={isSubmitting} className="mt-4 shadow-lg shadow-secondary/50">
               <LinearGradient
                 colors={['#7ad7c6', '#7dd3fc']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                className="w-full h-14 rounded-2xl items-center justify-center"
+                className="w-full h-14 rounded-2xl items-center justify-center flex-row"
               >
-                <Text className="text-[#0b1326] text-xl font-bold tracking-wider">
-                  LOG IN
-                </Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#0b1326" />
+                ) : (
+                  <Text className="text-[#0b1326] text-xl font-bold tracking-wider">LOG IN</Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
 
