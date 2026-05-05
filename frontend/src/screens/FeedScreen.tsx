@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, FlatList, Dimensions, Animated, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, FlatList, Dimensions, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import LiquidPostCard from '../components/LiquidPostCard';
@@ -9,7 +9,7 @@ import ProfileScreen from './ProfileScreen';
 import FriendsScreen from './FriendsScreen';
 import { api } from '../services/api';
 
-const { height, width } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
@@ -18,17 +18,14 @@ export default function FeedScreen() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Cât de mare este un Reel pe ecranul global
   const CARD_HEIGHT = height - insets.top - insets.bottom - 100;
-
-  // Background Animations
-  const orb1Anim = useRef(new Animated.Value(0)).current;
-  const orb2Anim = useRef(new Animated.Value(0)).current;
 
   const fetchGlobalFeed = async () => {
     try {
       setLoading(true);
       const response = await api.get('/posts/feed?type=REEL&page=0&size=10');
-      setPosts(response.data.content); // "content" pt ca backendul returneaza Page<>
+      setPosts(response.data.content);
     } catch (error) {
       console.error("Eroare fetching Reels feed:", error);
     } finally {
@@ -38,49 +35,39 @@ export default function FeedScreen() {
 
   useEffect(() => {
     fetchGlobalFeed();
-    const floatOrb = (animValue: Animated.Value, duration: number) => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(animValue, { toValue: 1, duration, useNativeDriver: true }),
-          Animated.timing(animValue, { toValue: 0, duration, useNativeDriver: true })
-        ])
-      ).start();
-    };
-    floatOrb(orb1Anim, 22000);
-    floatOrb(orb2Anim, 28000);
   }, []);
 
-  const orb1X = orb1Anim.interpolate({ inputRange: [0, 1], outputRange: [-100, 150] });
-  const orb1Y = orb1Anim.interpolate({ inputRange: [0, 1], outputRange: [-50, 200] });
-
   return (
-    <View style={StyleSheet.absoluteFill} className="bg-[#050A15]">
-      {/* BACKGROUND ORBS */}
-      <View style={StyleSheet.absoluteFill} className="overflow-hidden pointer-events-none">
-        <Animated.View style={{ transform: [{ translateX: orb1X }, { translateY: orb1Y }], backgroundColor: '#7dd3fc', width: 400, height: 400, borderRadius: 200, position: 'absolute', opacity: 0.5 }} />
-      </View>
-      <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} className="pointer-events-none" />
-
+    <View style={StyleSheet.absoluteFill} className="bg-[#090E17]">
       {/* DYNAMIC CONTENT */}
       <View className="flex-1">
         {activeTab === 'feed' ? (
           <View className="flex-1" style={{ paddingTop: insets.top }}>
             {loading ? (
-              <ActivityIndicator size="large" color="#c5eaff" className="mt-20" />
+              <ActivityIndicator size="large" color="#7dd3fc" className="mt-20" />
             ) : posts.length === 0 ? (
-              <Text className="text-white text-center mt-20 font-bold">No global reels found.</Text>
+              <Text className="text-white/40 text-center mt-20 font-bold">No global reels found.</Text>
             ) : (
               <FlatList 
                 data={posts}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => <LiquidPostCard post={item} cardHeight={CARD_HEIGHT} />}
                 showsVerticalScrollIndicator={false}
                 pagingEnabled
-                snapToInterval={CARD_HEIGHT + 16}
+                snapToInterval={CARD_HEIGHT + 24} // Margin bottom
                 decelerationRate="fast"
-                contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 150 }}
+                contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 150 }}
                 onRefresh={fetchGlobalFeed}
                 refreshing={loading}
+                renderItem={({ item }) => (
+                  <LiquidPostCard 
+                    post={item} 
+                    cardHeight={CARD_HEIGHT} 
+                    onOpenComments={() => console.log("Comments modal on global feed in progress")}
+                    onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
+                    onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
+                    onEditCaption={(id, text) => console.log("Edit global")}
+                  />
+                )}
               />
             )}
           </View>
