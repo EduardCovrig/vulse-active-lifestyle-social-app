@@ -70,7 +70,7 @@ export default function ProfileScreen() {
   const handleSaveBio = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await api.patch(`/users/me/bio?bio=${encodeURIComponent(newBio)}`);
+      await api.put(`/users/me?bio=${encodeURIComponent(newBio)}`);
       setProfile({ ...profile, bio: newBio });
       setIsEditingBio(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
