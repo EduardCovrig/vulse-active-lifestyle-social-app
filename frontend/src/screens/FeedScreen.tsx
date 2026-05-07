@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, FlatList, Dimensions, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import LiquidPostCard from '../components/LiquidPostCard';
 import GlassTabBar from '../components/GlassTabBar';
 import CameraScreen from './CameraScreen';
@@ -18,7 +17,6 @@ export default function FeedScreen() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cât de mare este un Reel pe ecranul global
   const CARD_HEIGHT = height - insets.top - insets.bottom - 100;
 
   const fetchGlobalFeed = async () => {
@@ -39,7 +37,6 @@ export default function FeedScreen() {
 
   return (
     <View style={StyleSheet.absoluteFill} className="bg-[#090E17]">
-      {/* DYNAMIC CONTENT */}
       <View className="flex-1">
         {activeTab === 'feed' ? (
           <View className="flex-1" style={{ paddingTop: insets.top }}>
@@ -53,7 +50,7 @@ export default function FeedScreen() {
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 pagingEnabled
-                snapToInterval={CARD_HEIGHT + 24} // Margin bottom
+                snapToInterval={CARD_HEIGHT + 24}
                 decelerationRate="fast"
                 contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 150 }}
                 onRefresh={fetchGlobalFeed}
@@ -62,29 +59,28 @@ export default function FeedScreen() {
                   <LiquidPostCard 
                     post={item} 
                     cardHeight={CARD_HEIGHT} 
-                    onOpenComments={() => console.log("Comments modal on global feed in progress")}
+                    onOpenComments={() => console.log("Comments pe global in progress")}
                     onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
                     onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
-                    onEditCaption={(id, text) => console.log("Edit global")}
+                    onEditCaption={(id, text) => console.log("Edit")}
                   />
                 )}
               />
             )}
           </View>
         ) : activeTab === 'friends' ? (
-          <FriendsScreen />
+          <FriendsScreen onOpenCamera={() => setActiveTab('camera')} />
         ) : activeTab === 'profile' ? (
           <ProfileScreen />
         ) : null}
       </View>
 
-      {/* TAB BAR & CAMERA */}
       {activeTab !== 'camera' && (
         <GlassTabBar activeTab={activeTab} onTabPress={(tab) => setActiveTab(tab as any)} />
       )}
       {activeTab === 'camera' && (
         <View style={StyleSheet.absoluteFill} className="z-[100]">
-          <CameraScreen onClose={() => setActiveTab('feed')} />
+          <CameraScreen onClose={() => setActiveTab('friends')} />
         </View>
       )}
     </View>

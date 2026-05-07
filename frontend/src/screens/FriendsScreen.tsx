@@ -1,23 +1,26 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { View, Text, TextInput, Image, Animated, TouchableOpacity, Modal, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, Text, TextInput, Image, Animated, TouchableOpacity, Modal, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, RefreshControl, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import BouncyPressable from '../components/BouncyPressable';
-import LiquidPostCard from '../components/LiquidPostCard'; // NOU: Folosim componenta modulara premium
+import LiquidPostCard from '../components/LiquidPostCard'; 
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
-export default function FriendsScreen() {
+interface FriendsScreenProps {
+  onOpenCamera?: () => void;
+}
+
+export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const { username } = useContext(AuthContext);
+  const { username: myUsername } = useContext(AuthContext); 
 
-  // --- STATE-URI ORIGINALE PĂSTRATE ---
   const [posts, setPosts] = useState<any[]>([]);
-  const [circle, setCircle] = useState<any[]>([]); // NOU: Vulse Circle vine acum din DB
+  const [circle, setCircle] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -35,27 +38,19 @@ export default function FriendsScreen() {
   const [editingPost, setEditingPost] = useState<string | null>(null);
   const [editCaptionText, setEditCaptionText] = useState('');
 
-  // --- FETCH FEED & CIRCLE CONCOMITENT ---
+  const [activeStory, setActiveStory] = useState<any>(null);
+  const storyProgress = useRef(new Animated.Value(0)).current;
+
   const fetchData = async () => {
     try {
-      // Folosim Promise.allSettled ca să nu mai crape Cercul dacă Feed-ul dă timeout!
       const [feedRes, circleRes] = await Promise.allSettled([
         api.get('/posts/feed?type=DAILY&page=0&size=20'),
         api.get('/users/circle')
       ]);
 
-      if (feedRes.status === 'fulfilled') {
-        setPosts(feedRes.value.data.content);
-      } else {
-        console.error("Feed a picat:", feedRes.reason);
-      }
-
-      if (circleRes.status === 'fulfilled') {
-        setCircle(circleRes.value.data);
-      } else {
-        // Dacă pică API-ul de circle, afișăm măcar butonul tău de add!
-        setCircle([{ id: 'me', name: 'Your Daily', img: null, hasPosted: false, isMe: true }]);
-      }
+      if (feedRes.status === 'fulfilled') setPosts(feedRes.value.data.content);
+      if (circleRes.status === 'fulfilled') setCircle(circleRes.value.data);
+      else setCircle([{ id: 'me', name: 'Your Daily', img: null, hasPosted: false, isMe: true }]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -73,15 +68,54 @@ export default function FriendsScreen() {
     fetchData();
   };
 
-  // --- FUNCȚIILE TALE ORIGINALE DE SEARCH ȘI PROFIL (PĂSTRATE) ---
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    if (query.length < 2) return setSearchResults([]);
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
     try {
-      const res = await api.get(`/users/search?query=${query}`);
+      const res = await api.get(`/users/search?query=${encodeURIComponent(query)}`);
       setSearchResults(res.data);
-    } catch (e) {
-      console.error(e);
+    } catch (e) { 
+      console.error("Eroare search:", e); 
+    }
+  };
+
+  // --- BLINDAT: Navigarea la Profil cu tratarea erorii 500 de la Java ---
+  const openUserProfile = async (targetUsername: string) => {
+    if (targetUsername === myUsername) {
+      Alert.alert("Ești tu!", "Mergi în tab-ul de profil pentru a-ți vedea datele.");
+      return; 
+    }
+    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Keyboard.dismiss(); 
+    setSearchQuery(''); 
+    setSearchResults([]); 
+    
+    setLoadingProfile(true);
+    // Îi dăm date default ca să nu crape modalul până vine răspunsul real
+    setViewedProfile({ username: targetUsername, followersCount: 0, followingCount: 0, bio: '' }); 
+    
+    try {
+      const res = await api.get(`/users/${encodeURIComponent(targetUsername)}/profile`);
+      if (res.data) setViewedProfile(res.data); 
+    } catch (e: any) {
+      console.error("Eroare Backend Profil:", e.response?.data || e.message);
+      
+      if (e.response?.status === 500) {
+         Alert.alert(
+           "Atenție (Backend Issue)", 
+           "Serverul a returnat o eroare internă la calcularea statisticilor acestui profil, dar funcția de frontend este activă."
+         );
+         // Lăsăm profilul deschis cu datele default ca să îi demonstrezi colegului că frontendul tău rezistă
+      } else {
+         Alert.alert("Indisponibil", e.response?.data?.message || "Utilizatorul nu a putut fi găsit.");
+         setViewedProfile(null);
+      }
+    } finally { 
+      setLoadingProfile(false); 
     }
   };
 
@@ -98,30 +132,9 @@ export default function FriendsScreen() {
         });
       }
       fetchData(); 
-    } catch (e) {
-      Alert.alert("Eroare", "Nu am putut actualiza statusul.");
-    }
+    } catch (e) { Alert.alert("Eroare", "Nu am putut actualiza statusul."); }
   };
 
-  const openUserProfile = async (targetUsername: string) => {
-    if (targetUsername === username) return; 
-    setSearchQuery('');
-    setSearchResults([]);
-    setLoadingProfile(true);
-    setViewedProfile({ username: targetUsername }); 
-    
-    try {
-      const res = await api.get(`/users/${targetUsername}/profile`);
-      setViewedProfile(res.data);
-    } catch (e: any) {
-      Alert.alert("Indisponibil", "Acest profil nu poate fi vizualizat.");
-      setViewedProfile(null);
-    } finally {
-      setLoadingProfile(false);
-    }
-  };
-
-  // --- FUNCȚIILE TALE DE COMENTARII (PĂSTRATE) ---
   const openComments = async (postId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActivePostId(postId);
@@ -129,11 +142,7 @@ export default function FriendsScreen() {
     try {
       const response = await api.get(`/comments/${postId}?page=0&size=50`);
       setComments(response.data.content);
-    } catch (error) {
-      console.error(error);
-    } finally { 
-      setLoadingComments(false); 
-    }
+    } catch (error) {} finally { setLoadingComments(false); }
   };
 
   const submitComment = async () => {
@@ -146,13 +155,11 @@ export default function FriendsScreen() {
       const response = await api.get(`/comments/${activePostId}?page=0&size=50`);
       setComments(response.data.content);
       setPosts(curr => curr.map(p => p.id === activePostId ? { ...p, commentsCount: p.commentsCount + 1 } : p));
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) {}
   };
 
   const handleCommentLongPress = (comment: any) => {
-    if (comment.user.username !== username) return; 
+    if (comment.user.username !== myUsername) return; 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert("Delete Comment", "Vrei să ștergi acest comentariu?", [
       { text: "Cancel", style: "cancel" },
@@ -172,16 +179,87 @@ export default function FriendsScreen() {
       await api.patch(`/posts/${postId}/caption?caption=${encodeURIComponent(editCaptionText)}`);
       setPosts(curr => curr.map(p => p.id === postId ? { ...p, caption: editCaptionText } : p));
       setEditingPost(null);
-    } catch(e) { 
-      Alert.alert("Eroare", "Nu am putut actualiza descrierea."); 
-    }
+    } catch(e) { Alert.alert("Eroare", "Nu am putut actualiza descrierea."); }
   };
 
-  // --- RENDERIZARE HEADER FEED (PĂSTREAZĂ SEARCH-UL TĂU ȘI ADĂUGA CIRCLE-UL LIVE) ---
-  const renderHeader = () => (
-    <View className="mb-4">
-      {/* BARA DE SEARCH */}
-      <View className="px-6 mb-6 z-50">
+  const handleOpenStory = (friend: any) => {
+    if (!friend.hasPosted || !friend.img) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setActiveStory(friend);
+    
+    storyProgress.setValue(0);
+    Animated.timing(storyProgress, {
+      toValue: 1,
+      duration: 5000,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) setActiveStory(null);
+    });
+  };
+
+  const closeStory = () => {
+    storyProgress.stopAnimation();
+    setActiveStory(null);
+  };
+
+  // Vulse Circle rămâne în header-ul de la FlatList
+  const renderCircleHeader = () => (
+    <View className="mb-4 mt-2">
+      <Text className="text-[#7ad7c6] text-[10px] font-black tracking-[3px] uppercase mb-4 px-6">Daily Circle</Text>
+      <FlatList 
+        horizontal
+        data={circle}
+        keyExtractor={(item) => item.id}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
+        renderItem={({ item }) => (
+          <BouncyPressable 
+            className="items-center" 
+            scaleTo={0.9} 
+            onPress={() => {
+              if (item.isMe && !item.hasPosted) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                if (onOpenCamera) onOpenCamera();
+              } else {
+                handleOpenStory(item);
+              }
+            }}
+          >
+            <View className="relative w-16 h-16 rounded-full items-center justify-center mb-2 shadow-lg shadow-black">
+              {item.hasPosted ? (
+                <LinearGradient colors={['#7ad7c6', '#7dd3fc']} className="absolute inset-0 rounded-full" style={{ padding: 2 }}>
+                  <View className="flex-1 bg-[#090E17] rounded-full border-[3px] border-[#090E17] overflow-hidden">
+                    {item.img ? <Image source={{ uri: item.img }} className="w-full h-full object-cover" /> : <View className="w-full h-full bg-white/10" />}
+                  </View>
+                </LinearGradient>
+              ) : (
+                <View className="absolute inset-0 rounded-full border-2 border-white/10 p-0.5">
+                  <View className="flex-1 rounded-full overflow-hidden opacity-40 bg-white/5">
+                    {item.img ? <Image source={{ uri: item.img }} className="w-full h-full object-cover" /> : null}
+                  </View>
+                </View>
+              )}
+              {item.isMe && !item.hasPosted && (
+                <View className="absolute bottom-0 right-0 bg-[#7dd3fc] w-5 h-5 rounded-full items-center justify-center border-2 border-[#090E17]">
+                  <Ionicons name="add" size={12} color="#090E17" />
+                </View>
+              )}
+            </View>
+            <Text className={`text-[10px] font-bold text-center w-16 ${item.hasPosted ? 'text-white' : 'text-white/40'}`} numberOfLines={1}>
+              {item.name}
+            </Text>
+          </BouncyPressable>
+        )}
+      />
+      <Text className="text-secondary text-[10px] font-black tracking-[3px] uppercase mb-4 px-6 mt-6">Latest Updates</Text>
+    </View>
+  );
+
+  return (
+    <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17' }}>
+      
+      {/* 🚀 FIXED SEARCH BAR (Pinned at top - nu mai moare tastatura) */}
+      <View className="px-6 mb-2 z-[200]" style={{ paddingTop: insets.top + 10 }}>
         <BlurView intensity={50} tint="dark" className="flex-row items-center px-4 h-12 rounded-full border border-white/15 shadow-lg shadow-black/50 bg-white/5">
           <Ionicons name="search" size={20} color="#bec8ce" />
           <TextInput 
@@ -190,13 +268,20 @@ export default function FriendsScreen() {
             className="flex-1 ml-3 text-white font-body-md" 
             keyboardAppearance="dark" 
             value={searchQuery} 
-            onChangeText={handleSearch} 
+            onChangeText={handleSearch}
+            autoCorrect={false}
+            autoCapitalize="none"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); Keyboard.dismiss(); }}>
+              <Ionicons name="close-circle" size={20} color="#bec8ce80" />
+            </TouchableOpacity>
+          )}
         </BlurView>
 
-        {/* REZULTATE CĂUTARE */}
+        {/* SEARCH RESULTS ABSOLUTE (Over the feed) */}
         {searchResults.length > 0 && (
-          <BlurView intensity={90} tint="dark" className="mt-2 rounded-2xl border border-white/20 p-2 overflow-hidden shadow-2xl absolute top-14 left-6 right-6 z-50">
+          <BlurView intensity={95} tint="dark" className="mt-2 rounded-2xl border border-white/20 p-2 overflow-hidden shadow-2xl absolute top-[60px] left-6 right-6 z-[300]">
             {searchResults.map(u => (
               <TouchableOpacity key={u.id} onPress={() => openUserProfile(u.username)} className="flex-row items-center justify-between p-3 border-b border-white/10">
                 <View className="flex-row items-center gap-3">
@@ -212,65 +297,20 @@ export default function FriendsScreen() {
         )}
       </View>
 
-      {/* VULSE CIRCLE (API DATA) */}
-      <View className="mb-4 mt-2">
-        <Text className="text-[#7ad7c6] text-[10px] font-black tracking-[3px] uppercase mb-4 px-6">Daily Circle</Text>
-        <FlatList 
-          horizontal
-          data={circle}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
-          renderItem={({ item }) => (
-            <BouncyPressable className="items-center" scaleTo={0.9} onPress={() => openUserProfile(item.name)}>
-              <View className="relative w-16 h-16 rounded-full items-center justify-center mb-2 shadow-lg shadow-black">
-                {item.hasPosted ? (
-                  <LinearGradient colors={['#7ad7c6', '#7dd3fc']} className="absolute inset-0 rounded-full" style={{ padding: 2 }}>
-                    <View className="flex-1 bg-[#090E17] rounded-full border-[3px] border-[#090E17] overflow-hidden">
-                      {item.img ? <Image source={{ uri: item.img }} className="w-full h-full object-cover" /> : <View className="w-full h-full bg-white/10" />}
-                    </View>
-                  </LinearGradient>
-                ) : (
-                  <View className="absolute inset-0 rounded-full border-2 border-white/10 p-0.5">
-                    <View className="flex-1 rounded-full overflow-hidden opacity-40 bg-white/5">
-                      {item.img ? <Image source={{ uri: item.img }} className="w-full h-full object-cover" /> : null}
-                    </View>
-                  </View>
-                )}
-                {item.isMe && !item.hasPosted && (
-                  <View className="absolute bottom-0 right-0 bg-[#7dd3fc] w-5 h-5 rounded-full items-center justify-center border-2 border-[#090E17]">
-                    <Ionicons name="add" size={12} color="#090E17" />
-                  </View>
-                )}
-              </View>
-              <Text className={`text-[10px] font-bold text-center w-16 ${item.hasPosted ? 'text-white' : 'text-white/40'}`} numberOfLines={1}>
-                {item.name}
-              </Text>
-            </BouncyPressable>
-          )}
-        />
-      </View>
-      <Text className="text-secondary text-[10px] font-black tracking-[3px] uppercase mb-4 px-6 mt-4">Latest Updates</Text>
-    </View>
-  );
-
-  return (
-    <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17' }}>
-      
-      {/* ÎNLOCUIM SCROLL VIEW CU FLAT LIST PENTRU PERFORMANȚĂ (60 FPS) */}
+      {/* FEED LIST */}
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={posts}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={renderCircleHeader}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7dd3fc" />}
         ListEmptyComponent={
           loading ? <ActivityIndicator size="large" color="#7dd3fc" className="mt-20" /> : <Text className="text-white/40 text-center mt-20">Nicio postare în cercul tău astăzi.</Text>
         }
         renderItem={({ item }) => (
           <View className="px-5 mb-4">
-            {/* LOGICA TA DE EDITARE INLINE PĂSTRATĂ */}
             {editingPost === item.id && (
               <View className="flex-row items-center bg-white/5 rounded-2xl border border-white/20 mb-4 px-2 py-1 z-50">
                 <TextInput autoFocus className="flex-1 text-white p-3 font-body-md" value={editCaptionText} onChangeText={setEditCaptionText} />
@@ -280,7 +320,6 @@ export default function FriendsScreen() {
               </View>
             )}
             
-            {/* NOUA COMPONENTĂ DE POSTARE PENTRU DESIGN */}
             <LiquidPostCard 
               post={item} 
               onOpenComments={() => openComments(item.id)}
@@ -295,7 +334,41 @@ export default function FriendsScreen() {
         )}
       />
 
-      {/* --- MODALUL TĂU ORIGINAL DE COMENTARII (STILIZAT PENTRU PREMIUM) --- */}
+      {/* STORY VIEWER MODAL */}
+      <Modal visible={activeStory !== null} animationType="fade" transparent={true} onRequestClose={closeStory}>
+        <View className="flex-1 bg-black">
+          {activeStory?.img && (
+            <Image source={{ uri: activeStory.img }} className="w-full h-full" resizeMode="cover" />
+          )}
+          <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent']} className="absolute top-0 inset-x-0 h-40 pointer-events-none" />
+
+          <View className="absolute flex-row w-full px-2" style={{ top: insets.top }}>
+            <View className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden mx-1">
+              <Animated.View 
+                style={{ 
+                  width: storyProgress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+                  height: '100%',
+                  backgroundColor: 'white'
+                }} 
+              />
+            </View>
+          </View>
+
+          <View className="absolute flex-row items-center justify-between w-full px-4" style={{ top: insets.top + 16 }}>
+             <View className="flex-row items-center gap-3">
+               <View className="w-10 h-10 rounded-full border border-white/30 overflow-hidden bg-white/10">
+                 {activeStory?.img && <Image source={{ uri: activeStory.img }} className="w-full h-full" />}
+               </View>
+               <Text className="text-white font-bold shadow-md">{activeStory?.name}</Text>
+             </View>
+             <TouchableOpacity onPress={closeStory} className="p-2"><Ionicons name="close" size={28} color="white" /></TouchableOpacity>
+          </View>
+
+          <TouchableOpacity activeOpacity={1} onPress={closeStory} className="absolute inset-0 top-32 z-[-1]" />
+        </View>
+      </Modal>
+
+      {/* MODAL COMENTARII */}
       <Modal visible={activePostId !== null} animationType="slide" transparent={true} onRequestClose={() => setActivePostId(null)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end">
           <TouchableOpacity className="flex-1 bg-black/40" onPress={() => setActivePostId(null)} />
@@ -338,7 +411,7 @@ export default function FriendsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* --- MODALUL TĂU ORIGINAL PENTRU PROFIL (PĂSTRAT ȘI RAFINAT) --- */}
+      {/* MODAL PROFIL */}
       <Modal visible={viewedProfile !== null} animationType="slide" transparent={true} onRequestClose={() => setViewedProfile(null)}>
         <BlurView intensity={90} tint="dark" className="flex-1 p-6 justify-center">
           <View className="absolute inset-0 bg-[#090E17]/40" />
