@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, Alert, TextInput, Dimensions, Animated } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Alert, TextInput, Dimensions, Animated, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import BouncyPressable from '../components/BouncyPressable';
 
-const { width } = Dimensions.get('window');
 const HEADER_HEIGHT = 180;
 
 export default function ProfileScreen() {
@@ -21,13 +21,13 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [newBio, setNewBio] = useState('');
+  const [isUploadingPic, setIsUploadingPic] = useState(false);
 
   // --- ANIMATIONS ---
   const scrollY = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
   const enterAnim = useRef(new Animated.Value(0)).current;
 
-  // Parallax pentru Header 
   const headerTranslateY = scrollY.interpolate({
     inputRange: [-100, 0, HEADER_HEIGHT],
     outputRange: [-50, 0, HEADER_HEIGHT * 0.5],
@@ -77,6 +77,39 @@ export default function ProfileScreen() {
     } catch (error) { Alert.alert("Eroare", "Serverul nu a putut salva schimbarile."); }
   };
 
+  const handleChangeProfilePic = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      setIsUploadingPic(true);
+      try {
+        const formData = new FormData();
+        const uri = result.assets[0].uri;
+        const filename = uri.split('/').pop() || 'profile.jpg';
+        const type = `image/${filename.split('.').pop()}`;
+
+        formData.append('file', { uri, name: filename, type } as any);
+
+        const response = await api.patch('/users/me/picture', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        
+        setProfile({ ...profile, profilePicUrl: response.data.profilePicUrl });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (error: any) {
+        Alert.alert("Eroare", "Nu am putut actualiza poza de profil.");
+      } finally {
+        setIsUploadingPic(false);
+      }
+    }
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert("Avertizare", "Ștergerea contului este ireversibilă. Continuăm?", [
       { text: "Cancel", style: "cancel" },
@@ -93,11 +126,6 @@ export default function ProfileScreen() {
           <View className="w-32 h-32 rounded-full bg-white/10 mb-6" />
           <View className="w-40 h-8 bg-white/10 rounded-full mb-3" />
           <View className="w-64 h-4 bg-white/5 rounded-full mb-10" />
-          <View className="flex-row justify-around w-full px-2 mb-10">
-            <View className="w-[30%] h-16 bg-white/10 rounded-full" />
-            <View className="w-[30%] h-16 bg-white/10 rounded-full" />
-            <View className="w-[30%] h-16 bg-white/10 rounded-full" />
-          </View>
         </Animated.View>
       </View>
     );
@@ -105,51 +133,37 @@ export default function ProfileScreen() {
 
   return (
     <View className="flex-1 bg-[#090E17]">
-      
-      {/* 🌌 FUNDAL CURAT - FĂRĂ CERCURI CIUDATE, DOAR TEXTURĂ ȘI GRADIENT FIN */}
       <View className="absolute inset-0">
-        <Image 
-          source={{ uri: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1000' }} 
-          className="w-full h-full opacity-20" 
-          blurRadius={50} 
-        />
+        <Image source={{ uri: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1000' }} className="w-full h-full opacity-20" blurRadius={50} />
         <LinearGradient colors={['#090E17', '#06090E']} className="absolute inset-0 opacity-90" />
       </View>
 
-      {/* 💫 HEADER PARALLAX EFFECTS (Glow eliminat) */}
-      <Animated.View 
-        style={{ 
-          position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT,
-          transform: [{ translateY: headerTranslateY }]
-        }}
-      >
+      <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT, transform: [{ translateY: headerTranslateY }] }}>
         <LinearGradient colors={['rgba(255,255,255,0.05)', 'transparent']} className="flex-1" />
       </Animated.View>
 
-      {/* 📜 SCROLL CONTENT */}
       <Animated.ScrollView
         contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
       >
-        
         <Animated.View style={{ opacity: enterAnim, transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }] }}>
           
-          {/* IDENTITATE */}
           <View className="items-center px-6 mb-8 mt-4">
             <Animated.View style={{ transform: [{ scale: profilePicScale }] }} className="relative mb-5 shadow-2xl shadow-black">
-              {/* Inel subțire și elegant în jurul pozei */}
               <View className="p-[2px] rounded-full bg-white/20">
                 <View className="w-32 h-32 rounded-full bg-[#06090E] items-center justify-center overflow-hidden">
-                  {profile?.profilePicUrl ? (
+                  {isUploadingPic ? (
+                    <ActivityIndicator color="white" />
+                  ) : profile?.profilePicUrl ? (
                     <Image source={{ uri: profile.profilePicUrl }} className="w-full h-full" />
                   ) : (
                     <Text className="text-white/80 text-5xl font-black">{profile?.username?.charAt(0).toUpperCase()}</Text>
                   )}
                 </View>
               </View>
-              <TouchableOpacity className="absolute bottom-0 right-0 bg-white p-2.5 rounded-full shadow-lg border-[3px] border-[#090E17]" onPress={() => Alert.alert("Edit", "Schimbare poză în curând.")}>
+              <TouchableOpacity onPress={handleChangeProfilePic} disabled={isUploadingPic} className="absolute bottom-0 right-0 bg-white p-2.5 rounded-full shadow-lg border-[3px] border-[#090E17]">
                 <Ionicons name="camera" size={16} color="#06090E" />
               </TouchableOpacity>
             </Animated.View>
@@ -160,106 +174,54 @@ export default function ProfileScreen() {
             
             {isEditingBio ? (
               <View className="flex-row items-center rounded-full border border-white/20 mt-4 px-5 py-2 bg-white/5">
-                <TextInput 
-                  className="text-white font-body-md py-1 w-56 text-center" 
-                  value={newBio} 
-                  onChangeText={setNewBio} 
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveBio}
-                />
-                <TouchableOpacity onPress={handleSaveBio} className="ml-3">
-                  <Ionicons name="checkmark-circle" size={24} color="white" />
-                </TouchableOpacity>
+                <TextInput className="text-white font-body-md py-1 w-56 text-center" value={newBio} onChangeText={setNewBio} autoFocus returnKeyType="done" onSubmitEditing={handleSaveBio} />
+                <TouchableOpacity onPress={handleSaveBio} className="ml-3"><Ionicons name="checkmark-circle" size={24} color="white" /></TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity onPress={() => setIsEditingBio(true)} className="mt-4 px-8">
-                <Text className="text-white/60 text-center font-body-md text-sm leading-6">
-                  {profile?.bio || "Tap here to write your bio..."}
-                </Text>
+                <Text className="text-white/60 text-center font-body-md text-sm leading-6">{profile?.bio || "Tap here to write your bio..."}</Text>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* 💊 STATISTICI "PILL SHAPE" - PASTILĂ PERFECTĂ */}
           <View className="px-5 mb-10">
             <View className="flex-row justify-between items-center py-5 px-6 rounded-full border border-white/10 bg-white/[0.03] shadow-lg shadow-black/50">
-              
-              <View className="items-center flex-1">
-                  <Text className="text-white font-black text-2xl">{profile?.followersCount || 0}</Text>
-                  <Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">Followers</Text>
-              </View>
-              
+              <View className="items-center flex-1"><Text className="text-white font-black text-2xl">{profile?.followersCount || 0}</Text><Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">Followers</Text></View>
               <View className="w-[1px] h-8 bg-white/10" />
-              
-              <View className="items-center flex-1">
-                  <Text className="text-white font-black text-2xl">{profile?.followingCount || 0}</Text>
-                  <Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">Following</Text>
-              </View>
-
+              <View className="items-center flex-1"><Text className="text-white font-black text-2xl">{profile?.followingCount || 0}</Text><Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">Following</Text></View>
               <View className="w-[1px] h-8 bg-white/10" />
-              
-              <View className="items-center flex-1">
-                  <Text className="text-white font-black text-2xl">{myPosts.length}</Text>
-                  <Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">Snaps</Text>
-              </View>
-
+              <View className="items-center flex-1"><Text className="text-white font-black text-2xl">{myPosts.length}</Text><Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">Snaps</Text></View>
             </View>
           </View>
 
-          {/* ⚙️ SETTINGS */}
           <View className="px-6 mb-10">
             <Text className="text-white/30 text-[11px] font-black tracking-[4px] uppercase mb-4 ml-4">Settings</Text>
             <View className="bg-white/[0.03] rounded-[32px] border border-white/5 overflow-hidden">
-              
               <BouncyPressable onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
                 <View className="flex-row items-center justify-between p-5 border-b border-white/5">
-                  <View className="flex-row items-center gap-4">
-                    <View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center">
-                      <Ionicons name="notifications" size={18} color="white" />
-                    </View>
-                    <Text className="text-white/90 font-bold text-base">Notifications</Text>
-                  </View>
+                  <View className="flex-row items-center gap-4"><View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"><Ionicons name="notifications" size={18} color="white" /></View><Text className="text-white/90 font-bold text-base">Notifications</Text></View>
                   <Ionicons name="chevron-forward" size={18} color="#555" />
                 </View>
               </BouncyPressable>
-
               <BouncyPressable onPress={logout}>
                 <View className="flex-row items-center justify-between p-5 border-b border-white/5">
-                  <View className="flex-row items-center gap-4">
-                    <View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center">
-                      <Ionicons name="log-out" size={18} color="white" />
-                    </View>
-                    <Text className="text-white/90 font-bold text-base">Sign Out</Text>
-                  </View>
+                  <View className="flex-row items-center gap-4"><View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"><Ionicons name="log-out" size={18} color="white" /></View><Text className="text-white/90 font-bold text-base">Sign Out</Text></View>
                   <Ionicons name="chevron-forward" size={18} color="#555" />
                 </View>
               </BouncyPressable>
-
               <BouncyPressable onPress={handleDeleteAccount}>
                 <View className="flex-row items-center justify-between p-5">
-                  <View className="flex-row items-center gap-4">
-                    <View className="w-10 h-10 rounded-full bg-red-500/10 items-center justify-center">
-                      <Ionicons name="trash" size={18} color="#ff4b4b" />
-                    </View>
-                    <Text className="text-[#ff4b4b] font-bold text-base">Delete Account</Text>
-                  </View>
+                  <View className="flex-row items-center gap-4"><View className="w-10 h-10 rounded-full bg-red-500/10 items-center justify-center"><Ionicons name="trash" size={18} color="#ff4b4b" /></View><Text className="text-[#ff4b4b] font-bold text-base">Delete Account</Text></View>
                   <Ionicons name="chevron-forward" size={18} color="#ff4b4b" />
                 </View>
               </BouncyPressable>
-
             </View>
           </View>
 
-          {/* 🖼️ GALERIE */}
           <View className="px-6">
             <View className="flex-row justify-between items-end mb-6 px-2">
-              <View>
-                <Text className="text-white/50 text-[10px] font-black tracking-[3px] uppercase mb-1">Portfolio</Text>
-                <Text className="text-white text-2xl font-bold tracking-tight">Gallery</Text>
-              </View>
+              <View><Text className="text-white/50 text-[10px] font-black tracking-[3px] uppercase mb-1">Portfolio</Text><Text className="text-white text-2xl font-bold tracking-tight">Gallery</Text></View>
             </View>
-
             {myPosts.length === 0 ? (
               <View className="rounded-[40px] p-10 border border-dashed border-white/10 items-center bg-white/[0.02]">
                 <Ionicons name="images-outline" size={40} color="#555" />
