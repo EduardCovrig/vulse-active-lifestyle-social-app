@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Animated, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Animated, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false); // State nou pentru loading
   
   const cameraRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
@@ -68,27 +69,36 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
     setPhotoUri(null);
   };
 
-  const handlePostDailySnap = async () => {
-    if (!photoUri) return;
+  // --- FUNCȚIE UNICĂ DE UPLOAD PENTRU TOATE RUTELE ---
+  const handleUpload = async (type: 'DAILY' | 'REEL' | 'MEAL') => {
+    if (!photoUri || isUploading) return;
 
+    setIsUploading(true);
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const formData = new FormData();
       
-      const filename = photoUri.split('/').pop() || 'snap.jpg';
+      const filename = photoUri.split('/').pop() || 'upload.jpg';
       const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpeg`;
+      const mimeType = match ? `image/${match[1]}` : `image/jpeg`;
 
       formData.append('file', {
         uri: photoUri,
         name: filename,
-        type: type,
+        type: mimeType,
       } as any);
 
-      formData.append('type', 'DAILY');
-      formData.append('caption', 'Entering my healthy era! 🚀'); 
+      formData.append('type', type);
+      
+      // Caption diferit în funcție de tip
+      let caption = "New post on Vulse! ⚡";
+      if (type === 'DAILY') caption = "My Daily Snap! 🚀";
+      if (type === 'MEAL') caption = "Analyzing my nutrition... 🥗";
+      if (type === 'REEL') caption = "Check this out! #global #vulse";
+      
+      formData.append('caption', caption);
 
-      console.log("Se trimite poza la server...");
+      console.log(`Se trimite postare de tip ${type} la server...`);
 
       const response = await api.post('/posts/create', formData, {
         headers: {
@@ -97,12 +107,15 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
       });
 
       console.log("Upload cu succes!", response.data);
-      Alert.alert("Awesome!", "Your Daily Snap is live.");
+      Alert.alert("Awesome!", type === 'REEL' ? "Your Reel is now live globally!" : "Successfully posted.");
       onClose(); 
       
     } catch (error: any) {
       console.error("Eroare la upload:", error.response?.data || error.message);
-      Alert.alert("Eroare", "Nu am putut posta imaginea. Verifica conexiunea.");
+      const backendMsg = error.response?.data?.message || "Nu am putut posta. Verifica conexiunea.";
+      Alert.alert("Eroare", backendMsg);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -119,28 +132,66 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
           </BouncyPressable>
         </View>
 
-        <View className="absolute bottom-0 inset-x-0 z-50 pb-10 pt-6 px-6">
+        <View className="absolute bottom-0 inset-x-0 z-50 pb-10 pt-6 px-4">
           <BlurView intensity={70} tint="dark" className="rounded-[32px] p-6 border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden">
-             <View className="absolute inset-0 bg-primary/5" />
-             
-             <Text className="text-white font-headline-lg text-2xl tracking-tight mb-1">Ready to ignite?</Text>
-             <Text className="text-on-surface-variant font-body-md text-sm mb-6">Choose how you want to post this moment.</Text>
-             
-             <View className="flex-row gap-3">
-               <TouchableOpacity activeOpacity={0.8} className="flex-1">
-                 <LinearGradient colors={['#344767', '#1d314f']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-2xl p-4 items-center justify-center border border-white/10 h-24">
-                    <Ionicons name="sparkles" size={24} color="#7dd3fc" className="mb-2" />
-                    <Text className="text-[#7dd3fc] font-bold text-xs tracking-wider">AI ANALYSIS</Text>
-                 </LinearGradient>
-               </TouchableOpacity>
+              <View className="absolute inset-0 bg-primary/5" />
+              
+              <Text className="text-white font-headline-lg text-2xl tracking-tight mb-1">Ready to ignite?</Text>
+              <Text className="text-on-surface-variant font-body-md text-sm mb-6">Choose how you want to post this moment.</Text>
+              
+              <View className="flex-col gap-3">
+                {/* RÂNDUL 1: AI (MEAL) ȘI REEL (GLOBAL) */}
+                <View className="flex-row gap-3">
+                    <TouchableOpacity 
+                        activeOpacity={0.8} 
+                        className="flex-1" 
+                        onPress={() => handleUpload('MEAL')}
+                        disabled={isUploading}
+                    >
+                        <LinearGradient colors={['#344767', '#1d314f']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-2xl p-4 items-center justify-center border border-white/10 h-24">
+                            {isUploading ? <ActivityIndicator color="#7dd3fc" /> : (
+                                <>
+                                    <Ionicons name="sparkles" size={24} color="#7dd3fc" className="mb-2" />
+                                    <Text className="text-[#7dd3fc] font-bold text-[10px] tracking-wider text-center">AI NUTRITION</Text>
+                                </>
+                            )}
+                        </LinearGradient>
+                    </TouchableOpacity>
 
-               <TouchableOpacity activeOpacity={0.8} className="flex-1" onPress={handlePostDailySnap}>
-                 <LinearGradient colors={['#7ad7c6', '#7dd3fc']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-2xl p-4 items-center justify-center shadow-[0_0_20px_rgba(122,215,198,0.3)] h-24">
-                    <Ionicons name="flash" size={24} color="#0b1326" className="mb-2" />
-                    <Text className="text-[#0b1326] font-bold text-xs tracking-wider">DAILY SNAP</Text>
-                 </LinearGradient>
-               </TouchableOpacity>
-             </View>
+                    <TouchableOpacity 
+                        activeOpacity={0.8} 
+                        className="flex-1" 
+                        onPress={() => handleUpload('REEL')}
+                        disabled={isUploading}
+                    >
+                        <LinearGradient colors={['#171f33', '#0b1326']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-2xl p-4 items-center justify-center border border-white/10 h-24">
+                            {isUploading ? <ActivityIndicator color="#c5eaff" /> : (
+                                <>
+                                    <Ionicons name="globe-outline" size={24} color="#c5eaff" className="mb-2" />
+                                    <Text className="text-primary font-bold text-[10px] tracking-wider text-center">VULSE REEL</Text>
+                                </>
+                            )}
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+
+                {/* RÂNDUL 2: DAILY SNAP (FRIENDS ONLY) */}
+                <TouchableOpacity 
+                    activeOpacity={0.8} 
+                    className="w-full" 
+                    onPress={() => handleUpload('DAILY')}
+                    disabled={isUploading}
+                >
+                  <LinearGradient colors={['#7ad7c6', '#7dd3fc']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-2xl p-4 flex-row items-center justify-center shadow-[0_0_20px_rgba(122,215,198,0.3)] h-16">
+                    {isUploading ? <ActivityIndicator color="#0b1326" /> : (
+                        <>
+                            <Ionicons name="flash" size={20} color="#0b1326" className="mr-2" />
+                            <Text className="text-[#0b1326] font-black text-sm tracking-widest">POST DAILY SNAP</Text>
+                        </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
           </BlurView>
         </View>
       </View>
