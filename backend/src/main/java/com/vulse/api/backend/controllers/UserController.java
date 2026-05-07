@@ -107,8 +107,8 @@ public class UserController {
         profile.put("username", user.getUsername());
         profile.put("bio", user.getBio());
         profile.put("profilePicUrl", user.getProfilePicUrl());
-        profile.put("followingCount", followRepository.findByFollowerId(user.getId()).size());
-        profile.put("followersCount", followRepository.findByFollowingId(user.getId()).size());
+        profile.put("followingCount", followRepository.countByFollowerId(user.getId()));
+        profile.put("followersCount", followRepository.countByFollowingId(user.getId()));
         profile.put("isFollowing", followRepository.existsByFollowerIdAndFollowingId(currentUser.getId(), user.getId()));
 
         // Date noi pentru UX-ul frontend-ului
@@ -148,8 +148,8 @@ public class UserController {
         profile.put("email", dbUser.getEmail());
         profile.put("bio", dbUser.getBio());
         profile.put("profilePicUrl", dbUser.getProfilePicUrl());
-        profile.put("followingCount", followRepository.findByFollowerId(dbUser.getId()).size());
-        profile.put("followersCount", followRepository.findByFollowingId(dbUser.getId()).size());
+        profile.put("followingCount", followRepository.countByFollowerId(dbUser.getId()));
+        profile.put("followersCount", followRepository.countByFollowingId(dbUser.getId()));
 
         // Target-uri Macro
         profile.put("dailyCaloriesGoal", dbUser.getDailyCaloriesGoal());
