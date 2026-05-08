@@ -6,13 +6,14 @@ import GlassTabBar from '../components/GlassTabBar';
 import CameraScreen from './CameraScreen';
 import ProfileScreen from './ProfileScreen';
 import FriendsScreen from './FriendsScreen';
+import NutritionScreen from './NutritionScreen';
 import { api } from '../services/api';
 
 const { height } = Dimensions.get('window');
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<'feed' | 'friends' | 'camera' | 'profile'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'friends' | 'camera' | 'nutrition' | 'profile'>('feed');
 
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +73,8 @@ export default function FeedScreen() {
           <FriendsScreen onOpenCamera={() => setActiveTab('camera')} />
         ) : activeTab === 'profile' ? (
           <ProfileScreen />
+        ) : activeTab === 'nutrition' ? (
+          <NutritionScreen /> // <-- RUTEAZA CATRE NOUL ECRAN
         ) : null}
       </View>
 
