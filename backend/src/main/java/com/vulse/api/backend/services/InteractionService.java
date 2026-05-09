@@ -2,11 +2,9 @@ package com.vulse.api.backend.services;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.vulse.api.backend.models.Like;
-import com.vulse.api.backend.models.Post;
-import com.vulse.api.backend.models.Reaction;
-import com.vulse.api.backend.models.User;
+import com.vulse.api.backend.models.*;
 import com.vulse.api.backend.repositories.LikeRepository;
+import com.vulse.api.backend.repositories.NotificationRepository;
 import com.vulse.api.backend.repositories.PostRepository;
 import com.vulse.api.backend.repositories.ReactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +23,7 @@ public class InteractionService {
     private final ReactionRepository reactionRepository;
     private final PostRepository postRepository;
     private final Cloudinary cloudinary;
+    private final NotificationRepository notificationRepository; // ADĂUGAT AICI
 
     @Transactional
     public void toggleLike(User user, UUID postId) {
@@ -35,7 +34,20 @@ public class InteractionService {
         likeRepository.findByUserIdAndPostId(user.getId(), postId)
                 .ifPresentOrElse(
                         likeRepository::delete,
-                        () -> likeRepository.save(Like.builder().user(user).post(post).build())
+                        () -> {
+                            likeRepository.save(Like.builder().user(user).post(post).build());
+
+                            // sends notificaiton to original user (if he isn't the one who liked it)
+                            if (!post.getUser().getId().equals(user.getId())) {
+                                notificationRepository.save(Notification.builder()
+                                        .recipient(post.getUser())
+                                        .sender(user)
+                                        .type(NotificationType.LIKE)
+                                        .post(post)
+                                        .isRead(false)
+                                        .build());
+                            }
+                        }
                 );
     }
 
