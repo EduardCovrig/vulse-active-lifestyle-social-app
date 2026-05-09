@@ -1,12 +1,7 @@
 package com.vulse.api.backend.controllers;
 
-import com.vulse.api.backend.models.Follow;
-import com.vulse.api.backend.models.PostType;
-import com.vulse.api.backend.models.User;
-import com.vulse.api.backend.repositories.BlockRepository;
-import com.vulse.api.backend.repositories.FollowRepository;
-import com.vulse.api.backend.repositories.PostRepository;
-import com.vulse.api.backend.repositories.UserRepository;
+import com.vulse.api.backend.models.*;
+import com.vulse.api.backend.repositories.*;
 import com.vulse.api.backend.services.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +27,7 @@ public class UserController {
     private final UserService userService;
     private final BlockRepository blockRepository;
     private final PostRepository postRepository;
+    private final NotificationRepository notificationRepository;
 
     @GetMapping("/search")
     public ResponseEntity<List<Map<String, Object>>> searchUsers(@RequestParam String query) {
@@ -58,6 +54,14 @@ public class UserController {
             followRepository.delete(follow);
         } else {
             followRepository.save(Follow.builder().follower(currentUser).following(toFollow).build());
+
+            // sends notification to followed user
+            notificationRepository.save(Notification.builder()
+                    .recipient(toFollow)
+                    .sender(currentUser)
+                    .type(NotificationType.FOLLOW)
+                    .isRead(false)
+                    .build());
         }
         return ResponseEntity.ok().build();
     }
