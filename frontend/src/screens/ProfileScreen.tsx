@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, Alert, TextInput, Dimensions, Animated, ActivityIndicator, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Alert, TextInput, Dimensions, Animated, ActivityIndicator, Modal, FlatList, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,21 +28,37 @@ export default function ProfileScreen() {
   const [newBio, setNewBio] = useState('');
   const [isUploadingPic, setIsUploadingPic] = useState(false);
 
-  const [isEditingMacros, setIsEditingMacros] = useState(false);
-  const [macrosForm, setMacrosForm] = useState({ cal: '', pro: '', carb: '', fat: '' });
-  const [isSavingMacros, setIsSavingMacros] = useState(false);
-
   const [showSettings, setShowSettings] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
   const [loadingBlocked, setLoadingBlocked] = useState(false);
 
   const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [showVibeModal, setShowVibeModal] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
   const enterAnim = useRef(new Animated.Value(0)).current;
   const spinAnim = useRef(new Animated.Value(0)).current;
+
+  // Slide to close pentru Settings/Blocked Modals
+  const swipeDownToCloseSettings = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 50) setShowSettings(false);
+      }
+    })
+  ).current;
+
+  const swipeDownToCloseBlocked = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 50) setShowBlockedUsers(false);
+      }
+    })
+  ).current;
 
   const headerTranslateY = scrollY.interpolate({
     inputRange: [-100, 0, HEADER_HEIGHT],
@@ -77,12 +93,6 @@ export default function ProfileScreen() {
       ]);
       setProfile(profileRes.data);
       setNewBio(profileRes.data.bio || '');
-      setMacrosForm({
-        cal: profileRes.data.dailyCaloriesGoal?.toString() || '',
-        pro: profileRes.data.proteinGoal?.toString() || '',
-        carb: profileRes.data.carbsGoal?.toString() || '',
-        fat: profileRes.data.fatGoal?.toString() || ''
-      });
       setMyPosts(postsRes.data);
     } catch (error) {
       setProfile({ username: username || "Explorer", bio: "Welcome to Vulse", followersCount: 0, followingCount: 0 });
@@ -158,37 +168,6 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const handleSaveMacros = async () => {
-    setIsSavingMacros(true);
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      
-      let queryParams = [];
-      if (macrosForm.cal) queryParams.push(`dailyCaloriesGoal=${macrosForm.cal}`);
-      if (macrosForm.pro) queryParams.push(`proteinGoal=${macrosForm.pro}`);
-      if (macrosForm.carb) queryParams.push(`carbsGoal=${macrosForm.carb}`);
-      if (macrosForm.fat) queryParams.push(`fatGoal=${macrosForm.fat}`);
-      
-      const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
-      await api.put(`/users/me${queryString}`);
-      
-      setProfile({
-        ...profile,
-        dailyCaloriesGoal: macrosForm.cal ? parseInt(macrosForm.cal) : null,
-        proteinGoal: macrosForm.pro ? parseInt(macrosForm.pro) : null,
-        carbsGoal: macrosForm.carb ? parseInt(macrosForm.carb) : null,
-        fatGoal: macrosForm.fat ? parseInt(macrosForm.fat) : null,
-      });
-      
-      setIsEditingMacros(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      Alert.alert("Eroare", "Nu am putut salva obiectivele.");
-    } finally {
-      setIsSavingMacros(false);
-    }
-  };
-
   const handleOpenBlockedUsers = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowSettings(false); 
@@ -254,9 +233,8 @@ export default function ProfileScreen() {
       >
         <Animated.View style={{ opacity: enterAnim, transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }] }}>
           
-          {/* USER INFO */}
-          <View className="items-center px-6 mb-8 mt-4">
-            <Animated.View style={{ transform: [{ scale: profilePicScale }] }} className="relative mb-5 shadow-2xl shadow-black">
+          <View className="items-center px-6 mb-8 mt-4 flex-col gap-3">
+            <Animated.View style={{ transform: [{ scale: profilePicScale }] }} className="relative mb-2 shadow-2xl shadow-black">
               <View className="p-[2px] rounded-full bg-white/20">
                 <View className="w-32 h-32 rounded-full bg-[#06090E] items-center justify-center overflow-hidden">
                   {isUploadingPic ? (
@@ -273,31 +251,31 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </Animated.View>
 
-            <View className="flex-row items-center gap-3">
-              <Text className="text-white font-extrabold text-3xl tracking-tight">{profile?.username}</Text>
-            </View>
+            <Text className="text-white font-extrabold text-3xl tracking-tight text-center">{profile?.username}</Text>
             
-            {isEditingBio ? (
-              <View className="flex-row items-center rounded-full border border-white/20 mt-4 px-5 py-2 bg-white/5">
-                <TextInput className="text-white font-body-md py-1 w-56 text-center" value={newBio} onChangeText={setNewBio} autoFocus returnKeyType="done" onSubmitEditing={handleSaveBio} />
-                <TouchableOpacity onPress={handleSaveBio} className="ml-3"><Ionicons name="checkmark-circle" size={24} color="white" /></TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity onPress={() => setIsEditingBio(true)} className="mt-4 px-8 items-center">
-                <Text className="text-white/60 text-center font-body-md text-sm leading-6">{profile?.bio || "Tap here to write your bio..."}</Text>
-              </TouchableOpacity>
-            )}
+            <View className="min-h-[40px] justify-center items-center w-full">
+              {isEditingBio ? (
+                <View className="flex-row items-center justify-center rounded-full border border-white/20 px-4 h-11 bg-white/5 w-[80%]">
+                  <TextInput className="flex-1 text-white font-body-md text-center" value={newBio} onChangeText={setNewBio} autoFocus returnKeyType="done" onSubmitEditing={handleSaveBio} />
+                  <TouchableOpacity onPress={handleSaveBio} className="ml-2"><Ionicons name="checkmark-circle" size={24} color="white" /></TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => setIsEditingBio(true)} className="px-4 py-2 w-full">
+                  <Text className="text-white/60 text-center font-body-md text-sm leading-5">{profile?.bio || "Tap here to write your bio..."}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-            {/* STREAK BADGE */}
             {profile?.streak > 0 && (
-              <View className="mt-4 bg-orange-500/20 px-3 py-1.5 rounded-full border border-orange-500/30 flex-row items-center gap-1.5 shadow-[0_0_10px_rgba(255,138,0,0.3)]">
-                <Ionicons name="flame" size={14} color="#ff8a00" />
-                <Text className="text-[#ff8a00] font-black text-xs uppercase tracking-widest">{profile.streak} Day Streak</Text>
+              <View className="bg-orange-500/20 px-4 py-2 rounded-full border border-orange-500/30 flex-row items-center justify-center gap-1.5 shadow-[0_0_10px_rgba(255,138,0,0.3)] mt-2">
+                <Ionicons name="flame" size={16} color="#ff8a00" />
+                <Text style={{ includeFontPadding: false, textAlignVertical: 'center' }} className="text-[#ff8a00] font-black text-xs uppercase tracking-widest leading-none mt-0.5">
+                  {profile.streak} Day Streak
+                </Text>
               </View>
             )}
           </View>
 
-          {/* COUNTERS */}
           <View className="px-5 mb-8">
             <View className="flex-row justify-between items-center py-5 px-6 rounded-full border border-white/10 bg-white/[0.03] shadow-lg shadow-black/50">
               <View className="items-center flex-1"><Text className="text-white font-black text-2xl">{profile?.followersCount || 0}</Text><Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">Followers</Text></View>
@@ -308,59 +286,21 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* WEEKLY VIBE (VISUAL CALENDAR) INTEGRATION */}
-          <View className="px-6 mb-8">
-            <Text className="text-white/30 text-[11px] font-black tracking-[4px] uppercase mb-4 ml-4">Weekly Vibe</Text>
-            <View className="flex-row justify-between bg-white/[0.03] p-4 rounded-3xl border border-white/5 shadow-md shadow-black/30">
-               {Array.from({ length: 7 }).map((_, i) => (
-                  <View key={i} className={`w-[12%] aspect-square rounded-full overflow-hidden items-center justify-center ${profile?.calendarSnaps && profile.calendarSnaps[i] ? 'border border-white/20' : 'bg-white/5 border border-white/5'}`}>
-                    {profile?.calendarSnaps && profile.calendarSnaps[i] ? (
-                       <Image source={{ uri: profile.calendarSnaps[i] }} className="w-full h-full" />
-                    ) : (
-                       <View className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                    )}
-                  </View>
-               ))}
-            </View>
-          </View>
-
-          {/* MACRO GOALS CARD */}
           <View className="px-6 mb-10">
-            <View className="flex-row justify-between items-end mb-4 ml-4">
-              <Text className="text-white/30 text-[11px] font-black tracking-[4px] uppercase">Nutrition Targets</Text>
-              <TouchableOpacity onPress={() => setIsEditingMacros(true)}>
-                <Text className="text-[#7dd3fc] text-[10px] font-bold uppercase tracking-widest">Edit</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View className="bg-white/[0.03] rounded-[32px] border border-white/5 overflow-hidden p-6">
-              <View className="flex-row justify-between items-center mb-6">
-                <View className="flex-row items-center gap-3">
-                  <View className="w-12 h-12 rounded-full bg-[#7ad7c6]/20 items-center justify-center border border-[#7ad7c6]/30">
-                    <Ionicons name="flame" size={20} color="#7ad7c6" />
-                  </View>
-                  <View>
-                    <Text className="text-white/50 text-[10px] uppercase tracking-widest font-bold mb-1">Daily Calories</Text>
-                    <Text className="text-white font-black text-2xl">{profile?.dailyCaloriesGoal || '---'} <Text className="text-white/40 text-sm font-bold">kcal</Text></Text>
-                  </View>
-                </View>
+            <BouncyPressable onPress={() => setShowVibeModal(true)}>
+              <Text className="text-white/30 text-[11px] font-black tracking-[4px] uppercase mb-4 ml-4 pointer-events-none">Weekly Vibe</Text>
+              <View className="flex-row justify-between bg-white/[0.03] p-4 rounded-3xl border border-white/5 shadow-md shadow-black/30 pointer-events-none">
+                 {Array.from({ length: 7 }).map((_, i) => (
+                    <View key={i} className={`w-[12%] aspect-square rounded-full overflow-hidden items-center justify-center ${profile?.calendarSnaps && profile.calendarSnaps[i] ? 'border border-white/20' : 'bg-white/5 border border-white/5'}`}>
+                      {profile?.calendarSnaps && profile.calendarSnaps[i] ? (
+                         <Image source={{ uri: profile.calendarSnaps[i] }} className="w-full h-full" />
+                      ) : (
+                         <View className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                      )}
+                    </View>
+                 ))}
               </View>
-
-              <View className="flex-row justify-between border-t border-white/5 pt-5">
-                <View className="items-center flex-1">
-                  <Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mb-1">Protein</Text>
-                  <Text className="text-white font-bold text-lg">{profile?.proteinGoal || '-'}g</Text>
-                </View>
-                <View className="items-center flex-1 border-x border-white/5">
-                  <Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mb-1">Carbs</Text>
-                  <Text className="text-white font-bold text-lg">{profile?.carbsGoal || '-'}g</Text>
-                </View>
-                <View className="items-center flex-1">
-                  <Text className="text-white/40 text-[10px] uppercase tracking-widest font-bold mb-1">Fats</Text>
-                  <Text className="text-white font-bold text-lg">{profile?.fatGoal || '-'}g</Text>
-                </View>
-              </View>
-            </View>
+            </BouncyPressable>
           </View>
 
           {/* GALLERY GRID */}
@@ -409,16 +349,11 @@ export default function ProfileScreen() {
         </Animated.View>
       </Animated.ScrollView>
 
-      {/* --- MODAL POST VIEWER (FULL SCREEN) --- */}
+      {/* --- MODAL POST VIEWER --- */}
       <Modal visible={selectedPost !== null} animationType="fade" transparent={true} onRequestClose={() => setSelectedPost(null)}>
         <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative">
           <View className="absolute inset-0 bg-[#090E17]/80" />
-          
-          <TouchableOpacity 
-            onPress={() => setSelectedPost(null)} 
-            style={{ top: insets.top + 10 }}
-            className="absolute right-6 z-50 w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20"
-          >
+          <TouchableOpacity onPress={() => setSelectedPost(null)} style={{ top: insets.top + 10 }} className="absolute right-6 z-50 w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20">
             <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
 
@@ -432,11 +367,27 @@ export default function ProfileScreen() {
                    setSelectedPost(null);
                  }}
                  onUserBlocked={() => {}}
-                 onEditCaption={(id, text) => {
-                   Alert.alert("Info", "Te rugăm să editezi descrierea din meniul postării de pe Feed.");
-                 }}
+                 onEditCaption={() => Alert.alert("Info", "Te rugăm să editezi descrierea din meniul postării de pe Feed.")}
                />
             )}
+          </View>
+        </BlurView>
+      </Modal>
+
+      {/* MODAL WEEKLY VIBE CALENDAR */}
+      <Modal visible={showVibeModal} animationType="fade" transparent={true} onRequestClose={() => setShowVibeModal(false)}>
+        <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative p-6">
+          <View className="absolute inset-0 bg-[#090E17]/80" />
+          <TouchableOpacity onPress={() => setShowVibeModal(false)} style={{ top: insets.top + 10 }} className="absolute right-6 z-50 w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20">
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          <Text className="text-white font-black text-3xl mb-8 text-center tracking-tight">Your Visual Journey</Text>
+          <View className="flex-row flex-wrap justify-center gap-4">
+            {profile?.calendarSnaps?.map((img: string, i: number) => (
+              <View key={i} className="w-[28%] aspect-square rounded-2xl overflow-hidden border-2 border-white/10 shadow-lg shadow-black">
+                {img ? <Image source={{ uri: img }} className="w-full h-full" /> : <View className="flex-1 bg-white/5" />}
+              </View>
+            ))}
           </View>
         </BlurView>
       </Modal>
@@ -444,11 +395,20 @@ export default function ProfileScreen() {
       {/* --- MODAL SETTINGS (ROTIȚA) --- */}
       <Modal visible={showSettings} animationType="slide" transparent={true} onRequestClose={() => setShowSettings(false)}>
         <View className="flex-1 justify-end">
-          <TouchableOpacity className="flex-1 bg-black/60" onPress={() => setShowSettings(false)} />
+          <TouchableOpacity className="absolute inset-0 bg-black/60" activeOpacity={1} onPress={() => setShowSettings(false)} />
           <BlurView intensity={90} tint="dark" className="p-6 rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)] pb-10">
             <View className="absolute inset-0 bg-[#090E17]/80" />
-            <View className="w-12 h-1.5 bg-white/20 rounded-full self-center mb-6" />
-            <Text className="text-white font-black text-2xl mb-6 text-center tracking-tight">Settings</Text>
+            
+            {/* ZONA DEDICATĂ PENTRU DRAG */}
+            <View {...swipeDownToCloseSettings.panHandlers} className="w-full pt-4 pb-2 items-center bg-transparent z-50">
+              <View className="w-12 h-1.5 bg-white/20 rounded-full" />
+            </View>
+
+            <TouchableOpacity onPress={() => setShowSettings(false)} className="absolute top-4 right-6 z-50 w-8 h-8 bg-white/10 rounded-full items-center justify-center border border-white/20">
+              <Ionicons name="close" size={18} color="white" />
+            </TouchableOpacity>
+
+            <Text className="text-white font-black text-2xl mb-6 text-center tracking-tight mt-2">Settings</Text>
 
             <View className="bg-white/[0.03] rounded-[32px] border border-white/5 overflow-hidden">
               <BouncyPressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowSettings(false); }}>
@@ -483,60 +443,23 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* --- MODAL EDITARE MACROS --- */}
-      <Modal visible={isEditingMacros} animationType="slide" transparent={true} onRequestClose={() => setIsEditingMacros(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end">
-          <TouchableOpacity className="flex-1 bg-black/60" onPress={() => setIsEditingMacros(false)} />
-          <BlurView intensity={90} tint="dark" className="p-8 rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)]">
-            <View className="absolute inset-0 bg-[#090E17]/80" />
-            <View className="w-12 h-1.5 bg-white/20 rounded-full self-center mb-6" />
-            <Text className="text-white font-black text-2xl mb-2 text-center tracking-tight">Daily Targets</Text>
-            <Text className="text-white/40 text-sm text-center mb-8">Set your nutrition goals for AI analysis.</Text>
-
-            <View className="flex-row flex-wrap justify-between gap-y-4">
-              <View className="w-[48%]">
-                <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Calories</Text>
-                <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                  <TextInput keyboardType="numeric" value={macrosForm.cal} onChangeText={(v) => setMacrosForm(p => ({ ...p, cal: v }))} className="text-white font-bold text-lg" placeholder="e.g. 2500" placeholderTextColor="#555" keyboardAppearance="dark" />
-                </View>
-              </View>
-              <View className="w-[48%]">
-                <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Protein (g)</Text>
-                <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                  <TextInput keyboardType="numeric" value={macrosForm.pro} onChangeText={(v) => setMacrosForm(p => ({ ...p, pro: v }))} className="text-white font-bold text-lg" placeholder="e.g. 150" placeholderTextColor="#555" keyboardAppearance="dark" />
-                </View>
-              </View>
-              <View className="w-[48%]">
-                <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Carbs (g)</Text>
-                <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                  <TextInput keyboardType="numeric" value={macrosForm.carb} onChangeText={(v) => setMacrosForm(p => ({ ...p, carb: v }))} className="text-white font-bold text-lg" placeholder="e.g. 250" placeholderTextColor="#555" keyboardAppearance="dark" />
-                </View>
-              </View>
-              <View className="w-[48%]">
-                <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Fats (g)</Text>
-                <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                  <TextInput keyboardType="numeric" value={macrosForm.fat} onChangeText={(v) => setMacrosForm(p => ({ ...p, fat: v }))} className="text-white font-bold text-lg" placeholder="e.g. 80" placeholderTextColor="#555" keyboardAppearance="dark" />
-                </View>
-              </View>
-            </View>
-
-            <TouchableOpacity onPress={handleSaveMacros} disabled={isSavingMacros} className="mt-8 mb-4">
-              <LinearGradient colors={['#7ad7c6', '#7dd3fc']} className="w-full h-14 rounded-2xl items-center justify-center flex-row shadow-[0_0_20px_rgba(122,215,198,0.3)]">
-                {isSavingMacros ? <ActivityIndicator color="#090E17" /> : <Text className="text-[#090E17] font-black text-lg tracking-wider">SAVE TARGETS</Text>}
-              </LinearGradient>
-            </TouchableOpacity>
-          </BlurView>
-        </KeyboardAvoidingView>
-      </Modal>
-
       {/* --- MODAL BLOCKED USERS --- */}
       <Modal visible={showBlockedUsers} animationType="slide" transparent={true} onRequestClose={() => setShowBlockedUsers(false)}>
         <View className="flex-1 justify-end">
-          <TouchableOpacity className="flex-1 bg-black/60" onPress={() => setShowBlockedUsers(false)} />
+          <TouchableOpacity className="absolute inset-0 bg-black/60" activeOpacity={1} onPress={() => setShowBlockedUsers(false)} />
           <BlurView intensity={90} tint="dark" className="h-[70%] p-6 rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)]">
             <View className="absolute inset-0 bg-[#090E17]/80" />
-            <View className="w-12 h-1.5 bg-white/20 rounded-full self-center mb-6" />
-            <Text className="text-white font-black text-2xl mb-2 text-center tracking-tight">Blocked Users</Text>
+            
+            {/* ZONA DEDICATĂ PENTRU DRAG */}
+            <View {...swipeDownToCloseBlocked.panHandlers} className="w-full pt-4 pb-2 items-center bg-transparent z-50">
+              <View className="w-12 h-1.5 bg-white/20 rounded-full" />
+            </View>
+
+            <TouchableOpacity onPress={() => setShowBlockedUsers(false)} className="absolute top-4 right-6 z-50 w-8 h-8 bg-white/10 rounded-full items-center justify-center border border-white/20">
+              <Ionicons name="close" size={18} color="white" />
+            </TouchableOpacity>
+
+            <Text className="text-white font-black text-2xl mb-2 text-center tracking-tight mt-2">Blocked Users</Text>
             <Text className="text-white/40 text-sm text-center mb-6">These users cannot see your posts or profile.</Text>
 
             {loadingBlocked ? (

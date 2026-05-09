@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import BouncyPressable from './BouncyPressable';
 
 interface LiquidPostCardProps {
   post: any;
@@ -15,6 +16,7 @@ interface LiquidPostCardProps {
   onPostDeleted: (postId: string) => void;
   onUserBlocked: (userId: string) => void;
   onEditCaption: (postId: string, currentCaption: string) => void;
+  onOpenProfile?: (username: string) => void;
 }
 
 const getRelativeTime = (dateString?: string) => {
@@ -29,7 +31,8 @@ const getRelativeTime = (dateString?: string) => {
   return `${days}d ago`;
 };
 
-export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption }: LiquidPostCardProps) {
+// AICI ERA GREȘEALA: Am adăugat onOpenProfile în acoladele de mai jos! 👇
+export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile }: LiquidPostCardProps) {
   const { username } = useContext(AuthContext);
 
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
@@ -65,8 +68,8 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
 
   const handleAddReaction = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    let result = await ImagePicker.launchCameraAsync({
+      cameraType: ImagePicker.CameraType.front,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
@@ -94,7 +97,7 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
     }
   };
 
-  // --- MENIU OPȚIUNI COMPLET ---
+  // --- OPTIONS MENU ---
   const handleOptions = () => {
     const isMyPost = post.author.username === username;
     const options: any[] = [{ text: "Cancel", style: "cancel" }];
@@ -163,7 +166,8 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
             </BlurView>
           </Animated.View>
 
-          <View className="absolute top-5 left-4 z-10 pointer-events-none flex-row items-center gap-3">
+          {/* HEADER (AUTHOR INFO) CU BUTON */}
+          <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} className="absolute top-5 left-4 z-10 flex-row items-center gap-3">
             <View className="w-12 h-12 rounded-full bg-white/10 items-center justify-center overflow-hidden border border-white/20">
               {post.author?.profilePicUrl ? (
                 <Image source={{ uri: post.author.profilePicUrl }} className="w-full h-full" />
@@ -175,7 +179,7 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
               <Text className="text-white text-base font-black tracking-tight shadow-md">{post.author?.username}</Text>
               <Text className="text-white/60 text-[10px] font-bold uppercase tracking-wider">{getRelativeTime(post.createdAt)} • {post.type}</Text>
             </View>
-          </View>
+          </BouncyPressable>
 
           {/* OPTIONS BUTTON */}
           <TouchableOpacity onPress={handleOptions} className="absolute top-6 right-4 z-10 w-10 h-10 bg-black/30 rounded-full items-center justify-center border border-white/10 backdrop-blur-md">

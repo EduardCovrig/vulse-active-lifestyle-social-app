@@ -142,13 +142,10 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
           await api.post(`/nutrition/${response.data.id}/save`);
           Alert.alert("Analiză Completă!", "Masa a fost postată și adăugată automat în Jurnalul tău de Nutriție!");
         } catch (e) {
-          console.log("Auto-save to nutrition failed", e);
           Alert.alert("Postat!", "Postarea a apărut, dar jurnalul nu a putut fi actualizat.");
         }
-      } else {
-        Alert.alert("Awesome!", type === 'REEL' ? "Your Global Drop is live!" : "Successfully posted.");
       }
-      
+    
       onClose(); 
       
     } catch (error: any) {
