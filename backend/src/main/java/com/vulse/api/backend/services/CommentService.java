@@ -18,14 +18,20 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
 
-    public void addComment(User user, UUID postId, String text) {
+    public void addComment(User user, UUID postId, String text, String parentIdStr) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalStateException("Post not found"));
+
+        Comment parent = null;
+        if (parentIdStr != null && !parentIdStr.trim().isEmpty()) {
+            parent = commentRepository.findById(UUID.fromString(parentIdStr)).orElse(null);
+        }
 
         Comment comment = Comment.builder()
                 .user(user)
                 .post(post)
                 .text(text)
+                .parentComment(parent)
                 .build();
 
         commentRepository.save(comment);

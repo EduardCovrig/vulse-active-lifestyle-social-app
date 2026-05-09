@@ -1,5 +1,6 @@
 package com.vulse.api.backend.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -33,5 +34,15 @@ public class Comment {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+    }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id")
+    @JsonIgnore // prevents errors related to JSON sending
+    private Comment parentComment;
+
+    @Transient //send the id automaticallt to the frontend
+    public UUID getParentId() {
+        return parentComment != null ? parentComment.getId() : null;
     }
 }

@@ -20,7 +20,7 @@ public class CommentController {
 
     @PostMapping("/{postId}")
     public ResponseEntity<Void> addComment(@AuthenticationPrincipal User user, @PathVariable UUID postId, @RequestBody java.util.Map<String, String> body) {
-        commentService.addComment(user, postId, body.get("text"));
+        commentService.addComment(user, postId, body.get("text"), body.get("parentId"));
         return ResponseEntity.ok().build();
     }
 
