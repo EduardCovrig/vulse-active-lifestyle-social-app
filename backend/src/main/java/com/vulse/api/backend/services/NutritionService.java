@@ -54,15 +54,31 @@ public class NutritionService {
     }
 
     // Add manual meal without a post
-    public void addManualMeal(User user, Integer calories, Integer protein, Integer carbs, Integer fat) {
+    public void addManualMeal(User user, Integer calories, Integer protein, Integer carbs, Integer fat, LocalDate date) {
         SavedMeal meal = SavedMeal.builder()
                 .user(user)
                 .calories(calories)
                 .proteinGrams(protein != null ? protein : 0)
                 .carbsGrams(carbs != null ? carbs : 0)
                 .fatGrams(fat != null ? fat : 0)
-                .consumedDate(LocalDate.now())
+                .consumedDate(date != null ? date : LocalDate.now())
                 .build();
+        savedMealRepository.save(meal);
+    }
+
+    // edits a meal
+    public void updateManualMeal(User user, UUID mealId, Integer calories, Integer protein, Integer carbs, Integer fat) {
+        SavedMeal meal = savedMealRepository.findById(mealId)
+                .orElseThrow(() -> new IllegalStateException("Meal not found"));
+
+        if (!meal.getUser().getId().equals(user.getId())) {
+            throw new IllegalStateException("Unauthorized");
+        }
+
+        meal.setCalories(calories);
+        meal.setProteinGrams(protein != null ? protein : 0);
+        meal.setCarbsGrams(carbs != null ? carbs : 0);
+        meal.setFatGrams(fat != null ? fat : 0);
         savedMealRepository.save(meal);
     }
 }

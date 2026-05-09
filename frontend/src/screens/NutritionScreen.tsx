@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Animated, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Animated, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Image, PanResponder, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,21 +8,65 @@ import * as Haptics from 'expo-haptics';
 import { api } from '../services/api';
 import BouncyPressable from '../components/BouncyPressable';
 
+const { width, height } = Dimensions.get('window');
+
 export default function NutritionScreen() {
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
   const [loading, setLoading] = useState(true);
   const [meals, setMeals] = useState<any[]>([]);
-  const [goals, setGoals] = useState<any>(null);
+  const [goals, setGoals] = useState<any>({ cal: 2000, pro: 150, carb: 250, fat: 70 });
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [editingMealId, setEditingMealId] = useState<string | null>(null);
 
-  // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [manualMeal, setManualMeal] = useState({ cal: '', pro: '', carb: '', fat: '' });
 
-  const formatDateForApi = (date: Date) => date.toISOString().split('T')[0];
+  const [macroDial, setMacroDial] = useState<{ visible: boolean, type: 'cal'|'pro'|'carb'|'fat', label: string, baseColor: string }>({ visible: false, type: 'cal', label: '', baseColor: '#7dd3fc' });
+  const [dialValue, setDialValue] = useState(0);
+  const [isSavingDial, setIsSavingDial] = useState(false);
+  
+  // Refs pentru matematica precisă a cercului
+  const dialValueRef = useRef(0);
+  const dialTypeRef = useRef<'cal'|'pro'|'carb'|'fat'>('cal');
+  const startValueRef = useRef(0);
+  const lastAngleRef = useRef(0);
+  const accumulatedAngleRef = useRef(0);
+
+  const formatDateForApi = (date: Date) => {
+    const offset = date.getTimezoneOffset();
+    const d = new Date(date.getTime() - (offset * 60 * 1000));
+    return d.toISOString().split('T')[0];
+  };
+
+  const openEditModal = (meal: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditingMealId(meal.id);
+    setManualMeal({
+      cal: meal.calories?.toString() || '',
+      pro: meal.proteinGrams?.toString() || '',
+      carb: meal.carbsGrams?.toString() || '',
+      fat: meal.fatGrams?.toString() || ''
+    });
+    setShowAddModal(true);
+  };
+
+  const closeAddModal = () => {
+    setShowAddModal(false);
+    setEditingMealId(null);
+    setManualMeal({ cal: '', pro: '', carb: '', fat: '' });
+  };
+
+  const swipeDownToCloseResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 50) closeAddModal();
+      }
+    })
+  ).current;
 
   const fetchNutritionData = async () => {
     setLoading(true);
@@ -65,14 +109,21 @@ export default function NutritionScreen() {
     setIsSubmitting(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await api.post('/nutrition/manual', {
+      const payload = {
         calories: parseInt(manualMeal.cal),
         protein: parseInt(manualMeal.pro || '0'),
         carbs: parseInt(manualMeal.carb || '0'),
-        fat: parseInt(manualMeal.fat || '0')
-      });
-      setShowAddModal(false);
-      setManualMeal({ cal: '', pro: '', carb: '', fat: '' });
+        fat: parseInt(manualMeal.fat || '0'),
+        date: formatDateForApi(currentDate) 
+      };
+
+      if (editingMealId) {
+         await api.put(`/nutrition/manual/${editingMealId}`, payload);
+      } else {
+         await api.post('/nutrition/manual', payload);
+      }
+
+      closeAddModal();
       fetchNutritionData();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
@@ -95,12 +146,103 @@ export default function NutritionScreen() {
     ]);
   };
 
+  // --- ROTARY DIAL LOGIC REVOLUTIONAT ---
+  const openDial = (type: 'cal'|'pro'|'carb'|'fat', label: string, color: string, currentVal: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const val = currentVal || 0;
+    setDialValue(val);
+    dialValueRef.current = val;
+    dialTypeRef.current = type;
+    setMacroDial({ visible: true, type, label, baseColor: color });
+  };
+
+  const saveMacroGoal = async () => {
+    setIsSavingDial(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      const paramMap: any = { cal: 'dailyCaloriesGoal', pro: 'proteinGoal', carb: 'carbsGoal', fat: 'fatGoal' };
+      
+      await api.put(`/users/me?${paramMap[macroDial.type]}=${dialValueRef.current}`);
+      setGoals((prev: any) => ({ ...prev, [macroDial.type]: dialValueRef.current }));
+      setMacroDial({ ...macroDial, visible: false });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      Alert.alert("Eroare", "Nu am putut salva noul obiectiv.");
+    } finally {
+      setIsSavingDial(false);
+    }
+  };
+
+  // Noul PanResponder ultra fluid cu pași ficși
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e, gestureState) => {
+        const cx = width / 2;
+        const cy = height / 2;
+        lastAngleRef.current = Math.atan2(gestureState.y0 - cy, gestureState.x0 - cx) * (180 / Math.PI);
+        startValueRef.current = dialValueRef.current;
+        accumulatedAngleRef.current = 0; // Resetăm acumularea la fiecare touch
+      },
+      onPanResponderMove: (e, gestureState) => {
+        const cx = width / 2;
+        const cy = height / 2;
+        
+        const currentAngle = Math.atan2(gestureState.moveY - cy, gestureState.moveX - cx) * (180 / Math.PI);
+        let delta = currentAngle - lastAngleRef.current;
+
+        // Corecție la traversarea axei (din stânga în dreapta)
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+
+        lastAngleRef.current = currentAngle;
+        accumulatedAngleRef.current += delta;
+
+        // SETĂRI PAȘI EXACTE:
+        const stepSize = dialTypeRef.current === 'cal' ? 100 : 5; // Calorii din 100 in 100, Macros din 5 in 5
+        const degreesPerStep = 18; // 360 de grade = 20 de pași. O tură = 2000 cal sau 100g.
+
+        const stepsMoved = Math.floor(accumulatedAngleRef.current / degreesPerStep);
+        let newVal = startValueRef.current + (stepsMoved * stepSize);
+        
+        if (newVal < 0) newVal = 0;
+
+        if (newVal !== dialValueRef.current) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setDialValue(newVal);
+          dialValueRef.current = newVal;
+        }
+      }
+    })
+  ).current;
+
+  // Calculul culorilor și rotației pentru interfața cercului
+  const getDialUIParams = () => {
+    const isCal = macroDial.type === 'cal';
+    const maxPerLap = isCal ? 2000 : 100;
+    const laps = Math.floor(dialValue / (maxPerLap || 1));
+    
+    // Progresul în tura curentă (0 - 360 grade)
+    const progressInLap = dialValue % maxPerLap;
+    const rotationDegrees = (progressInLap / maxPerLap) * 360;
+
+    // Culori dinamice în funcție de câte "ture" a dat peste cap
+    let currentColor = macroDial.baseColor;
+    if (laps === 1) currentColor = '#fde047'; // Yellow
+    if (laps === 2) currentColor = '#ff8a00'; // Orange
+    if (laps >= 3) currentColor = '#ff4b4b'; // Red
+
+    return { currentColor, rotationDegrees, laps };
+  };
+
   const totalConsumed = meals.reduce((acc, meal) => ({
     cal: acc.cal + (meal.calories || 0),
     pro: acc.pro + (meal.proteinGrams || 0),
     carb: acc.carb + (meal.carbsGrams || 0),
     fat: acc.fat + (meal.fatGrams || 0),
   }), { cal: 0, pro: 0, carb: 0, fat: 0 });
+
+  const uiParams = macroDial.visible ? getDialUIParams() : { currentColor: '#fff', rotationDegrees: 0, laps: 0 };
 
   return (
     <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17', paddingTop: insets.top }}>
@@ -132,10 +274,11 @@ export default function NutritionScreen() {
               {/* MAIN CALORIE RING / BAR */}
               <View className="bg-white/[0.03] border border-white/5 rounded-[40px] p-8 items-center mb-6 shadow-2xl shadow-black/50">
                 <Text className="text-white/40 text-xs font-bold uppercase tracking-[4px] mb-4">Calories</Text>
-                <View className="flex-row items-end gap-2 mb-6">
+                
+                <TouchableOpacity activeOpacity={0.7} onPress={() => openDial('cal', 'CALORIES', '#7dd3fc', goals.cal)} className="flex-row items-end gap-2 mb-6">
                   <Text className="text-white font-black text-6xl tracking-tighter">{totalConsumed.cal}</Text>
-                  <Text className="text-white/40 font-bold text-lg mb-2">/ {goals?.cal}</Text>
-                </View>
+                  <Text className="text-[#7dd3fc] font-bold text-lg mb-2">/ {goals?.cal}</Text>
+                </TouchableOpacity>
                 
                 {/* PROGRESS BAR */}
                 <View className="w-full h-3 bg-white/10 rounded-full overflow-hidden mb-6">
@@ -148,27 +291,29 @@ export default function NutritionScreen() {
 
                 {/* MACROS SMALL BARS */}
                 <View className="flex-row justify-between w-full">
-                  <View className="items-center flex-1">
-                    <Text className="text-white/40 text-[10px] uppercase font-bold mb-2 tracking-widest">Protein</Text>
-                    <Text className="text-white font-bold mb-2">{totalConsumed.pro} / {goals?.pro}g</Text>
+                  <TouchableOpacity activeOpacity={0.7} onPress={() => openDial('pro', 'PROTEIN', '#c084fc', goals.pro)} className="items-center flex-1">
+                    <Text className="text-white/40 text-[10px] uppercase font-bold mb-2 tracking-widest">Proteins (g)</Text>
+                    <Text className="text-white font-bold mb-2">{totalConsumed.pro} / <Text className="text-[#c084fc]">{goals?.pro}</Text></Text>
                     <View className="w-full max-w-[60px] h-1.5 bg-white/10 rounded-full overflow-hidden">
                       <View className="h-full bg-purple-400" style={{ width: `${Math.min((totalConsumed.pro / (goals?.pro || 1)) * 100, 100)}%` }} />
                     </View>
-                  </View>
-                  <View className="items-center flex-1 border-x border-white/5">
-                    <Text className="text-white/40 text-[10px] uppercase font-bold mb-2 tracking-widest">Carbs</Text>
-                    <Text className="text-white font-bold mb-2">{totalConsumed.carb} / {goals?.carb}g</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity activeOpacity={0.7} onPress={() => openDial('carb', 'CARBS', '#60a5fa', goals.carb)} className="items-center flex-1 border-x border-white/5">
+                    <Text className="text-white/40 text-[10px] uppercase font-bold mb-2 tracking-widest">Carbs (g)</Text>
+                    <Text className="text-white font-bold mb-2">{totalConsumed.carb} / <Text className="text-[#60a5fa]">{goals?.carb}</Text></Text>
                     <View className="w-full max-w-[60px] h-1.5 bg-white/10 rounded-full overflow-hidden">
                       <View className="h-full bg-blue-400" style={{ width: `${Math.min((totalConsumed.carb / (goals?.carb || 1)) * 100, 100)}%` }} />
                     </View>
-                  </View>
-                  <View className="items-center flex-1">
-                    <Text className="text-white/40 text-[10px] uppercase font-bold mb-2 tracking-widest">Fats</Text>
-                    <Text className="text-white font-bold mb-2">{totalConsumed.fat} / {goals?.fat}g</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity activeOpacity={0.7} onPress={() => openDial('fat', 'FATS', '#facc15', goals.fat)} className="items-center flex-1">
+                    <Text className="text-white/40 text-[10px] uppercase font-bold mb-2 tracking-widest">Fats (g)</Text>
+                    <Text className="text-white font-bold mb-2">{totalConsumed.fat} / <Text className="text-[#facc15]">{goals?.fat}</Text></Text>
                     <View className="w-full max-w-[60px] h-1.5 bg-white/10 rounded-full overflow-hidden">
                       <View className="h-full bg-yellow-400" style={{ width: `${Math.min((totalConsumed.fat / (goals?.fat || 1)) * 100, 100)}%` }} />
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -183,7 +328,7 @@ export default function NutritionScreen() {
           }
           ListEmptyComponent={
             <View className="items-center py-10 bg-white/[0.02] rounded-3xl border border-dashed border-white/10">
-              <Ionicons name="fast-food-outline" size={40} color="#555" />
+              <Ionicons name="restaurant-outline" size={40} color="#555" />
               <Text className="text-white/40 mt-4 text-center">Nicio masă salvată astăzi.</Text>
             </View>
           }
@@ -194,7 +339,7 @@ export default function NutritionScreen() {
                   {item.originalPost?.mediaUrl ? (
                     <Image source={{ uri: item.originalPost.mediaUrl }} className="w-full h-full" />
                   ) : (
-                    <Ionicons name="create-outline" size={20} color="#7ad7c6" />
+                    <Ionicons name="restaurant" size={24} color="#7ad7c6" />
                   )}
                 </View>
                 <View>
@@ -204,58 +349,134 @@ export default function NutritionScreen() {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => handleDeleteMeal(item.id)} className="p-2">
-                <Ionicons name="trash-outline" size={20} color="#ff4b4b" />
-              </TouchableOpacity>
+              <View className="flex-row items-center gap-1">
+                <TouchableOpacity onPress={() => openEditModal(item)} className="p-2">
+                  <Ionicons name="pencil-outline" size={20} color="#7dd3fc" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteMeal(item.id)} className="p-2">
+                  <Ionicons name="trash-outline" size={20} color="#ff4b4b" />
+                </TouchableOpacity>
+              </View>
             </BouncyPressable>
           )}
         />
       )}
 
       {/* --- ADD MANUAL MEAL MODAL --- */}
-      <Modal visible={showAddModal} animationType="slide" transparent={true}>
+      <Modal visible={showAddModal} animationType="slide" transparent={true} onRequestClose={closeAddModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end">
-          <TouchableOpacity className="flex-1 bg-black/60" onPress={() => setShowAddModal(false)} />
-          <BlurView intensity={90} tint="dark" className="p-8 rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)]">
+          <TouchableOpacity className="absolute inset-0 bg-black/60" activeOpacity={1} onPress={closeAddModal} />
+          
+          <BlurView intensity={90} tint="dark" className="rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)] overflow-hidden max-h-[85%]">
             <View className="absolute inset-0 bg-[#090E17]/80" />
-            <View className="w-12 h-1.5 bg-white/20 rounded-full self-center mb-6" />
-            <Text className="text-white font-black text-2xl mb-2 text-center tracking-tight">Manual Log</Text>
-            <Text className="text-white/40 text-sm text-center mb-8">Add a meal without a photo.</Text>
-
-            <View className="flex-row flex-wrap justify-between gap-y-4">
-              <View className="w-full mb-2">
-                <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Total Calories *</Text>
-                <View className="bg-[#7ad7c6]/10 border border-[#7ad7c6]/30 rounded-2xl h-14 justify-center px-4">
-                  <TextInput keyboardType="numeric" value={manualMeal.cal} onChangeText={(v) => setManualMeal(p => ({ ...p, cal: v }))} className="text-[#7ad7c6] font-black text-xl" placeholder="e.g. 450" placeholderTextColor="#7ad7c650" keyboardAppearance="dark" autoFocus />
-                </View>
-              </View>
-              <View className="w-[30%]">
-                <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Prot (g)</Text>
-                <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                  <TextInput keyboardType="numeric" value={manualMeal.pro} onChangeText={(v) => setManualMeal(p => ({ ...p, pro: v }))} className="text-white font-bold text-lg" placeholder="0" placeholderTextColor="#555" keyboardAppearance="dark" />
-                </View>
-              </View>
-              <View className="w-[30%]">
-                <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Carbs (g)</Text>
-                <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                  <TextInput keyboardType="numeric" value={manualMeal.carb} onChangeText={(v) => setManualMeal(p => ({ ...p, carb: v }))} className="text-white font-bold text-lg" placeholder="0" placeholderTextColor="#555" keyboardAppearance="dark" />
-                </View>
-              </View>
-              <View className="w-[30%]">
-                <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Fats (g)</Text>
-                <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                  <TextInput keyboardType="numeric" value={manualMeal.fat} onChangeText={(v) => setManualMeal(p => ({ ...p, fat: v }))} className="text-white font-bold text-lg" placeholder="0" placeholderTextColor="#555" keyboardAppearance="dark" />
-                </View>
-              </View>
+            
+            <View {...swipeDownToCloseResponder.panHandlers} className="w-full pt-6 pb-4 items-center bg-transparent z-50">
+              <View className="w-12 h-1.5 bg-white/20 rounded-full" />
             </View>
 
-            <TouchableOpacity onPress={handleAddManualMeal} disabled={isSubmitting} className="mt-8 mb-4">
-              <LinearGradient colors={['#7ad7c6', '#7dd3fc']} className="w-full h-14 rounded-2xl items-center justify-center flex-row shadow-[0_0_20px_rgba(122,215,198,0.3)]">
-                {isSubmitting ? <ActivityIndicator color="#090E17" /> : <Text className="text-[#090E17] font-black text-lg tracking-wider">ADD MEAL</Text>}
-              </LinearGradient>
+            <TouchableOpacity onPress={closeAddModal} className="absolute top-4 right-6 z-50 w-8 h-8 bg-white/10 rounded-full items-center justify-center border border-white/20">
+              <Ionicons name="close" size={18} color="white" />
             </TouchableOpacity>
+
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 32, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+              <Text className="text-white font-black text-2xl mb-2 text-center tracking-tight">{editingMealId ? 'Edit Log' : 'Manual Log'}</Text>
+              <Text className="text-white/40 text-sm text-center mb-8">{editingMealId ? 'Update your meal data.' : 'Add a meal without a photo.'}</Text>
+
+              <View className="flex-row flex-wrap justify-between gap-y-4">
+                <View className="w-full mb-2">
+                  <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Total Calories *</Text>
+                  <View className="bg-[#7ad7c6]/10 border border-[#7ad7c6]/30 rounded-2xl h-14 justify-center px-4">
+                    <TextInput keyboardType="numeric" value={manualMeal.cal} onChangeText={(v) => setManualMeal(p => ({ ...p, cal: v }))} className="text-[#7ad7c6] font-black text-xl" placeholder="e.g. 450" placeholderTextColor="#7ad7c650" keyboardAppearance="dark" />
+                  </View>
+                </View>
+                <View className="w-[30%]">
+                  <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Prot (g)</Text>
+                  <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
+                    <TextInput keyboardType="numeric" value={manualMeal.pro} onChangeText={(v) => setManualMeal(p => ({ ...p, pro: v }))} className="text-white font-bold text-lg" placeholder="0" placeholderTextColor="#555" keyboardAppearance="dark" />
+                  </View>
+                </View>
+                <View className="w-[30%]">
+                  <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Carbs (g)</Text>
+                  <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
+                    <TextInput keyboardType="numeric" value={manualMeal.carb} onChangeText={(v) => setManualMeal(p => ({ ...p, carb: v }))} className="text-white font-bold text-lg" placeholder="0" placeholderTextColor="#555" keyboardAppearance="dark" />
+                  </View>
+                </View>
+                <View className="w-[30%]">
+                  <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Fats (g)</Text>
+                  <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
+                    <TextInput keyboardType="numeric" value={manualMeal.fat} onChangeText={(v) => setManualMeal(p => ({ ...p, fat: v }))} className="text-white font-bold text-lg" placeholder="0" placeholderTextColor="#555" keyboardAppearance="dark" />
+                  </View>
+                </View>
+              </View>
+
+              <TouchableOpacity onPress={handleAddManualMeal} disabled={isSubmitting} className="mt-8 mb-4">
+                <LinearGradient colors={['#7ad7c6', '#7dd3fc']} className="w-full h-14 rounded-2xl items-center justify-center flex-row shadow-[0_0_20px_rgba(122,215,198,0.3)]">
+                  {isSubmitting ? <ActivityIndicator color="#090E17" /> : <Text className="text-[#090E17] font-black text-lg tracking-wider">{editingMealId ? 'SAVE CHANGES' : 'ADD MEAL'}</Text>}
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
           </BlurView>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* --- LIQUID GLASSY ROTARY DIAL MODAL --- */}
+      <Modal visible={macroDial.visible} animationType="fade" transparent={true}>
+        <View className="flex-1 bg-[#090E17]/95 justify-center items-center relative" {...panResponder.panHandlers}>
+          
+          <TouchableOpacity 
+            style={{ position: 'absolute', top: insets.top + 20, right: 20, zIndex: 100 }} 
+            onPress={() => setMacroDial({...macroDial, visible: false})}
+            className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20"
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+
+          <Text className="text-white/40 text-sm font-bold tracking-[5px] uppercase absolute top-40 pointer-events-none">
+            TARGET {macroDial.label}
+          </Text>
+
+          {/* FITNESS RING STYLE WITH DYNAMIC COLOR */}
+          <View className="items-center justify-center pointer-events-none">
+            <View 
+              style={{ backgroundColor: uiParams.currentColor, shadowColor: uiParams.currentColor, shadowRadius: 40, shadowOpacity: 0.6, shadowOffset: {width: 0, height: 0} }}
+              className="w-[280px] h-[280px] rounded-full items-center justify-center p-3"
+            >
+              <View className="w-full h-full bg-[#06090E] rounded-full items-center justify-center relative shadow-inner">
+                <Text style={{ color: uiParams.currentColor }} className="text-6xl font-black tracking-tighter">
+                  {dialValue}
+                </Text>
+                <Text className="text-white/50 font-bold uppercase mt-1">{macroDial.type === 'cal' ? 'kcal' : 'grams'}</Text>
+                
+                {/* LAPS INDICATOR */}
+                {uiParams.laps > 0 && (
+                   <View className="absolute top-10 flex-row gap-1">
+                      {Array.from({length: Math.min(uiParams.laps, 3)}).map((_, i) => (
+                         <View key={i} className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
+                      ))}
+                      {uiParams.laps > 3 && <Text className="text-white text-[8px] font-bold">+{(uiParams.laps - 3)}</Text>}
+                   </View>
+                )}
+                
+                {/* ROTATING KNOB INDICATOR */}
+                <Animated.View style={{ position: 'absolute', width: '100%', height: '100%', transform: [{ rotate: `${uiParams.rotationDegrees}deg` }] }}>
+                   <View className="absolute top-2 w-5 h-5 rounded-full bg-white self-center shadow-[0_0_15px_white]" />
+                </Animated.View>
+              </View>
+            </View>
+          </View>
+
+          <View className="absolute bottom-40 items-center opacity-40 pointer-events-none">
+            <Ionicons name="sync" size={24} color="white" />
+            <Text className="text-[10px] text-white font-bold tracking-widest mt-2">SWIRL TO ADJUST</Text>
+          </View>
+
+          <TouchableOpacity onPress={saveMacroGoal} disabled={isSavingDial} className="absolute bottom-20 z-50">
+            <LinearGradient colors={[uiParams.currentColor, '#ffffff']} className="px-10 h-14 rounded-full items-center justify-center flex-row shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+              {isSavingDial ? <ActivityIndicator color="#090E17" /> : <Text className="text-[#090E17] font-black text-lg tracking-wider">SET GOAL</Text>}
+            </LinearGradient>
+          </TouchableOpacity>
+
+        </View>
       </Modal>
 
     </Animated.View>

@@ -39,16 +39,28 @@ public class NutritionController {
 
     // Endpoint for manual meal entry
     @PostMapping("/manual")
-    public ResponseEntity<Void> addManualMeal(
-            @AuthenticationPrincipal User user,
-            @RequestBody Map<String, Integer> macros) {
-
+    public ResponseEntity<Void> addManualMeal(@AuthenticationPrincipal User user, @RequestBody Map<String, Object> payload) {
+        LocalDate date = payload.containsKey("date") ? LocalDate.parse((String) payload.get("date")) : LocalDate.now();
         nutritionService.addManualMeal(
                 user,
-                macros.get("calories"),
-                macros.get("protein"),
-                macros.get("carbs"),
-                macros.get("fat")
+                payload.get("calories") instanceof Number ? ((Number) payload.get("calories")).intValue() : null,
+                payload.get("protein") instanceof Number ? ((Number) payload.get("protein")).intValue() : 0,
+                payload.get("carbs") instanceof Number ? ((Number) payload.get("carbs")).intValue() : 0,
+                payload.get("fat") instanceof Number ? ((Number) payload.get("fat")).intValue() : 0,
+                date
+        );
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/manual/{mealId}")
+    public ResponseEntity<Void> updateManualMeal(@AuthenticationPrincipal User user, @PathVariable UUID mealId, @RequestBody Map<String, Object> payload) {
+        nutritionService.updateManualMeal(
+                user,
+                mealId,
+                payload.get("calories") instanceof Number ? ((Number) payload.get("calories")).intValue() : null,
+                payload.get("protein") instanceof Number ? ((Number) payload.get("protein")).intValue() : 0,
+                payload.get("carbs") instanceof Number ? ((Number) payload.get("carbs")).intValue() : 0,
+                payload.get("fat") instanceof Number ? ((Number) payload.get("fat")).intValue() : 0
         );
         return ResponseEntity.ok().build();
     }
