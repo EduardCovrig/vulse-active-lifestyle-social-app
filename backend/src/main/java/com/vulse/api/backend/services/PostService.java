@@ -221,7 +221,7 @@ public class PostService {
     private PostResponse mapToResponse(Post post, User currentUser) {
         PostAuthorDto authorDto = PostAuthorDto.builder()
                 .id(post.getUser().getId())
-                .username(post.getUser().getUsername())
+                .username(post.getUser().getRealUsername())
                 .profilePicUrl(post.getUser().getProfilePicUrl())
                 .build();
 
