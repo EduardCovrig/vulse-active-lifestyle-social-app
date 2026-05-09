@@ -84,7 +84,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
 
   const openUserProfile = async (targetUsername: string) => {
     if (targetUsername === myUsername) {
-      Alert.alert("Ești tu!", "Mergi în tab-ul de profil pentru a-ți vedea datele.");
+      Alert.alert("That's you!", "Go to your profile tab to see your data.");
       return; 
     }
     
@@ -100,15 +100,15 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
       const res = await api.get(`/users/${encodeURIComponent(targetUsername)}/profile`);
       if (res.data) setViewedProfile(res.data); 
     } catch (e: any) {
-      console.error("Eroare Backend Profil:", e.response?.data || e.message);
+      console.error("Backend Profile Error:", e.response?.data || e.message);
       
       if (e.response?.status === 500) {
          Alert.alert(
-           "Atenție (Backend Issue)", 
-           "Serverul a returnat o eroare internă la calcularea statisticilor acestui profil, dar funcția de frontend este activă."
+           "Warning (Backend Issue)", 
+           "The server returned an internal error when calculating this profile's stats, but the frontend function is active."
          );
       } else {
-         Alert.alert("Indisponibil", e.response?.data?.message || "Utilizatorul nu a putut fi găsit.");
+         Alert.alert("Unavailable", e.response?.data?.message || "User could not be found.");
          setViewedProfile(null);
       }
     } finally { 
@@ -129,7 +129,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
         });
       }
       fetchData(); 
-    } catch (e) { Alert.alert("Eroare", "Nu am putut actualiza statusul."); }
+    } catch (e) { Alert.alert("Error", "Could not update status."); }
   };
 
   const openComments = async (postId: string) => {
@@ -158,14 +158,14 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
   const handleCommentLongPress = (comment: any) => {
     if (comment.user.username !== myUsername) return; 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert("Delete Comment", "Vrei să ștergi acest comentariu?", [
+    Alert.alert("Delete Comment", "Do you want to delete this comment?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
         try {
           await api.delete(`/comments/${comment.id}`);
           setComments(curr => curr.filter(c => c.id !== comment.id));
           setPosts(curr => curr.map(p => p.id === activePostId ? { ...p, commentsCount: Math.max(0, p.commentsCount - 1) } : p));
-        } catch (e) { Alert.alert("Eroare", "Nu am putut șterge comentariul."); }
+        } catch (e) { Alert.alert("Error", "Could not delete comment."); }
       }}
     ]);
   };
@@ -176,7 +176,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
       await api.patch(`/posts/${postId}/caption?caption=${encodeURIComponent(editCaptionText)}`);
       setPosts(curr => curr.map(p => p.id === postId ? { ...p, caption: editCaptionText } : p));
       setEditingPost(null);
-    } catch(e) { Alert.alert("Eroare", "Nu am putut actualiza descrierea."); }
+    } catch(e) { Alert.alert("Error", "Could not update caption."); }
   };
 
   const handleOpenStory = (friend: any) => {
@@ -301,9 +301,13 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
         ListHeaderComponent={renderCircleHeader}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        removeClippedSubviews={true}
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7dd3fc" />}
         ListEmptyComponent={
-          loading ? <ActivityIndicator size="large" color="#7dd3fc" className="mt-20" /> : <Text className="text-white/40 text-center mt-20">Nicio postare în cercul tău astăzi.</Text>
+          loading ? <ActivityIndicator size="large" color="#7dd3fc" className="mt-20" /> : <Text className="text-white/40 text-center mt-20">No posts in your circle today.</Text>
         }
         renderItem={({ item }) => (
           <View className="px-5 mb-4">
@@ -373,7 +377,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
             
             <View className="w-12 h-1.5 bg-white/20 rounded-full self-center mb-6" />
             <Text className="text-white font-black text-xl mb-1 text-center tracking-tight">Comments</Text>
-            <Text className="text-white/30 text-[10px] text-center mb-6 uppercase tracking-[2px]">Tine apăsat pe comentariul tău pentru a-l șterge</Text>
+            <Text className="text-white/30 text-[10px] text-center mb-6 uppercase tracking-[2px]">Long press your comment to delete it</Text>
 
             {loadingComments ? (
                <ActivityIndicator color="#7dd3fc" className="mt-10" />
@@ -393,7 +397,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
                     </View>
                   </TouchableOpacity>
                 )}
-                ListEmptyComponent={<Text className="text-white/30 text-center mt-10">Nu sunt comentarii încă.</Text>}
+                ListEmptyComponent={<Text className="text-white/30 text-center mt-10">No comments yet.</Text>}
               />
             )}
 

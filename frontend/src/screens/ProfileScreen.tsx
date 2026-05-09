@@ -123,7 +123,7 @@ export default function ProfileScreen() {
       setProfile({ ...profile, bio: newBio });
       setIsEditingBio(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) { Alert.alert("Eroare", "Serverul nu a putut salva schimbarile."); }
+    } catch (error) { Alert.alert("Error", "Server could not save changes."); }
   };
 
   const handleChangeProfilePic = async () => {
@@ -152,7 +152,7 @@ export default function ProfileScreen() {
         setProfile({ ...profile, profilePicUrl: response.data.profilePicUrl });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (error: any) {
-        Alert.alert("Eroare", "Nu am putut actualiza poza de profil.");
+        Alert.alert("Error", "Could not update profile picture.");
       } finally {
         setIsUploadingPic(false);
       }
@@ -160,10 +160,10 @@ export default function ProfileScreen() {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert("Avertizare", "Ștergerea contului este ireversibilă. Continuăm?", [
+    Alert.alert("Warning", "Deleting your account is irreversible. Continue?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
-          try { await api.delete('/users/me'); logout(); } catch (error) { Alert.alert("Eroare", "Verifică logurile pe backend."); }
+          try { await api.delete('/users/me'); logout(); } catch (error) { Alert.alert("Error", "Check backend logs."); }
       }}
     ]);
   };
@@ -176,7 +176,7 @@ export default function ProfileScreen() {
       setLoadingBlocked(true);
       api.get('/safety/blocked')
         .then(res => setBlockedUsers(res.data))
-        .catch(() => Alert.alert("Eroare", "Nu am putut aduce lista."))
+        .catch(() => Alert.alert("Error", "Could not fetch list."))
         .finally(() => setLoadingBlocked(false));
     }, 400); 
   };
@@ -188,7 +188,7 @@ export default function ProfileScreen() {
       setBlockedUsers(curr => curr.filter(u => u.id !== userId));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      Alert.alert("Eroare", "Nu am putut debloca utilizatorul.");
+      Alert.alert("Error", "Could not unblock user.");
     }
   };
 
@@ -361,13 +361,13 @@ export default function ProfileScreen() {
             {selectedPost && (
                <LiquidPostCard 
                  post={selectedPost}
-                 onOpenComments={() => Alert.alert("Comentarii", "Pentru a lăsa un comentariu, accesează postarea din tab-ul de Feed.")}
+                 onOpenComments={() => Alert.alert("Comments", "To leave a comment, please access the post from the Feed tab.")}
                  onPostDeleted={(id) => {
                    setMyPosts(curr => curr.filter(p => p.id !== id));
                    setSelectedPost(null);
                  }}
                  onUserBlocked={() => {}}
-                 onEditCaption={() => Alert.alert("Info", "Te rugăm să editezi descrierea din meniul postării de pe Feed.")}
+                 onEditCaption={() => Alert.alert("Info", "Please edit the caption from the post menu on the Feed.")}
                />
             )}
           </View>
@@ -467,7 +467,7 @@ export default function ProfileScreen() {
             ) : blockedUsers.length === 0 ? (
               <View className="items-center mt-10">
                 <Ionicons name="shield-checkmark" size={40} color="#555" />
-                <Text className="text-white/40 mt-4 text-center">Nu ai niciun utilizator blocat.</Text>
+                <Text className="text-white/40 mt-4 text-center">You have no blocked users.</Text>
               </View>
             ) : (
               <FlatList

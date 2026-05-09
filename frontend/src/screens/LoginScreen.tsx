@@ -14,7 +14,7 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Eroare', 'Te rog completează ambele câmpuri.');
+      Alert.alert('Error', 'Please fill in both fields.');
       return;
     }
 
@@ -22,8 +22,8 @@ export default function LoginScreen({ navigation }: any) {
     try {
       await login({ email, password });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Email sau parolă incorectă. Încearcă din nou.';
-      Alert.alert('Autentificare eșuată', errorMessage);
+      const errorMessage = error.response?.data?.message || 'Incorrect email or password. Please try again.';
+      Alert.alert('Login failed', errorMessage);
     } finally {
       setIsSubmitting(false);
     }

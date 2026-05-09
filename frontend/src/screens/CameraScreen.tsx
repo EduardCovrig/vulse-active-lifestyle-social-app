@@ -109,7 +109,7 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
   };
 
   // --- UPLOAD LOGIC ---
-  const handleUpload = async (type: 'DAILY' | 'REEL' | 'MEAL') => {
+  const handleUpload = async (type: 'DAILY' | 'REEL') => {
     if (!mediaUri || isUploading) return;
     setIsUploading(true);
     
@@ -127,7 +127,6 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
       //Dynamic captions
       let caption = "New post on Vulse! ⚡";
       if (type === 'DAILY') caption = "My Daily Snap! 🚀";
-      if (type === 'MEAL') caption = "Analyzing my nutrition... 🥗";
       if (type === 'REEL') caption = "Check this out! #GlobalDrop";
       
       formData.append('caption', caption);
@@ -135,22 +134,12 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
       const response = await api.post('/posts/create', formData, { 
         headers: { 'Content-Type': 'multipart/form-data' } 
       });
-
-      // AI NUTRITION
-      if (type === 'MEAL' && response.data?.id) {
-        try {
-          await api.post(`/nutrition/${response.data.id}/save`);
-          Alert.alert("Analiză Completă!", "Masa a fost postată și adăugată automat în Jurnalul tău de Nutriție!");
-        } catch (e) {
-          Alert.alert("Postat!", "Postarea a apărut, dar jurnalul nu a putut fi actualizat.");
-        }
-      }
     
       onClose(); 
       
     } catch (error: any) {
-      console.error("Eroare upload:", error.response?.data);
-      Alert.alert("Eroare", error.response?.data?.message || "Upload failed. Verificați conexiunea.");
+      console.error("Upload error:", error.response?.data);
+      Alert.alert("Error", error.response?.data?.message || "Upload failed. Please check your connection.");
     } finally {
       setIsUploading(false);
     }
@@ -179,17 +168,6 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
             <View className="flex-col gap-3">
               {/* ROW 1 */}
               <View className="flex-row gap-3">
-                <TouchableOpacity onPress={() => handleUpload('MEAL')} disabled={isUploading} className="flex-1">
-                  <LinearGradient colors={['#344767', '#1d314f']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-3xl p-4 items-center justify-center border border-white/10 h-24 shadow-lg">
-                    {isUploading ? <ActivityIndicator color="#7dd3fc" /> : (
-                      <>
-                        <Ionicons name="sparkles" size={24} color="#7dd3fc" className="mb-2" />
-                        <Text className="text-[#7dd3fc] font-bold text-[10px] tracking-widest text-center">AI NUTRITION</Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-
                 <TouchableOpacity onPress={() => handleUpload('REEL')} disabled={isUploading} className="flex-1">
                   <LinearGradient colors={['#171f33', '#0b1326']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-3xl p-4 items-center justify-center border border-white/10 h-24 shadow-lg">
                     {isUploading ? <ActivityIndicator color="#c5eaff" /> : (

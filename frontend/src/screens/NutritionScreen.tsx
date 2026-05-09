@@ -103,7 +103,7 @@ export default function NutritionScreen() {
 
   const handleAddManualMeal = async () => {
     if (!manualMeal.cal) {
-      Alert.alert("Eroare", "Te rog introdu măcar numărul de calorii.");
+      Alert.alert("Error", "Please enter at least the number of calories.");
       return;
     }
     setIsSubmitting(true);
@@ -127,21 +127,21 @@ export default function NutritionScreen() {
       fetchNutritionData();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      Alert.alert("Eroare", "Nu am putut salva masa.");
+      Alert.alert("Error", "Could not save meal.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteMeal = (mealId: string) => {
-    Alert.alert("Șterge Masa", "Sigur vrei să elimini această masă din jurnal?", [
+    Alert.alert("Delete Meal", "Are you sure you want to remove this meal from your log?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
           try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
             await api.delete(`/nutrition/${mealId}`);
             setMeals(curr => curr.filter(m => m.id !== mealId));
-          } catch (e) { Alert.alert("Eroare", "Nu am putut șterge."); }
+          } catch (e) { Alert.alert("Error", "Could not delete."); }
       }}
     ]);
   };
@@ -167,7 +167,7 @@ export default function NutritionScreen() {
       setMacroDial({ ...macroDial, visible: false });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      Alert.alert("Eroare", "Nu am putut salva noul obiectiv.");
+      Alert.alert("Error", "Could not save new goal.");
     } finally {
       setIsSavingDial(false);
     }
@@ -329,7 +329,7 @@ export default function NutritionScreen() {
           ListEmptyComponent={
             <View className="items-center py-10 bg-white/[0.02] rounded-3xl border border-dashed border-white/10">
               <Ionicons name="restaurant-outline" size={40} color="#555" />
-              <Text className="text-white/40 mt-4 text-center">Nicio masă salvată astăzi.</Text>
+              <Text className="text-white/40 mt-4 text-center">No meals saved today.</Text>
             </View>
           }
           renderItem={({ item }) => (

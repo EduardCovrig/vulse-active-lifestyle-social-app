@@ -26,7 +26,7 @@ export default function FeedScreen() {
       const response = await api.get('/posts/feed?type=REEL&page=0&size=10');
       setPosts(response.data.content);
     } catch (error) {
-      console.error("Eroare fetching Reels feed:", error);
+      console.error("Error fetching Reels feed:", error);
     } finally {
       setLoading(false);
     }
@@ -54,13 +54,17 @@ export default function FeedScreen() {
                 snapToInterval={CARD_HEIGHT + 24}
                 decelerationRate="fast"
                 contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 150 }}
+                removeClippedSubviews={true}
+                initialNumToRender={3}
+                maxToRenderPerBatch={3}
+                windowSize={5}
                 onRefresh={fetchGlobalFeed}
                 refreshing={loading}
                 renderItem={({ item }) => (
                   <LiquidPostCard 
                     post={item} 
                     cardHeight={CARD_HEIGHT} 
-                    onOpenComments={() => console.log("Comments pe global in progress")}
+                    onOpenComments={() => console.log("Global comments in progress")}
                     onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
                     onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
                     onEditCaption={(id, text) => console.log("Edit")}

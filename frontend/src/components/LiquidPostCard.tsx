@@ -31,8 +31,7 @@ const getRelativeTime = (dateString?: string) => {
   return `${days}d ago`;
 };
 
-// AICI ERA GREȘEALA: Am adăugat onOpenProfile în acoladele de mai jos! 👇
-export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile }: LiquidPostCardProps) {
+const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile }: LiquidPostCardProps) => {
   const { username } = useContext(AuthContext);
 
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
@@ -49,7 +48,7 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
     setIsLiked(!isLiked);
     setLikesCount((prev: number) => isLiked ? prev - 1 : prev + 1);
     try { await api.post(`/interactions/${post.id}/like`); } 
-    catch (error) { console.error("Eroare like:", error); }
+    catch (error) { console.error("Like error:", error); }
   };
 
   const handleDoubleTap = () => {
@@ -92,7 +91,7 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
         });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (error) {
-        Alert.alert("Eroare", "Nu am putut adăuga reacția.");
+        Alert.alert("Error", "Could not add reaction.");
       }
     }
   };
@@ -112,7 +111,7 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
                   await api.delete(`/posts/${post.id}`);
                   onPostDeleted(post.id);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                } catch (e) { Alert.alert("Eroare", "Failed to delete post."); }
+                } catch (e) { Alert.alert("Error", "Failed to delete post."); }
               }
             }
           ]);
@@ -120,17 +119,17 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
     } else {
       options.push({ text: "Report Post", style: "destructive", onPress: async () => {
           await api.post(`/safety/report/post/${post.id}`, { reason: "Inappropriate" });
-          Alert.alert("Reported", "Un admin va verifica postarea.");
+          Alert.alert("Reported", "An admin will review this post.");
       }});
       options.push({ text: `Block ${post.author.username}`, style: "destructive", onPress: () => {
-          Alert.alert("Block User", `Sigur vrei să-l blochezi pe ${post.author.username}?`, [
+          Alert.alert("Block User", `Are you sure you want to block ${post.author.username}?`, [
             { text: "Cancel", style: "cancel" },
             { text: "Block", style: "destructive", onPress: async () => {
                 try {
                   await api.post(`/safety/block/${post.author.id}`);
                   onUserBlocked(post.author.id);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                } catch(e) { Alert.alert("Eroare", "Failed to block user."); }
+                } catch(e) { Alert.alert("Error", "Failed to block user."); }
             }}
           ]);
       }});
@@ -139,7 +138,7 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
     if (post.calories) {
       options.push({ text: "Save Meal to Diet Log", onPress: async () => {
           await api.post(`/nutrition/${post.id}/save`);
-          Alert.alert("Saved", "Masa a fost salvată în jurnalul nutrițional.");
+          Alert.alert("Saved", "Meal has been saved to your nutrition log.");
       }});
     }
 
@@ -238,4 +237,6 @@ export default function LiquidPostCard({ post, cardHeight, onOpenComments, onPos
       </Animated.View>
     </View>
   );
-}
+});
+
+export default LiquidPostCard;

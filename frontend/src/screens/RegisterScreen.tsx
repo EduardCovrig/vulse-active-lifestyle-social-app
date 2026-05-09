@@ -15,26 +15,26 @@ export default function RegisterScreen({ navigation }: any) {
 
   const handleRegister = async () => {
     if (!username || !email || !password) {
-      Alert.alert('Eroare', 'Te rog completează toate câmpurile.');
+      Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
 
     setIsSubmitting(true);
     try {
       await register({ username, email, password });
-      // AuthContext va face isAuthenticated = true și te aruncă automat în Feed
+      // AuthContext will set isAuthenticated = true and navigate to Feed
     } catch (error: any) {
       const data = error.response?.data;
-      let errorMessage = 'Ceva nu a mers bine. Încearcă din nou.';
+      let errorMessage = 'Something went wrong. Please try again.';
 
       if (data) {
         if (data.message) {
           errorMessage = data.message; // "This email is already registered"
         } else if (typeof data === 'object' && !data.error) {
-          errorMessage = Object.values(data).join('\n'); // Erori de genul "Password must be 8 chars"
+          errorMessage = Object.values(data).join('\n'); // Errors like "Password must be 8 chars"
         }
       }
-      Alert.alert('Nu am putut crea contul', errorMessage);
+      Alert.alert('Could not create account', errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -84,7 +84,7 @@ export default function RegisterScreen({ navigation }: any) {
               <Text className="text-secondary text-xs font-bold tracking-widest uppercase ml-1">Password</Text>
               <TextInput
                 className="w-full h-14 bg-black/20 rounded-2xl px-5 text-white border border-white/10 focus:border-tertiary/50"
-                placeholder="Min. 8 caractere"
+                placeholder="Min. 8 characters"
                 placeholderTextColor="#bec8ce80"
                 keyboardAppearance={theme === 'dark' ? 'dark' : 'light'}
                 secureTextEntry

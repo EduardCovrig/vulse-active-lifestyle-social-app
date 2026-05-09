@@ -32,7 +32,6 @@ public class PostService {
     private final LikeRepository likeRepository;
     private final ReactionRepository reactionRepository;
     private final SavedMealRepository savedMealRepository; // Needed for cleanup
-    private final AIService aiService;
     private final ReportRepository reportRepository;
     private final BlockRepository blockRepository;
 
@@ -70,15 +69,8 @@ public class PostService {
         String mediaUrl = uploadResult.get("secure_url").toString();
         String mediaPublicId = uploadResult.get("public_id").toString();
 
-        // 3. Nutrition AI Analysis (If it's a meal and macros weren't provided manually)
+        // 3. Keep manual macros if provided
         Integer finalCal = calories, finalPro = proteinGrams, finalCarb = carbsGrams, finalFat = fatGrams;
-        if (type == PostType.MEAL && finalCal == null) {
-            Map<String, Integer> aiResults = aiService.analyzeFoodImage(mediaUrl);
-            finalCal = aiResults.get("calories");
-            finalPro = aiResults.get("protein");
-            finalCarb = aiResults.get("carbs");
-            finalFat = aiResults.get("fat");
-        }
 
         // 4. Build the Post entity
         Post post = Post.builder()

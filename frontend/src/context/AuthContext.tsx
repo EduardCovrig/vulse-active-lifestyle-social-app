@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUsername(storedUser);
         }
       } catch (error) {
-        console.error("Eroare la citirea token-ului:", error);
+        console.error("Error reading token:", error);
       } finally {
         setIsLoading(false);
       }
