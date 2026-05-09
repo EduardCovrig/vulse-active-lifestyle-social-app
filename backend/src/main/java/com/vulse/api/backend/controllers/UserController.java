@@ -40,7 +40,7 @@ public class UserController {
                 .map(u -> {
                     Map<String, Object> map = new HashMap<>();
                     map.put("id", u.getId());
-                    map.put("username", u.getUsername());
+                    map.put("username", u.getRealUsername());
                     map.put("profilePicUrl", u.getProfilePicUrl());
                     return map;
                 }).collect(Collectors.toList()));
@@ -72,7 +72,7 @@ public class UserController {
             boolean hasPosted = postRepository.existsByUserIdAndTypeAndCreatedAtAfter(friend.getId(), PostType.DAILY, startOfDay);
             Map<String, Object> map = new HashMap<>();
             map.put("id", friend.getId());
-            map.put("name", friend.getUsername());
+            map.put("name", friend.getRealUsername());
             map.put("img", friend.getProfilePicUrl());
             map.put("hasPosted", hasPosted);
             map.put("isMe", false);
@@ -104,7 +104,7 @@ public class UserController {
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", user.getId());
-        profile.put("username", user.getUsername());
+        profile.put("username", user.getRealUsername());
         profile.put("bio", user.getBio());
         profile.put("profilePicUrl", user.getProfilePicUrl());
         profile.put("followingCount", followRepository.countByFollowerId(user.getId()));
@@ -144,7 +144,7 @@ public class UserController {
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", dbUser.getId());
-        profile.put("username", dbUser.getUsername());
+        profile.put("username", dbUser.getRealUsername());
         profile.put("email", dbUser.getEmail());
         profile.put("bio", dbUser.getBio());
         profile.put("profilePicUrl", dbUser.getProfilePicUrl());

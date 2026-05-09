@@ -65,6 +65,8 @@ public class User implements UserDetails {
     @Override
     public String getUsername() { return email; }
 
+    public String getRealUsername() { return this.username; }
+
     @Override
     public boolean isAccountNonExpired() { return true; }
     @Override
