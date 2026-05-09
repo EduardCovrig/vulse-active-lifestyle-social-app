@@ -74,7 +74,7 @@ export default function FeedScreen() {
         ) : activeTab === 'profile' ? (
           <ProfileScreen />
         ) : activeTab === 'nutrition' ? (
-          <NutritionScreen /> // <-- RUTEAZA CATRE NOUL ECRAN
+          <NutritionScreen /> 
         ) : null}
       </View>
 

@@ -2,13 +2,17 @@ import React, { useRef } from 'react';
 import { Animated, Pressable, ViewStyle, StyleProp } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
+//this file is for subtle animation used throughout the app, like buttons, cards, etc. 
+//It makes the UI feel more responsive and alive. 
+
+
 interface BouncyPressableProps {
   children: React.ReactNode;
   onPress?: () => void;
   onLongPress?: () => void;
   style?: StyleProp<ViewStyle>;
   className?: string;
-  scaleTo?: number; // Cât de mult se "turtiește" (default 0.90)
+  scaleTo?: number;
 }
 
 export default function BouncyPressable({ 
@@ -19,11 +23,9 @@ export default function BouncyPressable({
   className, 
   scaleTo = 0.90 
 }: BouncyPressableProps) {
-  // Definim valoarea animată pentru scalare
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
-    // Când pui degetul, se micșorează rapid
     Animated.spring(scale, {
       toValue: scaleTo,
       useNativeDriver: true,
@@ -33,12 +35,11 @@ export default function BouncyPressable({
   };
 
   const handlePressOut = () => {
-    // Când iei degetul, sare înapoi ca un arc
     Animated.spring(scale, {
       toValue: 1,
       useNativeDriver: true,
       speed: 30,
-      bounciness: 18, // Asta dă efectul ăla specific "Bump/Zenly"
+      bounciness: 18, 
     }).start();
   };
 
@@ -47,12 +48,10 @@ export default function BouncyPressable({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={() => {
-        // Vibrație extrem de fină (ca un click de mouse)
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         if (onPress) onPress();
       }}
       onLongPress={() => {
-        // Vibrație mai puternică pentru acțiuni "ascunse"
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (onLongPress) onLongPress();
       }}

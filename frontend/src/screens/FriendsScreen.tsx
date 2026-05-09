@@ -82,7 +82,6 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
     }
   };
 
-  // --- BLINDAT: Navigarea la Profil cu tratarea erorii 500 de la Java ---
   const openUserProfile = async (targetUsername: string) => {
     if (targetUsername === myUsername) {
       Alert.alert("Ești tu!", "Mergi în tab-ul de profil pentru a-ți vedea datele.");
@@ -95,7 +94,6 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
     setSearchResults([]); 
     
     setLoadingProfile(true);
-    // Îi dăm date default ca să nu crape modalul până vine răspunsul real
     setViewedProfile({ username: targetUsername, followersCount: 0, followingCount: 0, bio: '' }); 
     
     try {
@@ -109,7 +107,6 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
            "Atenție (Backend Issue)", 
            "Serverul a returnat o eroare internă la calcularea statisticilor acestui profil, dar funcția de frontend este activă."
          );
-         // Lăsăm profilul deschis cu datele default ca să îi demonstrezi colegului că frontendul tău rezistă
       } else {
          Alert.alert("Indisponibil", e.response?.data?.message || "Utilizatorul nu a putut fi găsit.");
          setViewedProfile(null);
@@ -202,7 +199,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
     setActiveStory(null);
   };
 
-  // Vulse Circle rămâne în header-ul de la FlatList
+  // Vulse Circle 
   const renderCircleHeader = () => (
     <View className="mb-4 mt-2">
       <Text className="text-[#7ad7c6] text-[10px] font-black tracking-[3px] uppercase mb-4 px-6">Daily Circle</Text>
@@ -257,8 +254,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
 
   return (
     <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17' }}>
-      
-      {/* 🚀 FIXED SEARCH BAR (Pinned at top - nu mai moare tastatura) */}
+      {/* SEARCH BAR */ }
       <View className="px-6 mb-2 z-[200]" style={{ paddingTop: insets.top + 10 }}>
         <BlurView intensity={50} tint="dark" className="flex-row items-center px-4 h-12 rounded-full border border-white/15 shadow-lg shadow-black/50 bg-white/5">
           <Ionicons name="search" size={20} color="#bec8ce" />
@@ -368,7 +364,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
         </View>
       </Modal>
 
-      {/* MODAL COMENTARII */}
+      {/* MODAL COMMENTS */}
       <Modal visible={activePostId !== null} animationType="slide" transparent={true} onRequestClose={() => setActivePostId(null)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end">
           <TouchableOpacity className="flex-1 bg-black/40" onPress={() => setActivePostId(null)} />

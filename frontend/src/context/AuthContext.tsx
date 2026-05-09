@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [username, setUsername] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // La deschiderea aplicației, verificăm dacă avem deja token salvat
+  //checks if we already have a saved token on app start, if yes, we are authenticated and we can fetch user data (like username) from secure storage.
   useEffect(() => {
     const checkToken = async () => {
       try {

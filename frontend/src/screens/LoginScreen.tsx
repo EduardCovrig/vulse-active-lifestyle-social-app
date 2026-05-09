@@ -21,9 +21,7 @@ export default function LoginScreen({ navigation }: any) {
     setIsSubmitting(true);
     try {
       await login({ email, password });
-      // Gata, logare reușită, te aruncă automat pe Feed!
     } catch (error: any) {
-      // Captăm eroarea fix cum vine de la backend
       const errorMessage = error.response?.data?.message || 'Email sau parolă incorectă. Încearcă din nou.';
       Alert.alert('Autentificare eșuată', errorMessage);
     } finally {

@@ -124,7 +124,7 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
       formData.append('file', { uri: mediaUri, name: filename, type: mime } as any);
       formData.append('type', type); 
       
-      // Caption Dinamic
+      //Dynamic captions
       let caption = "New post on Vulse! ⚡";
       if (type === 'DAILY') caption = "My Daily Snap! 🚀";
       if (type === 'MEAL') caption = "Analyzing my nutrition... 🥗";
@@ -136,7 +136,7 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
         headers: { 'Content-Type': 'multipart/form-data' } 
       });
 
-      // 🧠 MAGIA AI NUTRITION
+      // AI NUTRITION
       if (type === 'MEAL' && response.data?.id) {
         try {
           await api.post(`/nutrition/${response.data.id}/save`);
@@ -180,7 +180,7 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
             <Text className="text-white/50 text-sm mb-6">Choose how you want to post this moment.</Text>
 
             <View className="flex-col gap-3">
-              {/* RÂNDUL 1 */}
+              {/* ROW 1 */}
               <View className="flex-row gap-3">
                 <TouchableOpacity onPress={() => handleUpload('MEAL')} disabled={isUploading} className="flex-1">
                   <LinearGradient colors={['#344767', '#1d314f']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-3xl p-4 items-center justify-center border border-white/10 h-24 shadow-lg">
@@ -205,7 +205,7 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
                 </TouchableOpacity>
               </View>
 
-              {/* RÂNDUL 2: DAILY SNAP */}
+              {/* ROW 2: DAILY SNAP */}
               {!isFromGallery && (
                 <TouchableOpacity onPress={() => handleUpload('DAILY')} disabled={isUploading} className="w-full">
                   <LinearGradient colors={['#7ad7c6', '#7dd3fc']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-3xl p-4 flex-row items-center justify-center shadow-[0_0_20px_rgba(122,215,198,0.3)] h-16">
@@ -258,7 +258,6 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
       {/* BOTTOM CONTROLS */}
       <View className="absolute bottom-12 inset-x-0 items-center px-10">
         
-        {/* DESIGN CURAT PENTRU PHOTO / VIDEO */}
         <View className="flex-row gap-6 mb-8">
           <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setMode('picture'); }} className="px-4 py-2">
             <Text className={`font-black tracking-widest text-sm ${mode === 'picture' ? 'text-white shadow-[0_0_10px_rgba(255,255,255,0.8)]' : 'text-white/30'}`}>PHOTO</Text>
