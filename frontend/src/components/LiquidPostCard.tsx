@@ -17,6 +17,7 @@ interface LiquidPostCardProps {
   onUserBlocked: (userId: string) => void;
   onEditCaption: (postId: string, currentCaption: string) => void;
   onOpenProfile?: (username: string) => void;
+  onReactRequest?: (postId: string) => void;
 }
 
 const getRelativeTime = (dateString?: string) => {
@@ -31,7 +32,7 @@ const getRelativeTime = (dateString?: string) => {
   return `${days}d ago`;
 };
 
-const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile }: LiquidPostCardProps) => {
+const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile, onReactRequest }: LiquidPostCardProps) => {
   const { username } = useContext(AuthContext);
 
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
@@ -65,34 +66,12 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
     lastTapRef.current = now;
   };
 
-  const handleAddReaction = async () => {
+  const handleAddReaction = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    let result = await ImagePicker.launchCameraAsync({
-      cameraType: ImagePicker.CameraType.front,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-
-    if (!result.canceled && result.assets[0].uri) {
-      try {
-        const formData = new FormData();
-        const uri = result.assets[0].uri;
-        const filename = uri.split('/').pop() || 'reaction.jpg';
-        const type = `image/${filename.split('.').pop()}`;
-
-        formData.append('file', { uri, name: filename, type } as any);
-
-        // Pre-update UI for speed
-        setRecentReactions(prev => [uri, ...prev].slice(0, 3)); 
-
-        await api.post(`/interactions/${post.id}/react`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch (error) {
-        Alert.alert("Error", "Could not add reaction.");
-      }
+    if (onReactRequest) {
+      onReactRequest(post.id);
+    } else {
+      Alert.alert("Camera unavailable", "Custom camera reaction is not implemented on this screen yet.");
     }
   };
 

@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, Alert, TextInput, Dimensions, Animated, ActivityIndicator, Modal, FlatList, PanResponder } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Alert, TextInput, Dimensions, Animated, ActivityIndicator, Modal, FlatList, PanResponder, ScrollView, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
+import * as Contacts from 'expo-contacts';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import BouncyPressable from '../components/BouncyPressable';
 import LiquidPostCard from '../components/LiquidPostCard';
+import CameraScreen from './CameraScreen';
 
 const HEADER_HEIGHT = 180;
 const { width } = Dimensions.get('window');
-const GRID_GAP = 4;
-const ITEM_WIDTH = (width - 48 - (GRID_GAP * 2)) / 3;
+const GRID_GAP = 2;
+const ITEM_WIDTH = (width - 4 - (GRID_GAP * 2)) / 3;
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -36,12 +38,21 @@ export default function ProfileScreen() {
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [showVibeModal, setShowVibeModal] = useState(false);
 
+  // New states for discover & camera
+  const [showDiscoverModal, setShowDiscoverModal] = useState(false);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [suggestedFriends, setSuggestedFriends] = useState<any[]>([]);
+  const [loadingDiscover, setLoadingDiscover] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
+  const [recordingReel, setRecordingReel] = useState(false);
+
   const scrollY = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
   const enterAnim = useRef(new Animated.Value(0)).current;
   const spinAnim = useRef(new Animated.Value(0)).current;
 
-  // Slide to close pentru Settings/Blocked Modals
   const swipeDownToCloseSettings = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -56,6 +67,15 @@ export default function ProfileScreen() {
       onStartShouldSetPanResponder: () => true,
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 50) setShowBlockedUsers(false);
+      }
+    })
+  ).current;
+
+  const swipeDownToCloseDiscover = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 50) setShowDiscoverModal(false);
       }
     })
   ).current;
@@ -192,6 +212,110 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleOpenDiscover = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowDiscoverModal(true);
+    setLoadingDiscover(true);
+    try {
+      const suggRes = await api.get('/users/suggestions');
+      setSuggestedFriends(suggRes.data);
+
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status === 'granted') {
+        const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
+        if (data.length > 0) {
+          const validContacts = data.filter(c => c.phoneNumbers && c.phoneNumbers.length > 0).slice(0, 30);
+          setContacts(validContacts);
+        }
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoadingDiscover(false);
+    }
+  };
+
+  const handleInviteContact = async (contact: any) => {
+    try {
+      await Share.share({
+        message: `Hey ${contact.name}! Join me on Vulse. Let's start our healthy era together! 🚀\nhttps://vulse.app`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleUploadReelChoice = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      "Upload Video",
+      "Choose a method to upload your reel",
+      [
+        { text: "Record Video", onPress: () => setRecordingReel(true) },
+        { text: "Upload from Library", onPress: async () => {
+            let result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              allowsEditing: true,
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets[0].uri) {
+               uploadVideoDirectly(result.assets[0].uri);
+            }
+        }},
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
+  const uploadVideoDirectly = async (uri: string) => {
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'upload.mp4';
+      const type = `video/${filename.split('.').pop()}`;
+      formData.append('file', { uri, name: filename, type } as any);
+      formData.append('type', 'REEL');
+      formData.append('caption', 'New post on Vulse! ⚡');
+
+      await api.post('/posts/create', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      fetchProfileData(); 
+    } catch(e) {
+      Alert.alert("Error", "Could not upload video.");
+    }
+  };
+
+  const handleReactionCapture = async (uri: string) => {
+    if (!reactingToPostId) return;
+    const postId = reactingToPostId;
+    setReactingToPostId(null);
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'reaction.jpg';
+      const type = `image/${filename.split('.').pop()}`;
+      formData.append('file', { uri, name: filename, type } as any);
+
+      setMyPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
+
+      await api.post(`/interactions/${postId}/react`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (selectedPost && selectedPost.id === postId) {
+         setSelectedPost((prev: any) => ({ ...prev, recentReactions: [uri, ...(prev.recentReactions || [])].slice(0,3) }));
+      }
+    } catch (error) {
+      Alert.alert("Error", "Could not add reaction.");
+    }
+  };
+
+  const handleFollowUser = async (userId: string) => {
+     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+     try {
+       await api.post(`/users/${userId}/follow`);
+       setSuggestedFriends(curr => curr.filter(u => u.id !== userId));
+     } catch (e) {
+       console.log(e);
+     }
+  };
+
   if (loading) {
     return (
       <View className="flex-1 bg-[#090E17]">
@@ -215,6 +339,16 @@ export default function ProfileScreen() {
         <LinearGradient colors={['rgba(255,255,255,0.05)', 'transparent']} className="flex-1" />
       </Animated.View>
 
+      {/* TOP LEFT ADD BUTTON */}
+      <TouchableOpacity 
+        onPress={handleOpenDiscover} 
+        style={{ position: 'absolute', top: insets.top + 10, left: 20, zIndex: 100 }}
+        className="w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20 backdrop-blur-md"
+      >
+        <Ionicons name="add" size={24} color="white" />
+      </TouchableOpacity>
+
+      {/* TOP RIGHT SETTINGS BUTTON */}
       <TouchableOpacity 
         onPress={handleOpenSettings} 
         style={{ position: 'absolute', top: insets.top + 10, right: 20, zIndex: 100 }}
@@ -286,16 +420,17 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* WEEKLY VIBE (INCREASED SIZE) */}
           <View className="px-6 mb-10">
             <BouncyPressable onPress={() => setShowVibeModal(true)}>
-              <Text className="text-white/30 text-[11px] font-black tracking-[4px] uppercase mb-4 ml-4 pointer-events-none">Weekly Vibe</Text>
+              <Text className="text-white font-bold text-lg mb-4 ml-2 pointer-events-none tracking-tight">Last 7 Days</Text>
               <View className="flex-row justify-between bg-white/[0.03] p-4 rounded-3xl border border-white/5 shadow-md shadow-black/30 pointer-events-none">
                  {Array.from({ length: 7 }).map((_, i) => (
-                    <View key={i} className={`w-[12%] aspect-square rounded-full overflow-hidden items-center justify-center ${profile?.calendarSnaps && profile.calendarSnaps[i] ? 'border border-white/20' : 'bg-white/5 border border-white/5'}`}>
+                    <View key={i} className={`w-[13%] aspect-square rounded-full overflow-hidden items-center justify-center ${profile?.calendarSnaps && profile.calendarSnaps[i] ? 'border-2 border-white/20' : 'bg-white/5 border border-white/5'}`}>
                       {profile?.calendarSnaps && profile.calendarSnaps[i] ? (
                          <Image source={{ uri: profile.calendarSnaps[i] }} className="w-full h-full" />
                       ) : (
-                         <View className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                         <View className="w-2 h-2 rounded-full bg-white/10" />
                       )}
                     </View>
                  ))}
@@ -303,51 +438,135 @@ export default function ProfileScreen() {
             </BouncyPressable>
           </View>
 
-          {/* GALLERY GRID */}
-          <View className="px-6">
-            <View className="flex-row justify-between items-end mb-6 px-2">
-              <View><Text className="text-white/50 text-[10px] font-black tracking-[3px] uppercase mb-1">Portfolio</Text><Text className="text-white text-2xl font-bold tracking-tight">Gallery</Text></View>
+          {/* GLOBAL PROFILE GRID */}
+          <View className="px-0.5">
+            <View className="flex-row flex-wrap" style={{ gap: GRID_GAP }}>
+              {/* FIRST ITEM: UPLOAD VIDEO */}
+              <TouchableOpacity 
+                onPress={handleUploadReelChoice}
+                style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
+                className="overflow-hidden bg-[#171f33] rounded-sm border border-dashed border-[#7dd3fc]/50 items-center justify-center shadow-lg"
+              >
+                <Ionicons name="videocam-outline" size={32} color="#7dd3fc" />
+                <Text className="text-[#7dd3fc] text-[10px] uppercase font-bold mt-2 tracking-widest">Upload Video</Text>
+              </TouchableOpacity>
+
+              {myPosts.map((post) => (
+                <TouchableOpacity 
+                  key={post.id} 
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedPost(post);
+                  }}
+                  style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
+                  className="overflow-hidden bg-white/5 rounded-sm relative"
+                >
+                  <Image source={{ uri: post.mediaUrl }} className="w-full h-full" resizeMode="cover" />
+                  
+                  <View className="absolute bottom-2 left-2 flex-row gap-2">
+                    {post.calories && (
+                       <View className="bg-black/50 rounded flex-row items-center px-1.5 py-0.5 gap-1">
+                         <Ionicons name="flame" size={8} color="#7ad7c6" />
+                       </View>
+                    )}
+                    {post.type === 'REEL' && (
+                       <View className="bg-black/50 rounded flex-row items-center px-1.5 py-0.5 gap-1">
+                         <Ionicons name="globe-outline" size={8} color="#7dd3fc" />
+                       </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
-            
-            {myPosts.length === 0 ? (
-              <View className="rounded-[40px] p-10 border border-dashed border-white/10 items-center bg-white/[0.02]">
-                <Ionicons name="images-outline" size={40} color="#555" />
-                <Text className="text-white/40 mt-4 font-body-md text-center">Your gallery is empty.</Text>
-              </View>
-            ) : (
-              <View className="flex-row flex-wrap" style={{ gap: GRID_GAP }}>
-                {myPosts.map((post) => (
-                  <TouchableOpacity 
-                    key={post.id} 
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedPost(post);
-                    }}
-                    style={{ width: ITEM_WIDTH, height: ITEM_WIDTH }} 
-                    className="overflow-hidden bg-white/5 rounded-xl"
-                  >
-                    <Image source={{ uri: post.mediaUrl }} className="w-full h-full" />
-                    
-                    <View className="absolute bottom-2 left-2 flex-row gap-2">
-                      {post.calories && (
-                         <View className="bg-black/50 rounded flex-row items-center px-1.5 py-0.5 gap-1">
-                           <Ionicons name="flame" size={8} color="#7ad7c6" />
-                         </View>
-                      )}
-                      {post.type === 'REEL' && (
-                         <View className="bg-black/50 rounded flex-row items-center px-1.5 py-0.5 gap-1">
-                           <Ionicons name="globe-outline" size={8} color="#7dd3fc" />
-                         </View>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
           </View>
 
         </Animated.View>
       </Animated.ScrollView>
+
+      {/* --- MODAL DISCOVER / INVITE --- */}
+      <Modal visible={showDiscoverModal} animationType="slide" transparent={true} onRequestClose={() => setShowDiscoverModal(false)}>
+        <View className="flex-1 justify-end">
+          <TouchableOpacity className="absolute inset-0 bg-black/60" activeOpacity={1} onPress={() => setShowDiscoverModal(false)} />
+          <BlurView intensity={90} tint="dark" className="h-[85%] rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)] overflow-hidden">
+            <View className="absolute inset-0 bg-[#090E17]/90" />
+            
+            <View {...swipeDownToCloseDiscover.panHandlers} className="w-full pt-4 pb-2 items-center bg-transparent z-50">
+              <View className="w-12 h-1.5 bg-white/20 rounded-full" />
+            </View>
+
+            <TouchableOpacity onPress={() => setShowDiscoverModal(false)} className="absolute top-4 right-6 z-50 w-8 h-8 bg-white/10 rounded-full items-center justify-center border border-white/20">
+              <Ionicons name="close" size={18} color="white" />
+            </TouchableOpacity>
+
+            <View className="px-6 pb-2">
+               <Text className="text-white font-black text-2xl text-center tracking-tight mt-2">Discover</Text>
+               <Text className="text-white/40 text-sm text-center mb-6 mt-1">Find friends or invite your contacts</Text>
+
+               <View className="bg-white/10 rounded-full px-4 h-11 flex-row items-center border border-white/10 mb-6">
+                 <Ionicons name="search" size={18} color="#aaa" />
+                 <TextInput 
+                   placeholder="Search..." 
+                   placeholderTextColor="#888"
+                   value={searchQuery}
+                   onChangeText={setSearchQuery}
+                   className="flex-1 text-white ml-2 font-bold"
+                 />
+               </View>
+            </View>
+
+            {loadingDiscover ? (
+               <ActivityIndicator color="#7dd3fc" className="mt-10" />
+            ) : (
+               <ScrollView className="px-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+                  
+                  {/* SUGGESTED FRIENDS */}
+                  {suggestedFriends.length > 0 && (
+                     <View className="mb-8">
+                        <Text className="text-white font-bold text-lg mb-4">Suggested for you</Text>
+                        {suggestedFriends.filter(f => f.username.toLowerCase().includes(searchQuery.toLowerCase())).map(friend => (
+                           <View key={friend.id} className="flex-row items-center justify-between p-3 bg-white/5 border border-white/5 rounded-2xl mb-3">
+                              <View className="flex-row items-center gap-3">
+                                 <View className="w-12 h-12 rounded-full bg-white/10 items-center justify-center overflow-hidden">
+                                   {friend.profilePicUrl ? <Image source={{ uri: friend.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white font-bold">{friend.username.charAt(0).toUpperCase()}</Text>}
+                                 </View>
+                                 <View>
+                                    <Text className="text-white font-bold tracking-wider">{friend.username}</Text>
+                                    {friend.mutuals > 0 && <Text className="text-white/40 text-xs mt-0.5">{friend.mutuals} mutual friends</Text>}
+                                 </View>
+                              </View>
+                              <TouchableOpacity onPress={() => handleFollowUser(friend.id)} className="bg-blue-600 px-5 py-2 rounded-full">
+                                 <Text className="text-white font-bold text-xs">Add</Text>
+                              </TouchableOpacity>
+                           </View>
+                        ))}
+                     </View>
+                  )}
+
+                  {/* PHONE CONTACTS */}
+                  {contacts.length > 0 && (
+                     <View>
+                        <Text className="text-white font-bold text-lg mb-4">From your contacts</Text>
+                        {contacts.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase())).map((contact, i) => (
+                           <View key={i} className="flex-row items-center justify-between p-3 bg-white/5 border border-white/5 rounded-2xl mb-3">
+                              <View className="flex-row items-center gap-3">
+                                 <View className="w-12 h-12 rounded-full bg-white/10 items-center justify-center overflow-hidden">
+                                   <Text className="text-white font-bold">{contact.name.charAt(0).toUpperCase()}</Text>
+                                 </View>
+                                 <Text className="text-white font-bold tracking-wider">{contact.name}</Text>
+                              </View>
+                              <TouchableOpacity onPress={() => handleInviteContact(contact)} className="bg-indigo-600 px-4 py-2 rounded-full">
+                                 <Text className="text-white font-bold text-xs">Invite</Text>
+                              </TouchableOpacity>
+                           </View>
+                        ))}
+                     </View>
+                  )}
+
+               </ScrollView>
+            )}
+          </BlurView>
+        </View>
+      </Modal>
 
       {/* --- MODAL POST VIEWER --- */}
       <Modal visible={selectedPost !== null} animationType="fade" transparent={true} onRequestClose={() => setSelectedPost(null)}>
@@ -368,6 +587,7 @@ export default function ProfileScreen() {
                  }}
                  onUserBlocked={() => {}}
                  onEditCaption={() => Alert.alert("Info", "Please edit the caption from the post menu on the Feed.")}
+                 onReactRequest={(id) => setReactingToPostId(id)}
                />
             )}
           </View>
@@ -399,7 +619,6 @@ export default function ProfileScreen() {
           <BlurView intensity={90} tint="dark" className="p-6 rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)] pb-10">
             <View className="absolute inset-0 bg-[#090E17]/80" />
             
-            {/* ZONA DEDICATĂ PENTRU DRAG */}
             <View {...swipeDownToCloseSettings.panHandlers} className="w-full pt-4 pb-2 items-center bg-transparent z-50">
               <View className="w-12 h-1.5 bg-white/20 rounded-full" />
             </View>
@@ -450,7 +669,6 @@ export default function ProfileScreen() {
           <BlurView intensity={90} tint="dark" className="h-[70%] p-6 rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)]">
             <View className="absolute inset-0 bg-[#090E17]/80" />
             
-            {/* ZONA DEDICATĂ PENTRU DRAG */}
             <View {...swipeDownToCloseBlocked.panHandlers} className="w-full pt-4 pb-2 items-center bg-transparent z-50">
               <View className="w-12 h-1.5 bg-white/20 rounded-full" />
             </View>
@@ -493,6 +711,30 @@ export default function ProfileScreen() {
           </BlurView>
         </View>
       </Modal>
+
+      {/* REACTION CAMERA OVERLAY */}
+      {reactingToPostId && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }}>
+          <CameraScreen 
+            mode="reaction" 
+            onClose={() => setReactingToPostId(null)} 
+            onCapture={handleReactionCapture} 
+          />
+        </View>
+      )}
+
+      {/* REEL RECORDING CAMERA OVERLAY */}
+      {recordingReel && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }}>
+          <CameraScreen 
+            mode="reel" 
+            onClose={() => {
+               setRecordingReel(false);
+               fetchProfileData();
+            }} 
+          />
+        </View>
+      )}
 
     </View>
   );

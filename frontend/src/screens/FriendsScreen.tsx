@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import BouncyPressable from '../components/BouncyPressable';
 import LiquidPostCard from '../components/LiquidPostCard'; 
+import CameraScreen from './CameraScreen';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
@@ -37,6 +38,8 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
 
   const [editingPost, setEditingPost] = useState<string | null>(null);
   const [editCaptionText, setEditCaptionText] = useState('');
+
+  const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
 
   const [activeStory, setActiveStory] = useState<any>(null);
   const storyProgress = useRef(new Animated.Value(0)).current;
@@ -177,6 +180,29 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
       setPosts(curr => curr.map(p => p.id === postId ? { ...p, caption: editCaptionText } : p));
       setEditingPost(null);
     } catch(e) { Alert.alert("Error", "Could not update caption."); }
+  };
+
+  const handleReactionCapture = async (uri: string) => {
+    if (!reactingToPostId) return;
+    const postId = reactingToPostId;
+    setReactingToPostId(null);
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'reaction.jpg';
+      const type = `image/${filename.split('.').pop()}`;
+
+      formData.append('file', { uri, name: filename, type } as any);
+
+      // Optimistic update
+      setPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
+
+      await api.post(`/interactions/${postId}/react`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      Alert.alert("Error", "Could not add reaction.");
+    }
   };
 
   const handleOpenStory = (friend: any) => {
@@ -325,6 +351,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
               onOpenComments={() => openComments(item.id)}
               onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
               onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
+              onReactRequest={(id) => setReactingToPostId(id)}
               onEditCaption={(id, text) => {
                 setEditCaptionText(text);
                 setEditingPost(id);
@@ -450,6 +477,17 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
           )}
         </BlurView>
       </Modal>
+
+      {/* REACTION CAMERA */}
+      {reactingToPostId && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }}>
+          <CameraScreen 
+            mode="reaction" 
+            onClose={() => setReactingToPostId(null)} 
+            onCapture={handleReactionCapture} 
+          />
+        </View>
+      )}
 
     </Animated.View>
   );

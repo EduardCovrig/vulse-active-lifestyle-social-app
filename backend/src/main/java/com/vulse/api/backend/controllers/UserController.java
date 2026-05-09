@@ -42,6 +42,51 @@ public class UserController {
                 }).collect(Collectors.toList()));
     }
 
+    @GetMapping("/suggestions")
+    public ResponseEntity<List<Map<String, Object>>> getSuggestions(@AuthenticationPrincipal User currentUser) {
+        List<User> myFollowing = followRepository.findByFollowerId(currentUser.getId())
+                .stream().map(Follow::getFollowing).toList();
+
+        Map<User, Long> potentialSuggestions = myFollowing.stream()
+                .flatMap(friend -> followRepository.findByFollowerId(friend.getId()).stream().map(Follow::getFollowing))
+                .filter(u -> !u.getId().equals(currentUser.getId())) // don't suggest myself
+                .filter(u -> myFollowing.stream().noneMatch(mf -> mf.getId().equals(u.getId()))) // don't suggest people I already follow
+                .collect(Collectors.groupingBy(u -> u, Collectors.counting()));
+
+        List<Map<String, Object>> suggestions = potentialSuggestions.entrySet().stream()
+                .sorted((e1, e2) -> Long.compare(e2.getValue(), e1.getValue())) // sort by number of mutuals desc
+                .limit(10) // top 10
+                .map(entry -> {
+                    User u = entry.getKey();
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", u.getId());
+                    map.put("username", u.getRealUsername());
+                    map.put("profilePicUrl", u.getProfilePicUrl());
+                    map.put("mutuals", entry.getValue());
+                    return map;
+                }).collect(Collectors.toList());
+
+        // If not enough suggestions, fill with random users (just taking from all users)
+        if (suggestions.size() < 5) {
+            List<User> allUsers = userRepository.findAll();
+            for (User u : allUsers) {
+                if (suggestions.size() >= 10) break;
+                if (!u.getId().equals(currentUser.getId()) &&
+                    myFollowing.stream().noneMatch(mf -> mf.getId().equals(u.getId())) &&
+                    suggestions.stream().noneMatch(s -> s.get("id").equals(u.getId()))) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", u.getId());
+                    map.put("username", u.getRealUsername());
+                    map.put("profilePicUrl", u.getProfilePicUrl());
+                    map.put("mutuals", 0L);
+                    suggestions.add(map);
+                }
+            }
+        }
+
+        return ResponseEntity.ok(suggestions);
+    }
+
     @PostMapping("/{userId}/follow")
     public ResponseEntity<Void> followUser(@AuthenticationPrincipal User currentUser, @PathVariable UUID userId) {
         if (currentUser.getId().equals(userId)) {

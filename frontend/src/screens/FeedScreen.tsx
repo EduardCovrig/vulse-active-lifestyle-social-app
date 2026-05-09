@@ -17,6 +17,7 @@ export default function FeedScreen() {
 
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
 
   const CARD_HEIGHT = height - insets.top - insets.bottom - 100;
 
@@ -35,6 +36,29 @@ export default function FeedScreen() {
   useEffect(() => {
     fetchGlobalFeed();
   }, []);
+
+  const handleReactionCapture = async (uri: string) => {
+    if (!reactingToPostId) return;
+    const postId = reactingToPostId;
+    setReactingToPostId(null);
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'reaction.jpg';
+      const type = `image/${filename.split('.').pop()}`;
+
+      formData.append('file', { uri, name: filename, type } as any);
+
+      // Optimistic update
+      setPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
+
+      await api.post(`/interactions/${postId}/react`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      // Import * as Haptics if needed or just skip it since it's in LiquidPostCard
+    } catch (error) {
+      console.error("Reaction error", error);
+    }
+  };
 
   return (
     <View style={StyleSheet.absoluteFill} className="bg-[#090E17]">
@@ -67,6 +91,7 @@ export default function FeedScreen() {
                     onOpenComments={() => console.log("Global comments in progress")}
                     onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
                     onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
+                    onReactRequest={(id) => setReactingToPostId(id)}
                     onEditCaption={(id, text) => console.log("Edit")}
                   />
                 )}
@@ -88,6 +113,17 @@ export default function FeedScreen() {
       {activeTab === 'camera' && (
         <View style={StyleSheet.absoluteFill} className="z-[100]">
           <CameraScreen onClose={() => setActiveTab('friends')} />
+        </View>
+      )}
+
+      {/* REACTION CAMERA OVERLAY */}
+      {reactingToPostId && (
+        <View style={StyleSheet.absoluteFill} className="z-[200]">
+          <CameraScreen 
+            mode="reaction" 
+            onClose={() => setReactingToPostId(null)} 
+            onCapture={handleReactionCapture} 
+          />
         </View>
       )}
     </View>

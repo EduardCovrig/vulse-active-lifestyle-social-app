@@ -10,15 +10,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import BouncyPressable from '../components/BouncyPressable';
 import { api } from '../services/api';
 
-export default function CameraScreen({ onClose }: { onClose: () => void }) {
+interface CameraScreenProps {
+  onClose: () => void;
+  mode?: 'daily' | 'reaction' | 'reel';
+  onCapture?: (uri: string) => void;
+}
+
+export default function CameraScreen({ onClose, mode = 'daily', onCapture }: CameraScreenProps) {
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [flash, setFlash] = useState<'off' | 'on'>('off');
-  const [mode, setMode] = useState<'picture' | 'video'>('picture');
+  const [cameraMode, setCameraMode] = useState<'picture' | 'video'>(mode === 'reel' ? 'video' : 'picture');
   const [permission, requestPermission] = useCameraPermissions();
   
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
-  const [isFromGallery, setIsFromGallery] = useState(false);
   
   const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -63,17 +68,20 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
   };
 
   const takePicture = async () => {
-    if (cameraRef.current && mode === 'picture') {
+    if (cameraRef.current && cameraMode === 'picture') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
       setMediaUri(photo.uri);
       setMediaType('image');
-      setIsFromGallery(false);
+      
+      if (mode === 'reaction' && onCapture) {
+        onCapture(photo.uri);
+      }
     }
   };
 
   const toggleRecording = async () => {
-    if (!cameraRef.current || mode !== 'video') return;
+    if (!cameraRef.current || cameraMode !== 'video') return;
 
     if (isRecording) {
       cameraRef.current.stopRecording();
@@ -86,25 +94,9 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
         const video = await cameraRef.current.recordAsync({ maxDuration: 60 });
         setMediaUri(video.uri);
         setMediaType('video');
-        setIsFromGallery(false);
       } catch (e) {
         setIsRecording(false);
       }
-    }
-  };
-
-  const pickFromGallery = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0].uri) {
-      setMediaUri(result.assets[0].uri);
-      setMediaType(result.assets[0].type === 'video' ? 'video' : 'image');
-      setIsFromGallery(true); // FLAG pentru a ascunde Daily Snap
     }
   };
 
@@ -145,8 +137,8 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
     }
   };
 
-  // --- PREVIEW SCREEN ---
-  if (mediaUri) {
+  // Skip preview if reaction, handled by takePicture
+  if (mediaUri && mode !== 'reaction') {
     return (
       <View className="flex-1 bg-black relative">
         <Image source={{ uri: mediaUri }} className="flex-1" resizeMode="cover" />
@@ -166,38 +158,30 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
             <Text className="text-white/50 text-sm mb-6">Choose how you want to post this moment.</Text>
 
             <View className="flex-col gap-3">
-              {/* ROW 1 */}
-              <View className="flex-row gap-3">
-                <TouchableOpacity onPress={() => handleUpload('REEL')} disabled={isUploading} className="flex-1">
-                  <LinearGradient colors={['#171f33', '#0b1326']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-3xl p-4 items-center justify-center border border-white/10 h-24 shadow-lg">
-                    {isUploading ? <ActivityIndicator color="#c5eaff" /> : (
-                      <>
-                        <Ionicons name="globe-outline" size={24} color="#c5eaff" className="mb-2" />
-                        <Text className="text-[#c5eaff] font-bold text-[10px] tracking-widest text-center">GLOBAL DROP</Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-
-              {/* ROW 2: DAILY SNAP */}
-              {!isFromGallery && (
-                <TouchableOpacity onPress={() => handleUpload('DAILY')} disabled={isUploading} className="w-full">
+              {mode === 'reel' && (
+                <TouchableOpacity onPress={() => handleUpload('REEL')} disabled={isUploading} className="w-full">
                   <LinearGradient colors={['#7ad7c6', '#7dd3fc']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-3xl p-4 flex-row items-center justify-center shadow-[0_0_20px_rgba(122,215,198,0.3)] h-16">
                     {isUploading ? <ActivityIndicator color="#0b1326" /> : (
                       <>
-                        <Ionicons name="flash" size={20} color="#0b1326" className="mr-2" />
-                        <Text className="text-[#0b1326] font-black text-sm tracking-widest">POST DAILY SNAP</Text>
+                        <Ionicons name="globe-outline" size={20} color="#0b1326" className="mr-2" />
+                        <Text className="text-[#0b1326] font-black text-sm tracking-widest">POST REEL</Text>
                       </>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
               )}
-              
-              {isFromGallery && (
-                 <Text className="text-center text-white/30 text-[10px] uppercase tracking-widest mt-2">
-                   Daily Snaps must be captured live.
-                 </Text>
+
+              {mode === 'daily' && (
+                <TouchableOpacity onPress={() => handleUpload('DAILY')} disabled={isUploading} className="w-full">
+                  <LinearGradient colors={['#7ad7c6', '#7dd3fc']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-3xl p-4 flex-row items-center justify-center shadow-[0_0_20px_rgba(122,215,198,0.3)] h-16">
+                    {isUploading ? <ActivityIndicator color="#0b1326" /> : (
+                      <>
+                        <Ionicons name="paper-plane" size={20} color="#0b1326" className="mr-2" />
+                        <Text className="text-[#0b1326] font-black text-sm tracking-widest">SHARE WITH YOUR FRIENDS</Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
               )}
 
             </View>
@@ -214,7 +198,7 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
         ref={cameraRef} 
         style={StyleSheet.absoluteFillObject} 
         facing={facing} 
-        mode={mode}
+        mode={cameraMode}
         enableTorch={flash === 'on'}
       />
       
@@ -232,36 +216,22 @@ export default function CameraScreen({ onClose }: { onClose: () => void }) {
 
       {/* BOTTOM CONTROLS */}
       <View className="absolute bottom-12 inset-x-0 items-center px-10">
-        
-        <View className="flex-row gap-6 mb-8">
-          <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setMode('picture'); }} className="px-4 py-2">
-            <Text className={`font-black tracking-widest text-sm ${mode === 'picture' ? 'text-white shadow-[0_0_10px_rgba(255,255,255,0.8)]' : 'text-white/30'}`}>PHOTO</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setMode('video'); }} className="px-4 py-2">
-            <Text className={`font-black tracking-widest text-sm ${mode === 'video' ? 'text-[#ff4b4b] shadow-[0_0_10px_rgba(255,75,75,0.8)]' : 'text-white/30'}`}>VIDEO</Text>
-          </TouchableOpacity>
-        </View>
 
         <View className="flex-row justify-between items-center w-full">
           
-          {/* GALLERY PICKER */}
-          <View className="flex-1 items-start">
-            <BouncyPressable onPress={pickFromGallery} className="w-12 h-12 rounded-2xl border border-white/30 overflow-hidden bg-black/40 items-center justify-center backdrop-blur-md">
-               <Ionicons name="images" size={24} color="white" />
-            </BouncyPressable>
-          </View>
+          <View className="flex-1 items-start" />
 
           {/* CAPTURE BUTTON */}
-          <BouncyPressable onPress={mode === 'picture' ? takePicture : toggleRecording} scaleTo={0.85}>
+          <BouncyPressable onPress={cameraMode === 'picture' ? takePicture : toggleRecording} scaleTo={0.85}>
             <View className="relative items-center justify-center">
-              {mode === 'picture' && (
+              {cameraMode === 'picture' && (
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }} className="absolute w-24 h-24 rounded-full border-[3px] border-[#7dd3fc]/50" />
               )}
               {isRecording && (
                 <View className="absolute w-24 h-24 rounded-full border-[4px] border-[#ff4b4b] animate-ping" />
               )}
               <View className="w-20 h-20 rounded-full border-[4px] border-white items-center justify-center p-1 bg-black/20 backdrop-blur-sm">
-                 <View className={`w-full h-full rounded-full ${mode === 'video' ? (isRecording ? 'bg-[#ff4b4b] rounded-lg w-8 h-8' : 'bg-[#ff4b4b]') : 'bg-white shadow-[0_0_20px_rgba(255,255,255,0.5)]'}`} />
+                 <View className={`w-full h-full rounded-full ${cameraMode === 'video' ? (isRecording ? 'bg-[#ff4b4b] rounded-lg w-8 h-8' : 'bg-[#ff4b4b]') : 'bg-white shadow-[0_0_20px_rgba(255,255,255,0.5)]'}`} />
               </View>
             </View>
           </BouncyPressable>
