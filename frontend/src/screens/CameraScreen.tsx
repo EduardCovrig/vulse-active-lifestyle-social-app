@@ -131,7 +131,12 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
       
     } catch (error: any) {
       console.error("Upload error:", error.response?.data);
-      Alert.alert("Error", error.response?.data?.message || "Upload failed. Please check your connection.");
+      const backendMessage = error.response?.data?.message || error.response?.data || "";
+      if (typeof backendMessage === 'string' && backendMessage.includes("already posted")) {
+        Alert.alert("Daily Limit Reached", "You've already shared your active life today!");
+      } else {
+        Alert.alert("Error", backendMessage || "Upload failed. Please check your connection.");
+      }
     } finally {
       setIsUploading(false);
     }

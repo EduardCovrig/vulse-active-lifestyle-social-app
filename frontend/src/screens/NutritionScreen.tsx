@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { api } from '../services/api';
 import BouncyPressable from '../components/BouncyPressable';
+import ManualLogModal from '../components/ManualLogModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,7 +23,7 @@ export default function NutritionScreen() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [manualMeal, setManualMeal] = useState({ cal: '', pro: '', carb: '', fat: '' });
+  const [manualMeal, setManualMeal] = useState({ cal: '', pro: '', carbs: '', fat: '', desc: '' });
 
   const [macroDial, setMacroDial] = useState<{ visible: boolean, type: 'cal'|'pro'|'carb'|'fat', label: string, baseColor: string }>({ visible: false, type: 'cal', label: '', baseColor: '#7dd3fc' });
   const [dialValue, setDialValue] = useState(0);
@@ -46,9 +47,10 @@ export default function NutritionScreen() {
     setEditingMealId(meal.id);
     setManualMeal({
       cal: meal.calories?.toString() || '',
-      pro: meal.proteinGrams?.toString() || '',
-      carb: meal.carbsGrams?.toString() || '',
-      fat: meal.fatGrams?.toString() || ''
+      pro: meal.proteinsGrams?.toString() || '',
+      carbs: meal.carbsGrams?.toString() || '',
+      fat: meal.fatsGrams?.toString() || '',
+      desc: meal.name || ''
     });
     setShowAddModal(true);
   };
@@ -56,17 +58,8 @@ export default function NutritionScreen() {
   const closeAddModal = () => {
     setShowAddModal(false);
     setEditingMealId(null);
-    setManualMeal({ cal: '', pro: '', carb: '', fat: '' });
+    setManualMeal({ cal: '', pro: '', carbs: '', fat: '', desc: '' });
   };
-
-  const swipeDownToCloseResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 50) closeAddModal();
-      }
-    })
-  ).current;
 
   const fetchNutritionData = async () => {
     setLoading(true);
@@ -110,10 +103,11 @@ export default function NutritionScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const payload = {
-        calories: parseInt(manualMeal.cal),
-        protein: parseInt(manualMeal.pro || '0'),
-        carbs: parseInt(manualMeal.carb || '0'),
-        fat: parseInt(manualMeal.fat || '0'),
+        calories: parseInt(manualMeal.cal) || 0,
+        proteins: parseInt(manualMeal.pro) || 0,
+        carbs: parseInt(manualMeal.carbs) || 0,
+        fats: parseInt(manualMeal.fat) || 0,
+        name: manualMeal.desc || 'Manual Log',
         date: formatDateForApi(currentDate) 
       };
 
@@ -146,7 +140,6 @@ export default function NutritionScreen() {
     ]);
   };
 
-  // --- ROTARY DIAL LOGIC REVOLUTIONAT ---
   const openDial = (type: 'cal'|'pro'|'carb'|'fat', label: string, color: string, currentVal: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const val = currentVal || 0;
@@ -173,7 +166,6 @@ export default function NutritionScreen() {
     }
   };
 
-  // Noul PanResponder ultra fluid cu pași ficși
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -182,7 +174,7 @@ export default function NutritionScreen() {
         const cy = height / 2;
         lastAngleRef.current = Math.atan2(gestureState.y0 - cy, gestureState.x0 - cx) * (180 / Math.PI);
         startValueRef.current = dialValueRef.current;
-        accumulatedAngleRef.current = 0; // Resetăm acumularea la fiecare touch
+        accumulatedAngleRef.current = 0; 
       },
       onPanResponderMove: (e, gestureState) => {
         const cx = width / 2;
@@ -191,16 +183,14 @@ export default function NutritionScreen() {
         const currentAngle = Math.atan2(gestureState.moveY - cy, gestureState.moveX - cx) * (180 / Math.PI);
         let delta = currentAngle - lastAngleRef.current;
 
-        // Corecție la traversarea axei (din stânga în dreapta)
         if (delta > 180) delta -= 360;
         if (delta < -180) delta += 360;
 
         lastAngleRef.current = currentAngle;
         accumulatedAngleRef.current += delta;
 
-        // SETĂRI PAȘI EXACTE:
-        const stepSize = dialTypeRef.current === 'cal' ? 100 : 5; // Calorii din 100 in 100, Macros din 5 in 5
-        const degreesPerStep = 18; // 360 de grade = 20 de pași. O tură = 2000 cal sau 100g.
+        const stepSize = dialTypeRef.current === 'cal' ? 100 : 5; 
+        const degreesPerStep = 18; 
 
         const stepsMoved = Math.floor(accumulatedAngleRef.current / degreesPerStep);
         let newVal = startValueRef.current + (stepsMoved * stepSize);
@@ -216,21 +206,18 @@ export default function NutritionScreen() {
     })
   ).current;
 
-  // Calculul culorilor și rotației pentru interfața cercului
   const getDialUIParams = () => {
     const isCal = macroDial.type === 'cal';
     const maxPerLap = isCal ? 2000 : 100;
     const laps = Math.floor(dialValue / (maxPerLap || 1));
     
-    // Progresul în tura curentă (0 - 360 grade)
     const progressInLap = dialValue % maxPerLap;
     const rotationDegrees = (progressInLap / maxPerLap) * 360;
 
-    // Culori dinamice în funcție de câte "ture" a dat peste cap
     let currentColor = macroDial.baseColor;
-    if (laps === 1) currentColor = '#fde047'; // Yellow
-    if (laps === 2) currentColor = '#ff8a00'; // Orange
-    if (laps >= 3) currentColor = '#ff4b4b'; // Red
+    if (laps === 1) currentColor = '#fde047'; 
+    if (laps === 2) currentColor = '#ff8a00'; 
+    if (laps >= 3) currentColor = '#ff4b4b'; 
 
     return { currentColor, rotationDegrees, laps };
   };
@@ -247,7 +234,6 @@ export default function NutritionScreen() {
   return (
     <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17', paddingTop: insets.top }}>
       
-      {/* HEADER: DATE SELECTOR */}
       <View className="flex-row items-center justify-between px-6 mb-6 mt-4">
         <TouchableOpacity onPress={() => changeDate(-1)} className="w-10 h-10 bg-white/5 rounded-full items-center justify-center border border-white/10">
           <Ionicons name="chevron-back" size={20} color="white" />
@@ -271,7 +257,6 @@ export default function NutritionScreen() {
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 150 }}
           ListHeaderComponent={
             <View className="mb-8">
-              {/* MAIN CALORIE RING / BAR */}
               <View className="bg-white/[0.03] border border-white/5 rounded-[40px] p-8 items-center mb-6 shadow-2xl shadow-black/50">
                 <Text className="text-white/40 text-xs font-bold uppercase tracking-[4px] mb-4">Calories</Text>
                 
@@ -280,7 +265,6 @@ export default function NutritionScreen() {
                   <Text className="text-[#7dd3fc] font-bold text-lg mb-2">/ {goals?.cal}</Text>
                 </TouchableOpacity>
                 
-                {/* PROGRESS BAR */}
                 <View className="w-full h-3 bg-white/10 rounded-full overflow-hidden mb-6">
                   <LinearGradient 
                     colors={['#7ad7c6', '#7dd3fc']} 
@@ -289,7 +273,6 @@ export default function NutritionScreen() {
                   />
                 </View>
 
-                {/* MACROS SMALL BARS */}
                 <View className="flex-row justify-between w-full">
                   <TouchableOpacity activeOpacity={0.7} onPress={() => openDial('pro', 'PROTEIN', '#c084fc', goals.pro)} className="items-center flex-1">
                     <Text className="text-white/40 text-[10px] uppercase font-bold mb-2 tracking-widest">Proteins (g)</Text>
@@ -362,62 +345,15 @@ export default function NutritionScreen() {
         />
       )}
 
-      {/* --- ADD MANUAL MEAL MODAL --- */}
-      <Modal visible={showAddModal} animationType="slide" transparent={true} onRequestClose={closeAddModal}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end">
-          <TouchableOpacity className="absolute inset-0 bg-black/60" activeOpacity={1} onPress={closeAddModal} />
-          
-          <BlurView intensity={90} tint="dark" className="rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)] overflow-hidden max-h-[85%]">
-            <View className="absolute inset-0 bg-[#090E17]/80" />
-            
-            <View {...swipeDownToCloseResponder.panHandlers} className="w-full pt-6 pb-4 items-center bg-transparent z-50">
-              <View className="w-12 h-1.5 bg-white/20 rounded-full" />
-            </View>
-
-            <TouchableOpacity onPress={closeAddModal} className="absolute top-4 right-6 z-50 w-8 h-8 bg-white/10 rounded-full items-center justify-center border border-white/20">
-              <Ionicons name="close" size={18} color="white" />
-            </TouchableOpacity>
-
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 32, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-              <Text className="text-white font-black text-2xl mb-2 text-center tracking-tight">{editingMealId ? 'Edit Log' : 'Manual Log'}</Text>
-              <Text className="text-white/40 text-sm text-center mb-8">{editingMealId ? 'Update your meal data.' : 'Add a meal without a photo.'}</Text>
-
-              <View className="flex-row flex-wrap justify-between gap-y-4">
-                <View className="w-full mb-2">
-                  <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Total Calories *</Text>
-                  <View className="bg-[#7ad7c6]/10 border border-[#7ad7c6]/30 rounded-2xl h-14 justify-center px-4">
-                    <TextInput keyboardType="numeric" value={manualMeal.cal} onChangeText={(v) => setManualMeal(p => ({ ...p, cal: v }))} className="text-[#7ad7c6] font-black text-xl" placeholder="e.g. 450" placeholderTextColor="#7ad7c650" keyboardAppearance="dark" />
-                  </View>
-                </View>
-                <View className="w-[30%]">
-                  <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Prot (g)</Text>
-                  <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                    <TextInput keyboardType="numeric" value={manualMeal.pro} onChangeText={(v) => setManualMeal(p => ({ ...p, pro: v }))} className="text-white font-bold text-lg" placeholder="0" placeholderTextColor="#555" keyboardAppearance="dark" />
-                  </View>
-                </View>
-                <View className="w-[30%]">
-                  <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Carbs (g)</Text>
-                  <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                    <TextInput keyboardType="numeric" value={manualMeal.carb} onChangeText={(v) => setManualMeal(p => ({ ...p, carb: v }))} className="text-white font-bold text-lg" placeholder="0" placeholderTextColor="#555" keyboardAppearance="dark" />
-                  </View>
-                </View>
-                <View className="w-[30%]">
-                  <Text className="text-white/50 text-[10px] font-bold tracking-widest uppercase mb-2 ml-2">Fats (g)</Text>
-                  <View className="bg-white/5 border border-white/10 rounded-2xl h-14 justify-center px-4">
-                    <TextInput keyboardType="numeric" value={manualMeal.fat} onChangeText={(v) => setManualMeal(p => ({ ...p, fat: v }))} className="text-white font-bold text-lg" placeholder="0" placeholderTextColor="#555" keyboardAppearance="dark" />
-                  </View>
-                </View>
-              </View>
-
-              <TouchableOpacity onPress={handleAddManualMeal} disabled={isSubmitting} className="mt-8 mb-4">
-                <LinearGradient colors={['#7ad7c6', '#7dd3fc']} className="w-full h-14 rounded-2xl items-center justify-center flex-row shadow-[0_0_20px_rgba(122,215,198,0.3)]">
-                  {isSubmitting ? <ActivityIndicator color="#090E17" /> : <Text className="text-[#090E17] font-black text-lg tracking-wider">{editingMealId ? 'SAVE CHANGES' : 'ADD MEAL'}</Text>}
-                </LinearGradient>
-              </TouchableOpacity>
-            </ScrollView>
-          </BlurView>
-        </KeyboardAvoidingView>
-      </Modal>
+      <ManualLogModal 
+        visible={showAddModal}
+        onClose={closeAddModal}
+        editingMealId={editingMealId}
+        manualMeal={manualMeal}
+        setManualMeal={setManualMeal}
+        handleManualSave={handleAddManualMeal}
+        isSavingManual={isSubmitting}
+      />
 
       {/* --- LIQUID GLASSY ROTARY DIAL MODAL --- */}
       <Modal visible={macroDial.visible} animationType="fade" transparent={true}>

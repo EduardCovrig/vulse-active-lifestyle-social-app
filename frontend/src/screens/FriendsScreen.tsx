@@ -10,13 +10,16 @@ import LiquidPostCard from '../components/LiquidPostCard';
 import CameraScreen from './CameraScreen';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 interface FriendsScreenProps {
   onOpenCamera?: () => void;
+  onHideBottomBar?: (hide: boolean) => void;
 }
 
-export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
+export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: FriendsScreenProps) {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const { username: myUsername } = useContext(AuthContext); 
 
@@ -85,9 +88,9 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
     }
   };
 
-  const openUserProfile = async (targetUsername: string) => {
+  const openUserProfile = (targetUsername: string) => {
     if (targetUsername === myUsername) {
-      Alert.alert("That's you!", "Go to your profile tab to see your data.");
+      navigation.navigate('Profile');
       return; 
     }
     
@@ -96,27 +99,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
     setSearchQuery(''); 
     setSearchResults([]); 
     
-    setLoadingProfile(true);
-    setViewedProfile({ username: targetUsername, followersCount: 0, followingCount: 0, bio: '' }); 
-    
-    try {
-      const res = await api.get(`/users/${encodeURIComponent(targetUsername)}/profile`);
-      if (res.data) setViewedProfile(res.data); 
-    } catch (e: any) {
-      console.error("Backend Profile Error:", e.response?.data || e.message);
-      
-      if (e.response?.status === 500) {
-         Alert.alert(
-           "Warning (Backend Issue)", 
-           "The server returned an internal error when calculating this profile's stats, but the frontend function is active."
-         );
-      } else {
-         Alert.alert("Unavailable", e.response?.data?.message || "User could not be found.");
-         setViewedProfile(null);
-      }
-    } finally { 
-      setLoadingProfile(false); 
-    }
+    navigation.navigate('UserProfile', { username: targetUsername });
   };
 
   const handleFollow = async (userId: string) => {
@@ -186,6 +169,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
     if (!reactingToPostId) return;
     const postId = reactingToPostId;
     setReactingToPostId(null);
+    if (onHideBottomBar) onHideBottomBar(false);
     try {
       const formData = new FormData();
       const filename = uri.split('/').pop() || 'reaction.jpg';
@@ -206,7 +190,7 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
   };
 
   const handleOpenStory = (friend: any) => {
-    if (!friend.hasPosted || !friend.img) return;
+    if (!friend.hasPosted || !friend.dailyPostUrl) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setActiveStory(friend);
     
@@ -248,17 +232,17 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
               }
             }}
           >
-            <View className="relative w-16 h-16 rounded-full items-center justify-center mb-2 shadow-lg shadow-black">
+            <View className="relative w-[52px] h-[52px] rounded-full items-center justify-center mb-1.5">
               {item.hasPosted ? (
-                <LinearGradient colors={['#7ad7c6', '#7dd3fc']} className="absolute inset-0 rounded-full" style={{ padding: 2 }}>
-                  <View className="flex-1 bg-[#090E17] rounded-full border-[3px] border-[#090E17] overflow-hidden">
-                    {item.img ? <Image source={{ uri: item.img }} className="w-full h-full object-cover" /> : <View className="w-full h-full bg-white/10" />}
+                <LinearGradient colors={['#7ad7c6', '#7dd3fc']} className="absolute inset-0 rounded-full" style={{ padding: 1.5 }}>
+                  <View className="flex-1 bg-[#090E17] rounded-full border-2 border-[#090E17] overflow-hidden items-center justify-center">
+                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" /> : <View className="w-full h-full bg-white/10 items-center justify-center"><Text className="text-white font-bold">{item.name?.charAt(0)?.toUpperCase()}</Text></View>}
                   </View>
                 </LinearGradient>
               ) : (
-                <View className="absolute inset-0 rounded-full border-2 border-white/10 p-0.5">
-                  <View className="flex-1 rounded-full overflow-hidden opacity-40 bg-white/5">
-                    {item.img ? <Image source={{ uri: item.img }} className="w-full h-full object-cover" /> : null}
+                <View className="absolute inset-0 rounded-full border border-white/[0.08] p-0.5">
+                  <View className="flex-1 rounded-full overflow-hidden opacity-40 bg-white/5 items-center justify-center">
+                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" /> : <Text className="text-white font-bold">{item.name?.charAt(0)?.toUpperCase()}</Text>}
                   </View>
                 </View>
               )}
@@ -268,13 +252,13 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
                 </View>
               )}
             </View>
-            <Text className={`text-[10px] font-bold text-center w-16 ${item.hasPosted ? 'text-white' : 'text-white/40'}`} numberOfLines={1}>
+            <Text className={`text-[9px] font-semibold text-center w-14 ${item.hasPosted ? 'text-white/80' : 'text-white/30'}`} numberOfLines={1}>
               {item.name}
             </Text>
           </BouncyPressable>
         )}
       />
-      <Text className="text-secondary text-[10px] font-black tracking-[3px] uppercase mb-4 px-6 mt-6">Latest Updates</Text>
+      <Text className="text-white/30 text-[9px] font-semibold tracking-[3px] uppercase mb-3 px-6 mt-5">Latest Updates</Text>
     </View>
   );
 
@@ -282,12 +266,12 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
     <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17' }}>
       {/* SEARCH BAR */ }
       <View className="px-6 mb-2 z-[200]" style={{ paddingTop: insets.top + 10 }}>
-        <BlurView intensity={50} tint="dark" className="flex-row items-center px-4 h-12 rounded-full border border-white/15 shadow-lg shadow-black/50 bg-white/5">
-          <Ionicons name="search" size={20} color="#bec8ce" />
+        <BlurView intensity={40} tint="dark" className="flex-row items-center px-4 h-11 rounded-full border border-white/[0.08] bg-white/[0.03]">
+          <Ionicons name="search" size={18} color="rgba(190,200,206,0.5)" />
           <TextInput 
             placeholder="Search friends..." 
-            placeholderTextColor="#bec8ce80" 
-            className="flex-1 ml-3 text-white font-body-md" 
+            placeholderTextColor="rgba(190,200,206,0.35)" 
+            className="flex-1 ml-3 text-white text-[14px]" 
             keyboardAppearance="dark" 
             value={searchQuery} 
             onChangeText={handleSearch}
@@ -296,23 +280,28 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); Keyboard.dismiss(); }}>
-              <Ionicons name="close-circle" size={20} color="#bec8ce80" />
+              <Ionicons name="close-circle" size={18} color="rgba(190,200,206,0.4)" />
             </TouchableOpacity>
           )}
         </BlurView>
 
         {/* SEARCH RESULTS ABSOLUTE (Over the feed) */}
         {searchResults.length > 0 && (
-          <BlurView intensity={95} tint="dark" className="mt-2 rounded-2xl border border-white/20 p-2 overflow-hidden shadow-2xl absolute top-[60px] left-6 right-6 z-[300]">
-            {searchResults.map(u => (
-              <TouchableOpacity key={u.id} onPress={() => openUserProfile(u.username)} className="flex-row items-center justify-between p-3 border-b border-white/10">
-                <View className="flex-row items-center gap-3">
-                  <View className="w-8 h-8 rounded-full bg-white/10 items-center justify-center overflow-hidden border border-white/5">
-                    {u.profilePicUrl ? <Image source={{ uri: u.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white font-bold">{u.username.charAt(0).toUpperCase()}</Text>}
+          <BlurView intensity={95} tint="dark" className="mt-2 rounded-3xl border border-white/20 p-2 overflow-hidden shadow-2xl absolute top-[60px] left-6 right-6 z-[300] max-h-[400px]">
+            {searchResults.map((u, i) => (
+              <TouchableOpacity key={u.id} onPress={() => openUserProfile(u.username)} className={`flex-row items-center justify-between p-4 bg-white/5 rounded-2xl mb-2 border border-white/5`}>
+                <View className="flex-row items-center gap-4">
+                  <View className="w-12 h-12 rounded-full bg-white/10 items-center justify-center overflow-hidden border border-white/10">
+                    {u.profilePicUrl ? <Image source={{ uri: u.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white font-bold text-lg">{u.username.charAt(0).toUpperCase()}</Text>}
                   </View>
-                  <Text className="text-white font-bold tracking-wider">{u.username}</Text>
+                  <View>
+                    <Text className="text-white font-bold tracking-wider text-base">{u.username}</Text>
+                    {u.mutualsText && <Text className="text-[#7ad7c6] font-bold text-[10px] uppercase tracking-widest mt-1">{u.mutualsText}</Text>}
+                  </View>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="gray" />
+                <View className="w-8 h-8 rounded-full bg-white/5 items-center justify-center">
+                  <Ionicons name="chevron-forward" size={16} color="white" />
+                </View>
               </TouchableOpacity>
             ))}
           </BlurView>
@@ -348,10 +337,14 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
             
             <LiquidPostCard 
               post={item} 
+              onOpenProfile={openUserProfile}
               onOpenComments={() => openComments(item.id)}
               onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
               onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
-              onReactRequest={(id) => setReactingToPostId(id)}
+              onReactRequest={(id) => {
+                setReactingToPostId(id);
+                if (onHideBottomBar) onHideBottomBar(true);
+              }}
               onEditCaption={(id, text) => {
                 setEditCaptionText(text);
                 setEditingPost(id);
@@ -364,8 +357,8 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
       {/* STORY VIEWER MODAL */}
       <Modal visible={activeStory !== null} animationType="fade" transparent={true} onRequestClose={closeStory}>
         <View className="flex-1 bg-black">
-          {activeStory?.img && (
-            <Image source={{ uri: activeStory.img }} className="w-full h-full" resizeMode="cover" />
+          {activeStory?.dailyPostUrl && (
+            <Image source={{ uri: activeStory.dailyPostUrl }} className="w-full h-full" resizeMode="cover" />
           )}
           <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent']} className="absolute top-0 inset-x-0 h-40 pointer-events-none" />
 
@@ -399,12 +392,12 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
       <Modal visible={activePostId !== null} animationType="slide" transparent={true} onRequestClose={() => setActivePostId(null)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end">
           <TouchableOpacity className="flex-1 bg-black/40" onPress={() => setActivePostId(null)} />
-          <BlurView intensity={90} tint="dark" className="h-[60%] rounded-t-[40px] border-t border-white/10 p-6 shadow-[0_-20px_40px_rgba(0,0,0,0.8)] overflow-hidden">
-            <View className="absolute inset-0 bg-[#090E17]/60" />
+          <BlurView intensity={70} tint="dark" className="h-[55%] rounded-t-[32px] border-t border-white/[0.06] p-5 overflow-hidden">
+            <View className="absolute inset-0 bg-[#090E17]/92" />
             
-            <View className="w-12 h-1.5 bg-white/20 rounded-full self-center mb-6" />
-            <Text className="text-white font-black text-xl mb-1 text-center tracking-tight">Comments</Text>
-            <Text className="text-white/30 text-[10px] text-center mb-6 uppercase tracking-[2px]">Long press your comment to delete it</Text>
+            <View className="w-10 h-1 bg-white/15 rounded-full self-center mb-5" />
+            <Text className="text-white font-bold text-lg mb-0.5 text-center tracking-tight">Comments</Text>
+            <Text className="text-white/25 text-[9px] text-center mb-5 uppercase tracking-[2px]">Long press to delete</Text>
 
             {loadingComments ? (
                <ActivityIndicator color="#7dd3fc" className="mt-10" />
@@ -438,56 +431,24 @@ export default function FriendsScreen({ onOpenCamera }: FriendsScreenProps) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODAL PROFIL */}
-      <Modal visible={viewedProfile !== null} animationType="slide" transparent={true} onRequestClose={() => setViewedProfile(null)}>
-        <BlurView intensity={90} tint="dark" className="flex-1 p-6 justify-center">
-          <View className="absolute inset-0 bg-[#090E17]/40" />
-          <TouchableOpacity onPress={() => setViewedProfile(null)} className="absolute top-16 right-6 z-50 bg-white/10 p-2 rounded-full border border-white/10">
-             <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-
-          {loadingProfile || !viewedProfile?.id ? (
-            <ActivityIndicator size="large" color="#7dd3fc" />
-          ) : (
-            <View className="items-center bg-[#06090E] p-8 rounded-[40px] border border-white/10 shadow-2xl">
-              <View className="w-24 h-24 rounded-full border border-white/20 mb-4 bg-white/10 items-center justify-center overflow-hidden">
-                {viewedProfile.profilePicUrl ? (
-                  <Image source={{ uri: viewedProfile.profilePicUrl }} className="w-full h-full" />
-                ) : (
-                  <Ionicons name="person" size={40} color="#7dd3fc" />
-                )}
-              </View>
-              <Text className="text-3xl font-extrabold text-white mb-2">{viewedProfile.username}</Text>
-              <Text className="text-white/60 text-center mb-6">{viewedProfile.bio || 'No bio yet.'}</Text>
-              
-              <View className="flex-row gap-8 mb-8">
-                <View className="items-center"><Text className="text-white font-bold text-xl">{viewedProfile.followersCount}</Text><Text className="text-white/30 text-[10px] uppercase tracking-widest mt-1">Followers</Text></View>
-                <View className="items-center"><Text className="text-white font-bold text-xl">{viewedProfile.followingCount}</Text><Text className="text-white/30 text-[10px] uppercase tracking-widest mt-1">Following</Text></View>
-              </View>
-
-              <TouchableOpacity 
-                onPress={() => handleFollow(viewedProfile.id)}
-                className={`w-full py-4 rounded-2xl items-center ${viewedProfile.isFollowing ? 'bg-white/10 border border-white/20' : 'bg-[#7ad7c6] shadow-[0_0_15px_rgba(122,215,198,0.3)]'}`}
-              >
-                <Text className={`font-black tracking-wider text-lg ${viewedProfile.isFollowing ? 'text-white' : 'text-[#090E17]'}`}>
-                  {viewedProfile.isFollowing ? 'UNFOLLOW' : 'FOLLOW'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </BlurView>
-      </Modal>
-
       {/* REACTION CAMERA */}
-      {reactingToPostId && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }}>
-          <CameraScreen 
-            mode="reaction" 
-            onClose={() => setReactingToPostId(null)} 
-            onCapture={handleReactionCapture} 
-          />
+      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => {
+        setReactingToPostId(null);
+        if (onHideBottomBar) onHideBottomBar(false);
+      }}>
+        <View style={{ flex: 1, backgroundColor: 'black' }}>
+          {reactingToPostId && (
+            <CameraScreen 
+              mode="reaction" 
+              onClose={() => {
+                setReactingToPostId(null);
+                if (onHideBottomBar) onHideBottomBar(false);
+              }} 
+              onCapture={handleReactionCapture} 
+            />
+          )}
         </View>
-      )}
+      </Modal>
 
     </Animated.View>
   );

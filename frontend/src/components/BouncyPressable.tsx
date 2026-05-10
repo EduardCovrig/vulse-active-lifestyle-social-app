@@ -21,7 +21,7 @@ export default function BouncyPressable({
   onLongPress, 
   style, 
   className, 
-  scaleTo = 0.90 
+  scaleTo = 0.96 
 }: BouncyPressableProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -38,8 +38,8 @@ export default function BouncyPressable({
     Animated.spring(scale, {
       toValue: 1,
       useNativeDriver: true,
-      speed: 30,
-      bounciness: 18, 
+      speed: 35,
+      bounciness: 12, 
     }).start();
   };
 

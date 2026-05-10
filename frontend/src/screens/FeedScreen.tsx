@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, Dimensions, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, FlatList, Dimensions, StyleSheet, ActivityIndicator, Text, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import LiquidPostCard from '../components/LiquidPostCard';
 import GlassTabBar from '../components/GlassTabBar';
 import CameraScreen from './CameraScreen';
@@ -13,11 +14,13 @@ const { height } = Dimensions.get('window');
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<'feed' | 'friends' | 'camera' | 'nutrition' | 'profile'>('feed');
 
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
+  const [hideTabBar, setHideTabBar] = useState(false);
 
   const CARD_HEIGHT = height - insets.top - insets.bottom - 100;
 
@@ -75,7 +78,7 @@ export default function FeedScreen() {
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 pagingEnabled
-                snapToInterval={CARD_HEIGHT + 24}
+                snapToInterval={CARD_HEIGHT + 20}
                 decelerationRate="fast"
                 contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 150 }}
                 removeClippedSubviews={true}
@@ -88,6 +91,7 @@ export default function FeedScreen() {
                   <LiquidPostCard 
                     post={item} 
                     cardHeight={CARD_HEIGHT} 
+                    onOpenProfile={(username) => navigation.navigate('UserProfile', { username })}
                     onOpenComments={() => console.log("Global comments in progress")}
                     onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
                     onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
@@ -99,15 +103,15 @@ export default function FeedScreen() {
             )}
           </View>
         ) : activeTab === 'friends' ? (
-          <FriendsScreen onOpenCamera={() => setActiveTab('camera')} />
+          <FriendsScreen onOpenCamera={() => setActiveTab('camera')} onHideBottomBar={setHideTabBar} />
         ) : activeTab === 'profile' ? (
-          <ProfileScreen />
+          <ProfileScreen onHideBottomBar={setHideTabBar} />
         ) : activeTab === 'nutrition' ? (
           <NutritionScreen /> 
         ) : null}
       </View>
 
-      {activeTab !== 'camera' && (
+      {activeTab !== 'camera' && reactingToPostId === null && !hideTabBar && (
         <GlassTabBar activeTab={activeTab} onTabPress={(tab) => setActiveTab(tab as any)} />
       )}
       {activeTab === 'camera' && (
@@ -117,15 +121,17 @@ export default function FeedScreen() {
       )}
 
       {/* REACTION CAMERA OVERLAY */}
-      {reactingToPostId && (
-        <View style={StyleSheet.absoluteFill} className="z-[200]">
-          <CameraScreen 
-            mode="reaction" 
-            onClose={() => setReactingToPostId(null)} 
-            onCapture={handleReactionCapture} 
-          />
+      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => setReactingToPostId(null)}>
+        <View style={StyleSheet.absoluteFill} className="bg-black">
+          {reactingToPostId && (
+            <CameraScreen 
+              mode="reaction" 
+              onClose={() => setReactingToPostId(null)} 
+              onCapture={handleReactionCapture} 
+            />
+          )}
         </View>
-      )}
+      </Modal>
     </View>
   );
 }

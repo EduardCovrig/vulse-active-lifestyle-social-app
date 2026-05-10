@@ -78,4 +78,12 @@ public class PostController {
             @PathVariable UUID postId) {
         return ResponseEntity.ok(postService.getSinglePost(postId, user));
     }
+
+    // Get posts by a specific user (for UserProfileScreen)
+    @GetMapping("/user/{username}")
+    public ResponseEntity<List<PostResponse>> getUserPosts(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable String username) {
+        return ResponseEntity.ok(postService.getUserPosts(username, currentUser));
+    }
 }

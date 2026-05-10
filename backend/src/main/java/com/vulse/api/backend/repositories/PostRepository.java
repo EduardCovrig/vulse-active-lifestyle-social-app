@@ -2,6 +2,7 @@ package com.vulse.api.backend.repositories;
 
 import com.vulse.api.backend.models.Post;
 import com.vulse.api.backend.models.PostType;
+import com.vulse.api.backend.models.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface PostRepository extends JpaRepository<Post, UUID> {
@@ -41,4 +43,9 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
 
     // last 7 daily posts for visual calendar
     List<Post> findTop7ByUserIdAndTypeOrderByCreatedAtDesc(UUID userId, PostType type);
+
+    // last 365 daily posts for full calendar
+    List<Post> findTop365ByUserIdAndTypeOrderByCreatedAtDesc(UUID userId, PostType type);
+
+    Optional<Post> findFirstByUserAndTypeAndCreatedAtAfterOrderByCreatedAtDesc(User friend, PostType postType, LocalDateTime startOfDay);
 }

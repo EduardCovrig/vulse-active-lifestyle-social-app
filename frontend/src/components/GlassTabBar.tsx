@@ -11,51 +11,51 @@ interface GlassTabBarProps {
 
 export default function GlassTabBar({ activeTab, onTabPress }: GlassTabBarProps) {
   return (
-    <View className="absolute bottom-10 inset-x-0 items-center pointer-events-none z-50">
+    <View className="absolute bottom-8 inset-x-0 items-center pointer-events-none z-50">
       <BlurView 
-        intensity={60} 
+        intensity={50} 
         tint="dark" 
-        className="pointer-events-auto flex-row justify-around items-center w-[90%] h-20 rounded-[40px] border border-white/15 overflow-hidden shadow-2xl shadow-black"
+        className="pointer-events-auto flex-row justify-around items-center w-[85%] h-16 rounded-full border border-white/[0.08] overflow-hidden"
       >
         {/* 1. FEED (Global) */}
         <BouncyPressable 
           onPress={() => onTabPress?.('feed')}
-          className={`p-3 rounded-full transition-all ${activeTab === 'feed' ? 'bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.3)]' : ''}`}
+          className={`p-2.5 rounded-full ${activeTab === 'feed' ? 'bg-white/[0.08]' : ''}`}
         >
-          <Ionicons name={activeTab === 'feed' ? 'play-circle' : 'play-circle-outline'} size={28} color={activeTab === 'feed' ? 'white' : 'rgba(255,255,255,0.5)'} />
+          <Ionicons name={activeTab === 'feed' ? 'play-circle' : 'play-circle-outline'} size={24} color={activeTab === 'feed' ? 'white' : 'rgba(255,255,255,0.4)'} />
         </BouncyPressable>
 
         {/* 2. FRIENDS (Daily) */}
         <BouncyPressable 
           onPress={() => onTabPress?.('friends')}
-          className={`p-3 rounded-full transition-all ${activeTab === 'friends' ? 'bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.3)]' : ''}`}
+          className={`p-2.5 rounded-full ${activeTab === 'friends' ? 'bg-white/[0.08]' : ''}`}
         >
-          <Ionicons name={activeTab === 'friends' ? 'people' : 'people-outline'} size={28} color={activeTab === 'friends' ? 'white' : 'rgba(255,255,255,0.5)'} />
+          <Ionicons name={activeTab === 'friends' ? 'people' : 'people-outline'} size={24} color={activeTab === 'friends' ? 'white' : 'rgba(255,255,255,0.4)'} />
         </BouncyPressable>
 
-        {/* 3. CAMERA (Centru) */}
+        {/* 3. CAMERA (Center) */}
         <BouncyPressable 
-          scaleTo={0.85} 
+          scaleTo={0.88} 
           onPress={() => onTabPress?.('camera')}
-          className="p-4 bg-primary/20 rounded-full border border-primary/30 shadow-[0_0_15px_rgba(197,234,255,0.3)]"
+          className="p-3.5 bg-white/[0.08] rounded-full border border-white/[0.12]"
         >
-          <Ionicons name="camera" size={32} color="#c5eaff" />
+          <Ionicons name="camera" size={26} color="rgba(255,255,255,0.9)" />
         </BouncyPressable>
 
-        {/* 4. NUTRITION HUB (NOU) */}
+        {/* 4. NUTRITION HUB */}
         <BouncyPressable 
           onPress={() => onTabPress?.('nutrition')}
-          className={`p-3 rounded-full transition-all ${activeTab === 'nutrition' ? 'bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.3)]' : ''}`}
+          className={`p-2.5 rounded-full ${activeTab === 'nutrition' ? 'bg-white/[0.08]' : ''}`}
         >
-          <Ionicons name={activeTab === 'nutrition' ? 'pie-chart' : 'pie-chart-outline'} size={28} color={activeTab === 'nutrition' ? '#7ad7c6' : 'rgba(255,255,255,0.5)'} />
+          <Ionicons name={activeTab === 'nutrition' ? 'pie-chart' : 'pie-chart-outline'} size={24} color={activeTab === 'nutrition' ? '#7ad7c6' : 'rgba(255,255,255,0.4)'} />
         </BouncyPressable>
 
         {/* 5. PROFILE */}
         <BouncyPressable 
           onPress={() => onTabPress?.('profile')}
-          className={`p-3 rounded-full transition-all ${activeTab === 'profile' ? 'bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.3)]' : ''}`}
+          className={`p-2.5 rounded-full ${activeTab === 'profile' ? 'bg-white/[0.08]' : ''}`}
         >
-          <Ionicons name={activeTab === 'profile' ? 'person-circle' : 'person-circle-outline'} size={28} color={activeTab === 'profile' ? 'white' : 'rgba(255,255,255,0.5)'} />
+          <Ionicons name={activeTab === 'profile' ? 'person-circle' : 'person-circle-outline'} size={24} color={activeTab === 'profile' ? 'white' : 'rgba(255,255,255,0.4)'} />
         </BouncyPressable>
 
       </BlurView>

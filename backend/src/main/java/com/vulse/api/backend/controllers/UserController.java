@@ -12,10 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -30,14 +27,39 @@ public class UserController {
     private final NotificationRepository notificationRepository;
 
     @GetMapping("/search")
-    public ResponseEntity<List<Map<String, Object>>> searchUsers(@RequestParam String query) {
+    public ResponseEntity<List<Map<String, Object>>> searchUsers(@AuthenticationPrincipal User currentUser, @RequestParam String query) {
+        String normalizedQuery = java.text.Normalizer.normalize(query, java.text.Normalizer.Form.NFD).replaceAll("[\\p{InCombiningDiacriticalMarks}]", "").toLowerCase();
+        
+        List<User> myFollowing = followRepository.findByFollowerId(currentUser.getId()).stream().map(Follow::getFollowing).toList();
+
         return ResponseEntity.ok(userRepository.findAll().stream()
-                .filter(u -> u.getUsername().toLowerCase().contains(query.toLowerCase()))
+                .filter(u -> {
+                    String normName = java.text.Normalizer.normalize(u.getRealUsername(), java.text.Normalizer.Form.NFD).replaceAll("[\\p{InCombiningDiacriticalMarks}]", "").toLowerCase();
+                    return normName.contains(normalizedQuery) || 
+                           u.getUsername().toLowerCase().contains(normalizedQuery);
+                })
                 .map(u -> {
                     Map<String, Object> map = new HashMap<>();
                     map.put("id", u.getId());
                     map.put("username", u.getRealUsername());
                     map.put("profilePicUrl", u.getProfilePicUrl());
+                    
+                    // calculate mutual followers
+                    List<User> userFollowers = followRepository.findByFollowingId(u.getId()).stream().map(Follow::getFollower).toList();
+                    List<User> mutuals = userFollowers.stream().filter(f -> myFollowing.stream().anyMatch(mf -> mf.getId().equals(f.getId()))).toList();
+                    
+                    if (!mutuals.isEmpty()) {
+                        String mutualsText = mutuals.get(0).getRealUsername();
+                        if (mutuals.size() > 1) {
+                            mutualsText += " + " + (mutuals.size() - 1) + " others follow";
+                        } else {
+                            mutualsText += " follows";
+                        }
+                        map.put("mutualsText", mutualsText);
+                    } else {
+                        map.put("mutualsText", null);
+                    }
+
                     return map;
                 }).collect(Collectors.toList()));
     }
@@ -118,24 +140,43 @@ public class UserController {
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
 
         List<Map<String, Object>> circle = following.stream().map(friend -> {
-            boolean hasPosted = postRepository.existsByUserIdAndTypeAndCreatedAtAfter(friend.getId(), PostType.DAILY, startOfDay);
             Map<String, Object> map = new HashMap<>();
             map.put("id", friend.getId());
             map.put("name", friend.getRealUsername());
             map.put("img", friend.getProfilePicUrl());
-            map.put("hasPosted", hasPosted);
+            map.put("hasPosted", false);
+            map.put("dailyPostUrl", null);
             map.put("isMe", false);
+
+            Optional<Post> friendTodayPost = postRepository.findFirstByUserAndTypeAndCreatedAtAfterOrderByCreatedAtDesc(
+                    friend, PostType.DAILY, startOfDay
+            );
+
+            if (friendTodayPost.isPresent()) {
+                map.put("hasPosted", true);
+                map.put("dailyPostUrl", friendTodayPost.get().getMediaUrl());
+            }
             return map;
         }).collect(Collectors.toList());
 
         // Verificam si daca userul curent a postat azi
-        boolean iPosted = postRepository.existsByUserIdAndTypeAndCreatedAtAfter(currentUser.getId(), PostType.DAILY, startOfDay);
         Map<String, Object> meMap = new HashMap<>();
         meMap.put("id", currentUser.getId());
         meMap.put("name", "Your Daily");
         meMap.put("img", currentUser.getProfilePicUrl());
-        meMap.put("hasPosted", iPosted);
         meMap.put("isMe", true);
+        meMap.put("hasPosted", false);
+        meMap.put("dailyPostUrl", null);
+
+        Optional<Post> myTodayPost = postRepository.findFirstByUserAndTypeAndCreatedAtAfterOrderByCreatedAtDesc(
+                currentUser, PostType.DAILY, startOfDay
+        );
+
+        if (myTodayPost.isPresent()) {
+            meMap.put("hasPosted", true);
+            meMap.put("dailyPostUrl", myTodayPost.get().getMediaUrl());
+        }
+
         circle.add(0, meMap);
 
         return ResponseEntity.ok(circle);
@@ -165,6 +206,49 @@ public class UserController {
         profile.put("calendarSnaps", getCalendarSnaps(user.getId()));
 
         return ResponseEntity.ok(profile);
+    }
+
+    @GetMapping("/{username}/followers")
+    public ResponseEntity<List<Map<String, Object>>> getFollowers(@PathVariable String username) {
+        User user = userRepository.findByUsername(username).orElseThrow();
+        List<Map<String, Object>> followers = followRepository.findByFollowingId(user.getId()).stream()
+                .map(Follow::getFollower)
+                .map(u -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", u.getId());
+                    map.put("username", u.getRealUsername());
+                    map.put("profilePicUrl", u.getProfilePicUrl());
+                    return map;
+                }).collect(Collectors.toList());
+        return ResponseEntity.ok(followers);
+    }
+
+    @GetMapping("/{username}/following")
+    public ResponseEntity<List<Map<String, Object>>> getFollowing(@PathVariable String username) {
+        User user = userRepository.findByUsername(username).orElseThrow();
+        List<Map<String, Object>> following = followRepository.findByFollowerId(user.getId()).stream()
+                .map(Follow::getFollowing)
+                .map(u -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", u.getId());
+                    map.put("username", u.getRealUsername());
+                    map.put("profilePicUrl", u.getProfilePicUrl());
+                    return map;
+                }).collect(Collectors.toList());
+        return ResponseEntity.ok(following);
+    }
+
+    @GetMapping("/{username}/calendar")
+    public ResponseEntity<List<Map<String, Object>>> getCalendar(@PathVariable String username) {
+        User user = userRepository.findByUsername(username).orElseThrow();
+        List<Map<String, Object>> snaps = postRepository.findTop365ByUserIdAndTypeOrderByCreatedAtDesc(user.getId(), PostType.DAILY).stream()
+                .map(p -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("date", p.getCreatedAt().toLocalDate().toString());
+                    map.put("mediaUrl", p.getMediaUrl());
+                    return map;
+                }).collect(Collectors.toList());
+        return ResponseEntity.ok(snaps);
     }
 
     @PutMapping("/me")

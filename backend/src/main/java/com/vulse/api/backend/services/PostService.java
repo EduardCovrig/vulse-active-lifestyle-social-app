@@ -34,6 +34,7 @@ public class PostService {
     private final SavedMealRepository savedMealRepository; // Needed for cleanup
     private final ReportRepository reportRepository;
     private final BlockRepository blockRepository;
+    private final UserRepository userRepository;
 
     /**
      * Creates a new post with optional dual-camera (DAILY) or AI analysis (MEAL).
@@ -244,5 +245,24 @@ public class PostService {
                 .commentsCount(commentsCount)
                 .recentReactions(reactions)
                 .build();
+    }
+
+    /**
+     * Fetches posts by a specific user (for viewing other user profiles).
+     */
+    public List<PostResponse> getUserPosts(String username, User currentUser) {
+        User targetUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalStateException("User not found."));
+
+        // Block check
+        if (blockRepository.existsByBlockerIdAndBlockedId(currentUser.getId(), targetUser.getId()) ||
+                blockRepository.existsByBlockerIdAndBlockedId(targetUser.getId(), currentUser.getId())) {
+            throw new IllegalStateException("Content unavailable.");
+        }
+
+        return postRepository.findByUserIdOrderByCreatedAtDesc(targetUser.getId())
+                .stream()
+                .map(post -> mapToResponse(post, currentUser))
+                .toList();
     }
 }
