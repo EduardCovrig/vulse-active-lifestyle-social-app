@@ -11,6 +11,7 @@ import CameraScreen from './CameraScreen';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import SwipeableModal from '../components/SwipeableModal';
 
 interface FriendsScreenProps {
   onOpenCamera?: () => void;
@@ -391,61 +392,44 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         </View>
       </Modal>
 
-      {/* MODAL COMMENTS */}
-      <Modal visible={activePostId !== null} animationType="slide" transparent={true} onRequestClose={() => setActivePostId(null)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end">
-          <TouchableOpacity className="flex-1 bg-black/40" onPress={() => setActivePostId(null)} />
-          <BlurView intensity={70} tint="dark" style={{ height: '55%', borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden', paddingHorizontal: 16, paddingBottom: 16 }}>
-            <View className="absolute inset-0 bg-[#090E17]/93" />
-            
-            {/* Drag handle */}
-            <View style={{ width: '100%', alignItems: 'center', paddingTop: 10, paddingBottom: 6 }}>
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-            </View>
-
-            {/* X button */}
-            <TouchableOpacity 
-              onPress={() => setActivePostId(null)} 
-              style={{ position: 'absolute', top: 14, right: 18, zIndex: 50, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Ionicons name="close" size={15} color="rgba(255,255,255,0.6)" />
-            </TouchableOpacity>
-
-            <Text className="text-white font-bold text-lg mb-0.5 text-center tracking-tight">Comments</Text>
-            <Text className="text-white/20 text-[8px] text-center mb-4 uppercase tracking-[2px]">Long press to delete</Text>
-
-            {loadingComments ? (
-               <ActivityIndicator color="#7dd3fc" className="mt-10" />
-            ) : (
-              <FlatList
-                data={comments}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 10 }}
-                renderItem={({ item }) => (
-                  <TouchableOpacity activeOpacity={0.8} onLongPress={() => handleCommentLongPress(item)} className="flex-row gap-3 mb-4">
-                    <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
-                      {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
-                    </View>
-                    <View className="flex-1 bg-white/[0.03] p-3 rounded-2xl rounded-tl-sm border border-white/[0.04]">
-                      <Text className="text-white/35 text-[9px] font-semibold mb-1 tracking-wider uppercase">{item.user.username}</Text>
-                      <Text className="text-white/85 text-[13px] leading-5">{item.text}</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={<Text className="text-white/20 text-center mt-10 text-xs">No comments yet.</Text>}
-              />
-            )}
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.04)' }}>
-              <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.2)" keyboardAppearance="dark" style={{ flex: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, paddingHorizontal: 16, color: 'white', fontSize: 13, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />
-              <TouchableOpacity onPress={submitComment} disabled={!newComment.trim()} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: newComment.trim() ? '#7ad7c6' : 'rgba(255,255,255,0.04)' }}>
-                <Ionicons name="arrow-up" size={18} color={newComment.trim() ? '#090E17' : 'rgba(255,255,255,0.15)'} />
+     {/* MODAL COMMENTS */}
+      <SwipeableModal 
+        visible={activePostId !== null} 
+        onClose={() => setActivePostId(null)}
+        title="Comments"
+        subtitle="Long press your comment to delete"
+        heightRatio={0.65}
+      >
+        {loadingComments ? (
+          <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
+        ) : (
+          <FlatList
+            data={comments}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity activeOpacity={0.8} onLongPress={() => handleCommentLongPress(item)} className="flex-row gap-3 mb-4">
+                <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
+                  {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
+                </View>
+                <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
+                  <Text className="text-white/35 text-[9px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
+                  <Text className="text-white/90 text-[13px] leading-5">{item.text}</Text>
+                </View>
               </TouchableOpacity>
-            </View>
-          </BlurView>
-        </KeyboardAvoidingView>
-      </Modal>
+            )}
+            ListEmptyComponent={<Text className="text-white/20 text-center mt-10 text-xs">No comments yet.</Text>}
+          />
+        )}
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(9,14,23,0.95)' }}>
+          <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.2)" keyboardAppearance="dark" style={{ flex: 1, height: 44, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 22, paddingHorizontal: 16, color: 'white', fontSize: 14, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />
+          <TouchableOpacity onPress={submitComment} disabled={!newComment.trim()} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: newComment.trim() ? '#7dd3fc' : 'rgba(255,255,255,0.04)' }}>
+            <Ionicons name="arrow-up" size={20} color={newComment.trim() ? '#090E17' : 'rgba(255,255,255,0.15)'} />
+          </TouchableOpacity>
+        </View>
+      </SwipeableModal>
 
       {/* REACTION CAMERA */}
       <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => {
