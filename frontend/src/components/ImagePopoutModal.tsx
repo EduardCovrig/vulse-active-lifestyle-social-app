@@ -62,9 +62,12 @@ export default function ImagePopoutModal({ visible, imageUri, onClose }: ImagePo
           </TouchableOpacity>
         </View>
 
-        <View style={{ width: width * 0.88, height: width * 1.15, borderRadius: 24, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }}>
+        <TouchableOpacity 
+          style={{ width: width * 0.94, height: height * 0.72, borderRadius: 24, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' }}
+          activeOpacity={1}
+        >
           <PinchableImage uri={imageUri} className="w-full h-full object-cover" />
-        </View>
+        </TouchableOpacity>
       </View>
     </Modal>
   );

@@ -21,19 +21,14 @@ export default function UserListModal({ visible, onClose, title, users, loading,
       <BlurView 
         intensity={80} 
         tint="dark" 
-        style={{ height: SCREEN_HEIGHT * 0.7, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' }}
+        style={{ height: SCREEN_HEIGHT * 0.75, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' }}
       >
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(9,14,23,0.93)' }} />
-        
-        {/* Drag handle */}
-        <View style={{ width: '100%', alignItems: 'center', paddingTop: 10, paddingBottom: 6 }}>
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-        </View>
         
         {/* X button */}
         <TouchableOpacity 
           onPress={onClose} 
-          style={{ position: 'absolute', top: 14, right: 18, zIndex: 50, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'absolute', top: 4, right: 18, zIndex: 50, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}
         >
           <Ionicons name="close" size={15} color="rgba(255,255,255,0.6)" />
         </TouchableOpacity>
