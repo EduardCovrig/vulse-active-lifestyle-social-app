@@ -212,17 +212,17 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
   // Vulse Circle 
   const renderCircleHeader = () => (
     <View className="mb-4 mt-2">
-      <Text className="text-[#7ad7c6] text-[10px] font-black tracking-[3px] uppercase mb-4 px-6">Daily Circle</Text>
+      <Text className="text-[#7ad7c6]/70 text-[9px] font-black tracking-[2px] uppercase mb-4 px-6">Daily Circle</Text>
       <FlatList 
         horizontal
         data={circle}
         keyExtractor={(item) => item.id}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
         renderItem={({ item }) => (
           <BouncyPressable 
             className="items-center" 
-            scaleTo={0.9} 
+            scaleTo={0.92} 
             onPress={() => {
               if (item.isMe && !item.hasPosted) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -232,17 +232,17 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
               }
             }}
           >
-            <View className="relative w-[52px] h-[52px] rounded-full items-center justify-center mb-1.5">
+            <View className="relative w-[50px] h-[50px] rounded-full items-center justify-center mb-1.5">
               {item.hasPosted ? (
-                <LinearGradient colors={['#7ad7c6', '#7dd3fc']} className="absolute inset-0 rounded-full" style={{ padding: 1.5 }}>
-                  <View className="flex-1 bg-[#090E17] rounded-full border-2 border-[#090E17] overflow-hidden items-center justify-center">
-                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" /> : <View className="w-full h-full bg-white/10 items-center justify-center"><Text className="text-white font-bold">{item.name?.charAt(0)?.toUpperCase()}</Text></View>}
+                <LinearGradient colors={['rgba(122,215,198,0.6)', 'rgba(125,211,252,0.6)']} className="absolute inset-0 rounded-full" style={{ padding: 1.5 }}>
+                  <View className="flex-1 bg-[#090E17] rounded-full border-[1.5px] border-[#090E17] overflow-hidden items-center justify-center">
+                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" /> : <View className="w-full h-full bg-white/10 items-center justify-center"><Text className="text-white/80 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text></View>}
                   </View>
                 </LinearGradient>
               ) : (
-                <View className="absolute inset-0 rounded-full border border-white/[0.08] p-0.5">
-                  <View className="flex-1 rounded-full overflow-hidden opacity-40 bg-white/5 items-center justify-center">
-                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" /> : <Text className="text-white font-bold">{item.name?.charAt(0)?.toUpperCase()}</Text>}
+                <View className="absolute inset-0 rounded-full border-[0.5px] border-white/10 p-[1.5px]">
+                  <View className="flex-1 rounded-full overflow-hidden opacity-30 bg-white/5 items-center justify-center">
+                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" /> : <Text className="text-white/40 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text>}
                   </View>
                 </View>
               )}
@@ -287,24 +287,27 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
 
         {/* SEARCH RESULTS ABSOLUTE (Over the feed) */}
         {searchResults.length > 0 && (
-          <BlurView intensity={95} tint="dark" className="mt-2 rounded-3xl border border-white/20 p-2 overflow-hidden shadow-2xl absolute top-[60px] left-6 right-6 z-[300] max-h-[400px]">
+          <View style={{ position: 'absolute', top: 56, left: 20, right: 20, zIndex: 300, backgroundColor: 'rgba(12,16,24,0.97)', borderRadius: 20, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)', paddingVertical: 6, maxHeight: 340, overflow: 'hidden' }}>
             {searchResults.map((u, i) => (
-              <TouchableOpacity key={u.id} onPress={() => openUserProfile(u.username)} className={`flex-row items-center justify-between p-4 bg-white/5 rounded-2xl mb-2 border border-white/5`}>
-                <View className="flex-row items-center gap-4">
-                  <View className="w-12 h-12 rounded-full bg-white/10 items-center justify-center overflow-hidden border border-white/10">
-                    {u.profilePicUrl ? <Image source={{ uri: u.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white font-bold text-lg">{u.username.charAt(0).toUpperCase()}</Text>}
+              <TouchableOpacity 
+                key={u.id} 
+                onPress={() => openUserProfile(u.username)} 
+                activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: i < searchResults.length - 1 ? 0.5 : 0, borderBottomColor: 'rgba(255,255,255,0.04)' }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }}>
+                    {u.profilePicUrl ? <Image source={{ uri: u.profilePicUrl }} style={{ width: '100%', height: '100%' }} /> : <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 14 }}>{u.username.charAt(0).toUpperCase()}</Text>}
                   </View>
                   <View>
-                    <Text className="text-white font-bold tracking-wider text-base">{u.username}</Text>
-                    {u.mutualsText && <Text className="text-[#7ad7c6] font-bold text-[10px] uppercase tracking-widest mt-1">{u.mutualsText}</Text>}
+                    <Text style={{ color: 'white', fontWeight: '600', fontSize: 15, letterSpacing: 0.3 }}>{u.username}</Text>
+                    {u.mutualsText && <Text style={{ color: 'rgba(122,215,198,0.7)', fontSize: 10, fontWeight: '600', marginTop: 2, letterSpacing: 1, textTransform: 'uppercase' }}>{u.mutualsText}</Text>}
                   </View>
                 </View>
-                <View className="w-8 h-8 rounded-full bg-white/5 items-center justify-center">
-                  <Ionicons name="chevron-forward" size={16} color="white" />
-                </View>
+                <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.15)" />
               </TouchableOpacity>
             ))}
-          </BlurView>
+          </View>
         )}
       </View>
 
@@ -392,12 +395,24 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
       <Modal visible={activePostId !== null} animationType="slide" transparent={true} onRequestClose={() => setActivePostId(null)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end">
           <TouchableOpacity className="flex-1 bg-black/40" onPress={() => setActivePostId(null)} />
-          <BlurView intensity={70} tint="dark" className="h-[55%] rounded-t-[32px] border-t border-white/[0.06] p-5 overflow-hidden">
-            <View className="absolute inset-0 bg-[#090E17]/92" />
+          <BlurView intensity={70} tint="dark" style={{ height: '55%', borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden', paddingHorizontal: 16, paddingBottom: 16 }}>
+            <View className="absolute inset-0 bg-[#090E17]/93" />
             
-            <View className="w-10 h-1 bg-white/15 rounded-full self-center mb-5" />
+            {/* Drag handle */}
+            <View style={{ width: '100%', alignItems: 'center', paddingTop: 10, paddingBottom: 6 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+            </View>
+
+            {/* X button */}
+            <TouchableOpacity 
+              onPress={() => setActivePostId(null)} 
+              style={{ position: 'absolute', top: 14, right: 18, zIndex: 50, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="close" size={15} color="rgba(255,255,255,0.6)" />
+            </TouchableOpacity>
+
             <Text className="text-white font-bold text-lg mb-0.5 text-center tracking-tight">Comments</Text>
-            <Text className="text-white/25 text-[9px] text-center mb-5 uppercase tracking-[2px]">Long press to delete</Text>
+            <Text className="text-white/20 text-[8px] text-center mb-4 uppercase tracking-[2px]">Long press to delete</Text>
 
             {loadingComments ? (
                <ActivityIndicator color="#7dd3fc" className="mt-10" />
@@ -406,25 +421,26 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
                 data={comments}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 10 }}
                 renderItem={({ item }) => (
-                  <TouchableOpacity activeOpacity={0.8} onLongPress={() => handleCommentLongPress(item)} className="flex-row gap-3 mb-5">
-                    <View className="w-8 h-8 rounded-full bg-white/10 items-center justify-center overflow-hidden border border-white/5">
-                      {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white text-xs font-bold">{item.user.username.charAt(0).toUpperCase()}</Text>}
+                  <TouchableOpacity activeOpacity={0.8} onLongPress={() => handleCommentLongPress(item)} className="flex-row gap-3 mb-4">
+                    <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
+                      {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
                     </View>
-                    <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/5 shadow-sm">
-                      <Text className="text-white/40 text-[10px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
-                      <Text className="text-white/90 text-sm leading-5">{item.text}</Text>
+                    <View className="flex-1 bg-white/[0.03] p-3 rounded-2xl rounded-tl-sm border border-white/[0.04]">
+                      <Text className="text-white/35 text-[9px] font-semibold mb-1 tracking-wider uppercase">{item.user.username}</Text>
+                      <Text className="text-white/85 text-[13px] leading-5">{item.text}</Text>
                     </View>
                   </TouchableOpacity>
                 )}
-                ListEmptyComponent={<Text className="text-white/30 text-center mt-10">No comments yet.</Text>}
+                ListEmptyComponent={<Text className="text-white/20 text-center mt-10 text-xs">No comments yet.</Text>}
               />
             )}
 
-            <View className="flex-row items-center gap-3 mt-4 pt-2 border-t border-white/5">
-              <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.3)" keyboardAppearance="dark" className="flex-1 h-12 bg-white/5 rounded-full px-5 text-white border border-white/10" />
-              <TouchableOpacity onPress={submitComment} disabled={!newComment.trim()} className={`w-12 h-12 rounded-full items-center justify-center shadow-lg ${newComment.trim() ? 'bg-[#7dd3fc]' : 'bg-white/5'}`}>
-                <Ionicons name="arrow-up" size={20} color={newComment.trim() ? '#090E17' : 'rgba(255,255,255,0.2)'} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.04)' }}>
+              <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.2)" keyboardAppearance="dark" style={{ flex: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, paddingHorizontal: 16, color: 'white', fontSize: 13, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />
+              <TouchableOpacity onPress={submitComment} disabled={!newComment.trim()} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: newComment.trim() ? '#7ad7c6' : 'rgba(255,255,255,0.04)' }}>
+                <Ionicons name="arrow-up" size={18} color={newComment.trim() ? '#090E17' : 'rgba(255,255,255,0.15)'} />
               </TouchableOpacity>
             </View>
           </BlurView>

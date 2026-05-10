@@ -128,77 +128,77 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
   };
 
   return (
-    <View style={{ height: cardHeight, minHeight: 420 }} className="w-full relative mb-5">
-      <Animated.View style={{ transform: [{ scale: cardScale }] }} className="flex-1 rounded-[28px] overflow-hidden bg-[#0c1018] border border-white/[0.06] relative">
+    <View style={{ height: cardHeight, minHeight: 400 }} className="w-full relative mb-5">
+      <Animated.View style={{ transform: [{ scale: cardScale }] }} className="flex-1 rounded-[32px] overflow-hidden bg-black/40 border-[0.5px] border-white/10 relative shadow-2xl">
         <Pressable onPress={handleDoubleTap} style={{ flex: 1, position: 'relative' }}>
           
           <PinchableImage uri={post.mediaUrl} className="w-full h-full object-cover" />
-          <LinearGradient colors={['rgba(6,9,14,0.5)', 'transparent', 'rgba(6,9,14,0.8)']} locations={[0, 0.35, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none" />
+          <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.6)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none" />
 
           {post.frontMediaUrl && (
-            <View className="absolute top-16 right-4 w-24 h-32 rounded-2xl border-2 border-black/40 overflow-hidden shadow-lg z-10 bg-[#0c1018]">
+            <View className="absolute top-16 right-4 w-24 h-32 rounded-2xl border-[1.5px] border-white/20 overflow-hidden shadow-2xl z-10 bg-black/40">
                <Image source={{ uri: post.frontMediaUrl }} className="w-full h-full object-cover" />
             </View>
           )}
 
           <Animated.View pointerEvents="none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', zIndex: 20, transform: [{ scale: bigHeartScale }] }}>
-            <BlurView intensity={40} tint="dark" className="w-32 h-32 rounded-full items-center justify-center border border-white/20 overflow-hidden">
-               <Ionicons name="heart" size={70} color="#ff4b4b" />
+            <BlurView intensity={20} tint="light" style={{ width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', borderWeight: 1, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden' }}>
+               <Ionicons name="heart" size={50} color="#ff4b4b" />
             </BlurView>
           </Animated.View>
 
           {/* HEADER (AUTHOR INFO) */}
-          <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} style={{ zIndex: 100, elevation: 100 }} className="absolute top-4 left-4 flex-row items-center gap-2.5">
-            <View className="w-9 h-9 rounded-full bg-white/10 items-center justify-center overflow-hidden border border-white/15">
+          <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} style={{ zIndex: 100, elevation: 100 }} className="absolute top-5 left-5 flex-row items-center gap-2.5">
+            <View className="w-9 h-9 rounded-full bg-white/10 items-center justify-center overflow-hidden border-[0.5px] border-white/20">
               {post.author?.profilePicUrl ? (
                 <Image source={{ uri: post.author.profilePicUrl }} className="w-full h-full" />
               ) : (
-                <Text className="text-white font-bold text-sm">{post.author?.username?.charAt(0).toUpperCase()}</Text>
+                <Text className="text-white font-semibold text-xs">{post.author?.username?.charAt(0).toUpperCase()}</Text>
               )}
             </View>
             <View>
-              <Text className="text-white text-sm font-bold tracking-tight">{post.author?.username}</Text>
-              <Text className="text-white/50 text-[9px] font-semibold uppercase tracking-wider">{getRelativeTime(post.createdAt)}</Text>
+              <Text className="text-white text-sm font-bold tracking-tight shadow-sm">{post.author?.username}</Text>
+              <Text className="text-white/60 text-[9px] font-bold uppercase tracking-widest">{getRelativeTime(post.createdAt)}</Text>
             </View>
           </BouncyPressable>
 
           {/* OPTIONS BUTTON */}
-          <TouchableOpacity onPress={handleOptions} style={{ zIndex: 100, elevation: 100 }} className="absolute top-4 right-4 w-9 h-9 bg-black/20 rounded-full items-center justify-center border border-white/[0.06]">
-            <Ionicons name="ellipsis-horizontal" size={18} color="rgba(255,255,255,0.7)" />
+          <TouchableOpacity onPress={handleOptions} style={{ zIndex: 100, elevation: 100 }} className="absolute top-5 right-5 w-8 h-8 bg-black/20 rounded-full items-center justify-center border-[0.5px] border-white/10">
+            <Ionicons name="ellipsis-horizontal" size={16} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
 
           {/* FOOTER (INTERACTIONS & CAPTION) */}
-          <View className="absolute bottom-4 inset-x-4 z-20">
+          <View className="absolute bottom-5 inset-x-5 z-20">
             {post.caption && post.type !== 'DAILY' && (
-              <Text className="text-white/80 text-[13px] mb-3 leading-5">{post.caption}</Text>
+              <Text className="text-white/90 text-[14px] mb-4 leading-5 font-medium shadow-sm">{post.caption}</Text>
             )}
             
             <View className="flex-row justify-between items-center">
-              <View className="flex-row items-center gap-4">
+              <View className="flex-row items-center gap-5">
                 {/* LIKE */}
-                <TouchableOpacity onPress={toggleLike} className="flex-row items-center gap-1">
-                  <Ionicons name={isLiked ? "heart" : "heart-outline"} size={22} color={isLiked ? "#ff4b4b" : "rgba(255,255,255,0.8)"} />
-                  <Text className={`font-semibold text-xs ${isLiked ? 'text-white' : 'text-white/60'}`}>{likesCount}</Text>
+                <TouchableOpacity onPress={toggleLike} className="flex-row items-center gap-1.5">
+                  <Ionicons name={isLiked ? "heart" : "heart-outline"} size={24} color={isLiked ? "#ff4b4b" : "rgba(255,255,255,0.9)"} />
+                  <Text className={`font-bold text-[13px] ${isLiked ? 'text-white' : 'text-white/80'}`}>{likesCount}</Text>
                 </TouchableOpacity>
 
                 {/* COMMENTS */}
-                <TouchableOpacity onPress={() => onOpenComments(post.id)} className="flex-row items-center gap-1">
-                  <Ionicons name="chatbubble-outline" size={20} color="rgba(255,255,255,0.8)" />
-                  <Text className="text-white/60 font-semibold text-xs">{post.commentsCount || 0}</Text>
+                <TouchableOpacity onPress={() => onOpenComments(post.id)} className="flex-row items-center gap-1.5">
+                  <Ionicons name="chatbubble-outline" size={22} color="rgba(255,255,255,0.9)" />
+                  <Text className="text-white/80 font-bold text-[13px]">{post.commentsCount || 0}</Text>
                 </TouchableOpacity>
 
                 {/* ADD REACTION */}
-                <TouchableOpacity onPress={handleAddReaction} className="flex-row items-center justify-center w-7 h-7 rounded-full border border-dashed border-white/25 bg-white/[0.04]">
-                  <Ionicons name="add" size={14} color="rgba(255,255,255,0.6)" />
+                <TouchableOpacity onPress={handleAddReaction} className="w-8 h-8 rounded-full border-[0.5px] border-white/30 bg-white/10 items-center justify-center">
+                  <Ionicons name="camera-outline" size={16} color="rgba(255,255,255,0.8)" />
                 </TouchableOpacity>
               </View>
 
-              <View className="flex-row items-center gap-2">
+              <View className="flex-row items-center gap-2.5">
                 {/* RECENT REACTIONS AVALANCHE */}
                 {recentReactions.length > 0 && (
                   <TouchableOpacity onPress={() => setShowReactions(true)} className="flex-row-reverse">
-                    {recentReactions.map((uri, index) => (
-                      <View key={index} style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#0c1018', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', marginRight: index > 0 ? -8 : 0 }}>
+                    {recentReactions.slice(0, 3).map((uri, index) => (
+                      <View key={index} style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', marginRight: index > 0 ? -10 : 0 }}>
                          <Image source={{ uri }} className="w-full h-full object-cover" />
                       </View>
                     ))}
@@ -207,9 +207,9 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
 
                 {/* MACROS BADGE */}
                 {post.calories && (
-                  <View className="border border-[#7ad7c6]/30 rounded-full px-2.5 py-1 flex-row items-center gap-1 bg-[#7ad7c6]/[0.08]">
-                    <Ionicons name="flame" size={10} color="#7ad7c6" />
-                    <Text className="text-[#7ad7c6] font-bold text-[9px] uppercase tracking-wider">{post.calories} kcal</Text>
+                  <View className="border-[0.5px] border-[#7ad7c6]/40 rounded-full px-3 py-1.5 flex-row items-center gap-1.5 bg-[#7ad7c6]/20">
+                    <Ionicons name="flame" size={12} color="#7ad7c6" />
+                    <Text className="text-[#7ad7c6] font-black text-[10px] uppercase tracking-wider">{post.calories}</Text>
                   </View>
                 )}
               </View>

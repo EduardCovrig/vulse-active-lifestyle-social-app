@@ -1,9 +1,12 @@
-import React, { useRef } from 'react';
-import { View, Text, TouchableOpacity, Modal, PanResponder, Animated, Dimensions } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import BouncyPressable from './BouncyPressable';
+import SwipeableModal from './SwipeableModal';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface SettingsModalProps {
   visible: boolean;
@@ -14,100 +17,55 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ visible, onClose, onOpenBlockedUsers, onLogout, onDeleteAccount }: SettingsModalProps) {
-  const { height } = Dimensions.get('window');
-  const panY = useRef(new Animated.Value(0)).current;
-
-  const resetPositionAnim = Animated.timing(panY, {
-    toValue: 0,
-    duration: 300,
-    useNativeDriver: true,
-  });
-
-  const closeAnim = Animated.timing(panY, {
-    toValue: height,
-    duration: 300,
-    useNativeDriver: true,
-  });
-
-  const swipeDownToClose = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          panY.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 150 || gestureState.vy > 1.5) {
-          closeAnim.start(() => {
-             onClose();
-             panY.setValue(0);
-          });
-        } else {
-          resetPositionAnim.start();
-        }
-      }
-    })
-  ).current;
-
-  // We want to reset panY when it opens
-  React.useEffect(() => {
-    if (visible) {
-      panY.setValue(0);
-    }
-  }, [visible]);
+  const settingsItems = [
+    { icon: 'notifications-outline' as const, label: 'Notifications', color: 'rgba(255,255,255,0.7)', onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onClose(); } },
+    { icon: 'shield-half-outline' as const, label: 'Blocked Users', color: 'rgba(255,255,255,0.7)', onPress: onOpenBlockedUsers },
+    { icon: 'log-out-outline' as const, label: 'Sign Out', color: 'rgba(255,255,255,0.7)', onPress: () => { onClose(); onLogout(); } },
+    { icon: 'trash-outline' as const, label: 'Delete Account', color: '#ff6b6b', onPress: () => { onClose(); onDeleteAccount(); }, danger: true },
+  ];
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View className="flex-1 justify-end">
-        <TouchableOpacity className="absolute inset-0 bg-black/60" activeOpacity={1} onPress={onClose} />
-        <Animated.View style={{ transform: [{ translateY: panY }] }}>
-          <BlurView intensity={90} tint="dark" className="p-6 rounded-t-[40px] border-t border-white/10 shadow-[0_-20px_40px_rgba(0,0,0,0.8)] pb-10">
-          <View className="absolute inset-0 bg-[#090E17]/80" />
-          
-          <View {...swipeDownToClose.panHandlers} className="w-full pt-4 pb-2 items-center bg-transparent z-50">
-            <View className="w-12 h-1.5 bg-white/20 rounded-full" />
-          </View>
+    <SwipeableModal visible={visible} onClose={onClose}>
+      <BlurView 
+        intensity={80} 
+        tint="dark" 
+        style={{ borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden', paddingBottom: 40 }}
+      >
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(9,14,23,0.93)' }} />
+        
+        {/* Drag handle */}
+        <View style={{ width: '100%', alignItems: 'center', paddingTop: 10, paddingBottom: 6 }}>
+          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+        </View>
 
-          <TouchableOpacity onPress={onClose} className="absolute top-4 right-6 z-50 w-8 h-8 bg-white/10 rounded-full items-center justify-center border border-white/20">
-            <Ionicons name="close" size={18} color="white" />
-          </TouchableOpacity>
+        {/* X button */}
+        <TouchableOpacity 
+          onPress={onClose} 
+          style={{ position: 'absolute', top: 14, right: 18, zIndex: 50, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Ionicons name="close" size={15} color="rgba(255,255,255,0.6)" />
+        </TouchableOpacity>
 
-          <Text className="text-white font-black text-2xl mb-6 text-center tracking-tight mt-2">Settings</Text>
+        <View style={{ paddingTop: 4, paddingBottom: 16 }}>
+          <Text className="text-white font-bold text-lg text-center tracking-tight">Settings</Text>
+        </View>
 
-          <View className="bg-white/[0.03] rounded-[32px] border border-white/5 overflow-hidden">
-            <BouncyPressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onClose(); }}>
-              <View className="flex-row items-center justify-between p-5 border-b border-white/5">
-                <View className="flex-row items-center gap-4"><View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"><Ionicons name="notifications" size={18} color="white" /></View><Text className="text-white/90 font-bold text-base">Notifications</Text></View>
-                <Ionicons name="chevron-forward" size={18} color="#555" />
+        <View style={{ marginHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 20, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.04)', overflow: 'hidden' }}>
+          {settingsItems.map((item, i) => (
+            <BouncyPressable key={i} onPress={item.onPress}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: i < settingsItems.length - 1 ? 0.5 : 0, borderBottomColor: 'rgba(255,255,255,0.04)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: item.danger ? 'rgba(255,107,107,0.08)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name={item.icon} size={18} color={item.color} />
+                  </View>
+                  <Text style={{ color: item.danger ? '#ff6b6b' : 'rgba(255,255,255,0.8)', fontWeight: '600', fontSize: 15 }}>{item.label}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={item.danger ? 'rgba(255,107,107,0.4)' : 'rgba(255,255,255,0.12)'} />
               </View>
             </BouncyPressable>
-
-            <BouncyPressable onPress={onOpenBlockedUsers}>
-              <View className="flex-row items-center justify-between p-5 border-b border-white/5">
-                <View className="flex-row items-center gap-4"><View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"><Ionicons name="shield-half" size={18} color="white" /></View><Text className="text-white/90 font-bold text-base">Blocked Users</Text></View>
-                <Ionicons name="chevron-forward" size={18} color="#555" />
-              </View>
-            </BouncyPressable>
-
-            <BouncyPressable onPress={() => { onClose(); onLogout(); }}>
-              <View className="flex-row items-center justify-between p-5 border-b border-white/5">
-                <View className="flex-row items-center gap-4"><View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center"><Ionicons name="log-out" size={18} color="white" /></View><Text className="text-white/90 font-bold text-base">Sign Out</Text></View>
-                <Ionicons name="chevron-forward" size={18} color="#555" />
-              </View>
-            </BouncyPressable>
-
-            <BouncyPressable onPress={() => { onClose(); onDeleteAccount(); }}>
-              <View className="flex-row items-center justify-between p-5">
-                <View className="flex-row items-center gap-4"><View className="w-10 h-10 rounded-full bg-red-500/10 items-center justify-center"><Ionicons name="trash" size={18} color="#ff4b4b" /></View><Text className="text-[#ff4b4b] font-bold text-base">Delete Account</Text></View>
-                <Ionicons name="chevron-forward" size={18} color="#ff4b4b" />
-              </View>
-            </BouncyPressable>
-          </View>
-          </BlurView>
-        </Animated.View>
-      </View>
-    </Modal>
+          ))}
+        </View>
+      </BlurView>
+    </SwipeableModal>
   );
 }

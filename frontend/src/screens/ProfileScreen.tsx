@@ -107,6 +107,13 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       setProfile(profileRes.data);
       setNewBio(profileRes.data.bio || '');
       setMyPosts(postsRes.data);
+
+      // Load calendar snaps for "Your Week" thumbnails
+      if (profileRes.data.username) {
+        api.get(`/users/${profileRes.data.username}/calendar`)
+          .then(res => setCalendarSnaps(res.data))
+          .catch(() => {});
+      }
     } catch (error) {
       setProfile({ username: username || "Explorer", bio: "Welcome to Vulse", followersCount: 0, followingCount: 0 });
     } finally {
@@ -425,21 +432,21 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
               )}
             </View>
 
-            {/* Stats section — properly centered */}
-            <View className="flex-row items-center mt-4 mb-6 bg-white/[0.04] py-3.5 px-2 rounded-[28px] border border-white/[0.05] w-full">
-              <BouncyPressable onPress={openFollowers} className="flex-1 items-center">
-                <Text className="text-white font-bold text-lg">{profile?.followersCount || 0}</Text>
-                <Text className="text-white/40 text-[9px] font-semibold tracking-widest uppercase mt-0.5">Followers</Text>
+            {/* Stats section — balanced and airy */}
+            <View className="flex-row items-center mt-3 mb-5 bg-white/[0.02] py-2.5 px-2 rounded-[22px] border-[0.5px] border-white/[0.04] w-full">
+              <BouncyPressable onPress={openFollowers} style={{ flex: 1 }} className="items-center">
+                <Text className="text-white font-bold text-[16px]">{profile?.followersCount || 0}</Text>
+                <Text className="text-white/30 text-[7.5px] font-bold tracking-[1.5px] uppercase mt-0.5">Followers</Text>
               </BouncyPressable>
-              <View className="w-[1px] h-8 bg-white/[0.06]" />
-              <View className="flex-1 items-center">
-                <Text className="text-white font-bold text-lg">{myPosts.length}</Text>
-                <Text className="text-white/40 text-[9px] font-semibold tracking-widest uppercase mt-0.5">Posts</Text>
+              <View style={{ width: 0.5, height: 20, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+              <View style={{ flex: 1 }} className="items-center">
+                <Text className="text-white font-bold text-[16px]">{myPosts.length}</Text>
+                <Text className="text-white/30 text-[7.5px] font-bold tracking-[1.5px] uppercase mt-0.5">Posts</Text>
               </View>
-              <View className="w-[1px] h-8 bg-white/[0.06]" />
-              <BouncyPressable onPress={openFollowing} className="flex-1 items-center">
-                <Text className="text-white font-bold text-lg">{profile?.followingCount || 0}</Text>
-                <Text className="text-white/40 text-[9px] font-semibold tracking-widest uppercase mt-0.5">Following</Text>
+              <View style={{ width: 0.5, height: 20, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+              <BouncyPressable onPress={openFollowing} style={{ flex: 1 }} className="items-center">
+                <Text className="text-white font-bold text-[16px]">{profile?.followingCount || 0}</Text>
+                <Text className="text-white/30 text-[7.5px] font-bold tracking-[1.5px] uppercase mt-0.5">Following</Text>
               </BouncyPressable>
             </View>
 
@@ -454,15 +461,27 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                 <View className="bg-white/[0.06] px-2.5 py-1 rounded-full"><Text className="text-white/60 font-semibold text-[9px]">{profile?.streak || 0}🔥</Text></View>
               </View>
               <View className="flex-row justify-between relative z-10">
-                {[...Array(7)].map((_, i) => (
-                  <View key={i} className="w-[12.5%] aspect-[3/4] rounded-xl overflow-hidden bg-white/[0.03] border border-white/[0.04] items-center justify-center">
-                    {calendarSnaps[i] ? (
-                      <Image source={{ uri: calendarSnaps[i].mediaUrl }} className="w-full h-full object-cover" />
-                    ) : (
-                      <Ionicons name="camera-outline" size={10} color="rgba(255,255,255,0.12)" />
-                    )}
-                  </View>
-                ))}
+                {[...Array(7)].map((_, i) => {
+                  const d = new Date();
+                  d.setDate(d.getDate() - (6 - i));
+                  const dateStr = d.toISOString().split('T')[0];
+                  const dayLabel = d.toLocaleDateString('en-US', { weekday: 'narrow' });
+                  const snap = calendarSnaps.find((s: any) => s.date === dateStr);
+                  return (
+                    <View key={i} style={{ width: '12.5%', aspectRatio: 0.75, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 0.5, borderColor: snap ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' }}>
+                      {snap ? (
+                        <Image source={{ uri: snap.mediaUrl }} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+                      ) : (
+                        <View style={{ alignItems: 'center' }}>
+                          <Ionicons name="camera-outline" size={10} color="rgba(255,255,255,0.1)" />
+                        </View>
+                      )}
+                      <View style={{ position: 'absolute', bottom: 2 }}>
+                        <Text style={{ fontSize: 7, fontWeight: '600', color: snap ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.15)', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{dayLabel}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
             </BouncyPressable>
           </View>

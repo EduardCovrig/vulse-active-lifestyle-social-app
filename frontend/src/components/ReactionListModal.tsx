@@ -48,35 +48,41 @@ export default function ReactionListModal({ visible, onClose, postId }: Reaction
         <BlurView 
           intensity={80} 
           tint="dark" 
-          style={{ height: SCREEN_HEIGHT * 0.55, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden' }}
+          style={{ height: SCREEN_HEIGHT * 0.6, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' }}
         >
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(9,14,23,0.92)', borderTopLeftRadius: 32, borderTopRightRadius: 32 }} />
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(9,14,23,0.93)' }} />
           
+          {/* Drag handle */}
+          <View style={{ width: '100%', alignItems: 'center', paddingTop: 10, paddingBottom: 6 }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+          </View>
+
+          {/* X button */}
           <TouchableOpacity 
             onPress={onClose} 
-            style={{ position: 'absolute', top: 16, right: 20, zIndex: 50, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}
+            style={{ position: 'absolute', top: 14, right: 18, zIndex: 50, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Ionicons name="close" size={16} color="rgba(255,255,255,0.6)" />
+            <Ionicons name="close" size={15} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
 
-          <View style={{ paddingTop: 20, paddingHorizontal: 16 }}>
-            <Text className="text-white font-bold text-xl text-center tracking-tight mb-1">Reactions</Text>
-            <Text className="text-white/30 text-[10px] text-center mb-4 uppercase tracking-widest">{reactions.length} reaction{reactions.length !== 1 ? 's' : ''}</Text>
+          <View style={{ paddingTop: 4, paddingHorizontal: 16, paddingBottom: 4 }}>
+            <Text className="text-white font-bold text-lg text-center tracking-tight">Reactions</Text>
+            <Text className="text-white/25 text-[9px] text-center mt-1 uppercase tracking-widest">{reactions.length} reaction{reactions.length !== 1 ? 's' : ''}</Text>
           </View>
 
           {loading ? (
             <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
           ) : reactions.length === 0 ? (
             <View className="items-center mt-10">
-              <Ionicons name="heart-outline" size={36} color="rgba(255,255,255,0.08)" />
-              <Text className="text-white/25 mt-3 text-xs font-semibold tracking-wider uppercase">No reactions yet</Text>
+              <Ionicons name="heart-outline" size={32} color="rgba(255,255,255,0.06)" />
+              <Text className="text-white/20 mt-3 text-[10px] font-semibold tracking-wider uppercase">No reactions yet</Text>
             </View>
           ) : (
             <FlatList
               data={reactions}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 30, paddingHorizontal: 16 }}
+              contentContainerStyle={{ paddingBottom: 30, paddingHorizontal: 16, paddingTop: 8 }}
               renderItem={({ item }) => (
                 <TouchableOpacity 
                   onPress={() => setSelectedImage(item.mediaUrl)}
@@ -96,7 +102,7 @@ export default function ReactionListModal({ visible, onClose, postId }: Reaction
                     <Text className="text-white/30 text-[9px] font-semibold uppercase tracking-widest mt-0.5">{getRelativeTime(item.createdAt)}</Text>
                   </View>
 
-                  <View style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                  <View style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
                     <Image source={{ uri: item.mediaUrl }} className="w-full h-full" resizeMode="cover" />
                   </View>
                 </TouchableOpacity>

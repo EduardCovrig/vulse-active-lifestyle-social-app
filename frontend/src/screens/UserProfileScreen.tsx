@@ -148,20 +148,20 @@ export default function UserProfileScreen() {
           <Text className="text-white font-bold text-2xl tracking-tight mb-0.5">{profile?.username}</Text>
           <Text className="text-white/40 text-[13px] text-center max-w-[80%] mb-5">{profile?.bio || 'Living the active life'}</Text>
 
-          <View className="flex-row items-center mb-5 bg-white/[0.04] py-3.5 px-2 rounded-[28px] border border-white/[0.05] w-full">
-            <BouncyPressable onPress={openFollowers} className="flex-1 items-center">
-              <Text className="text-white font-bold text-lg">{profile?.followersCount || 0}</Text>
-              <Text className="text-white/40 text-[9px] font-semibold tracking-widest uppercase mt-0.5">Followers</Text>
+          <View className="flex-row items-center mb-5 bg-white/[0.02] py-2.5 px-2 rounded-[22px] border-[0.5px] border-white/[0.04] w-full">
+            <BouncyPressable onPress={openFollowers} style={{ flex: 1 }} className="items-center">
+              <Text className="text-white font-bold text-[16px]">{profile?.followersCount || 0}</Text>
+              <Text className="text-white/30 text-[7.5px] font-bold tracking-[1.5px] uppercase mt-0.5">Followers</Text>
             </BouncyPressable>
-            <View className="w-[1px] h-8 bg-white/[0.06]" />
-            <View className="flex-1 items-center">
-              <Text className="text-white font-bold text-lg">{userPosts.length}</Text>
-              <Text className="text-white/40 text-[9px] font-semibold tracking-widest uppercase mt-0.5">Posts</Text>
+            <View style={{ width: 0.5, height: 20, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+            <View style={{ flex: 1 }} className="items-center">
+              <Text className="text-white font-bold text-[16px]">{userPosts.length}</Text>
+              <Text className="text-white/30 text-[7.5px] font-bold tracking-[1.5px] uppercase mt-0.5">Posts</Text>
             </View>
-            <View className="w-[1px] h-8 bg-white/[0.06]" />
-            <BouncyPressable onPress={openFollowing} className="flex-1 items-center">
-              <Text className="text-white font-bold text-lg">{profile?.followingCount || 0}</Text>
-              <Text className="text-white/40 text-[9px] font-semibold tracking-widest uppercase mt-0.5">Following</Text>
+            <View style={{ width: 0.5, height: 20, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+            <BouncyPressable onPress={openFollowing} style={{ flex: 1 }} className="items-center">
+              <Text className="text-white font-bold text-[16px]">{profile?.followingCount || 0}</Text>
+              <Text className="text-white/30 text-[7.5px] font-bold tracking-[1.5px] uppercase mt-0.5">Following</Text>
             </BouncyPressable>
           </View>
 

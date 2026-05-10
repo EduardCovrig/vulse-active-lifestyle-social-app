@@ -20,50 +20,56 @@ export default function SwipeableModal({ visible, onClose, children, avoidKeyboa
     Animated.spring(panY, {
       toValue: 0,
       useNativeDriver: true,
-      tension: 65,
-      friction: 11,
+      tension: 100, // Slightly snappier
+      friction: 12,
     }).start();
   };
 
   const closeAnim = () => {
     Animated.timing(panY, {
       toValue: SCREEN_HEIGHT,
-      duration: 280,
+      duration: 250,
       useNativeDriver: true,
-    }).start(() => onClose());
+    }).start(() => {
+      onClose();
+      panY.setValue(0); // Reset for next open
+    });
   };
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gs) => gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
+      onMoveShouldSetPanResponder: (_, gs) => {
+        // Only take over if dragging down and not a sideways swipe
+        return gs.dy > 10 && Math.abs(gs.dy) > Math.abs(gs.dx);
+      },
       onPanResponderMove: (_, gs) => {
         if (gs.dy > 0) {
-          // Rubber-band effect: slower as you drag further
-          const dampened = gs.dy * 0.7;
-          panY.setValue(dampened);
+          // Responsive but slightly dampened feel
+          panY.setValue(gs.dy);
         }
       },
       onPanResponderRelease: (_, gs) => {
-        if (gs.dy > SCREEN_HEIGHT * 0.25 || gs.vy > 0.8) {
+        // 20% height threshold or high velocity
+        if (gs.dy > SCREEN_HEIGHT * 0.2 || gs.vy > 0.5) {
           closeAnim();
         } else {
           resetPositionAnim();
         }
-      }
+      },
+      onPanResponderTerminate: () => resetPositionAnim(),
     })
   ).current;
 
   useEffect(() => {
     if (visible) {
       panY.setValue(0);
-      Animated.timing(backdropOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+      Animated.timing(backdropOpacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
     } else {
-      backdropOpacity.setValue(0);
+      Animated.timing(backdropOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
     }
   }, [visible]);
 
-  // Interpolate backdrop opacity based on drag
   const interpolatedOpacity = panY.interpolate({
     inputRange: [0, SCREEN_HEIGHT * 0.5],
     outputRange: [0.5, 0],
@@ -92,11 +98,21 @@ export default function SwipeableModal({ visible, onClose, children, avoidKeyboa
             onPress={onClose} 
           />
           
-          <Animated.View style={{ transform: [{ translateY: panY }], width: '100%' }}>
-            {/* The entire sheet content with drag handle INSIDE */}
-            <View {...panResponder.panHandlers}>
+          <Animated.View 
+            style={{ 
+              transform: [{ translateY: panY }], 
+              width: '100%',
+              backgroundColor: 'transparent'
+            }}
+            {...panResponder.panHandlers}
+          >
+            {/* Content area */}
+            <View onStartShouldSetResponder={() => true}>
               {children}
             </View>
+            
+            {/* Safe area filler at the bottom so it doesn't show a gap when bouncing */}
+            <View style={{ height: 100, backgroundColor: 'rgba(9,14,23,0.95)', marginTop: -1 }} />
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
