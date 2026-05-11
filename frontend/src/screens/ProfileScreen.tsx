@@ -23,7 +23,8 @@ import SwipeableModal from '../components/SwipeableModal';
 const HEADER_HEIGHT = 180;
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GRID_GAP = 2;
-const ITEM_WIDTH = (width - 4 - (GRID_GAP * 2)) / 3;
+// REPARAT: Matematica corecta pentru paddingHorizontal: 4 (total 8) + 2 gap-uri
+const ITEM_WIDTH = (width - 8 - (GRID_GAP * 2)) / 3;
 
 interface ProfileScreenProps {
   onHideBottomBar?: (hide: boolean) => void;
@@ -326,32 +327,20 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
 
   const openFollowers = async () => {
     if (!profile) return;
-    setShowFollowers(true);
-    setLoadingLists(true);
-    try {
-      const res = await api.get(`/users/${profile.username}/followers`);
-      setFollowersList(res.data);
-    } catch(e) {} finally { setLoadingLists(false); }
+    setShowFollowers(true); setLoadingLists(true);
+    try { const res = await api.get(`/users/${profile.username}/followers`); setFollowersList(res.data); } catch(e) {} finally { setLoadingLists(false); }
   };
 
   const openFollowing = async () => {
     if (!profile) return;
-    setShowFollowing(true);
-    setLoadingLists(true);
-    try {
-      const res = await api.get(`/users/${profile.username}/following`);
-      setFollowingList(res.data);
-    } catch(e) {} finally { setLoadingLists(false); }
+    setShowFollowing(true); setLoadingLists(true);
+    try { const res = await api.get(`/users/${profile.username}/following`); setFollowingList(res.data); } catch(e) {} finally { setLoadingLists(false); }
   };
 
   const openCalendar = async () => {
     if (!profile) return;
-    setShowCalendar(true);
-    setLoadingCalendar(true);
-    try {
-      const res = await api.get(`/users/${profile.username}/calendar`);
-      setCalendarSnaps(res.data);
-    } catch(e) {} finally { setLoadingCalendar(false); }
+    setShowCalendar(true); setLoadingCalendar(true);
+    try { const res = await api.get(`/users/${profile.username}/calendar`); setCalendarSnaps(res.data); } catch(e) {} finally { setLoadingCalendar(false); }
   };
 
   const openComments = async (postId: string) => {
@@ -544,7 +533,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                   key={post.id} 
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedPost(post);
+                    setSelectedPost(post); // Asta deschide noul UNIFIED VIEWER
                   }}
                   activeOpacity={0.8}
                   style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
@@ -572,7 +561,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </Animated.View>
       </Animated.ScrollView>
 
-      {/* MODALS */}
       <DiscoverModal visible={showDiscoverModal} onClose={() => setShowDiscoverModal(false)} searchQuery={searchQuery} setSearchQuery={setSearchQuery} loadingDiscover={loadingDiscover} suggestedFriends={suggestedFriends} contacts={contacts} handleFollowUser={handleFollowUser} handleInviteContact={handleInviteContact} />
       <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} />
       <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} />
@@ -592,7 +580,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </View>
       </Modal>
 
-      {/* UNIFIED VIEWER MODAL */}
+      {/* NOUL UNIFIED VIEWER MODAL AICI */}
       <ImagePopoutModal 
         visible={selectedPost !== null} 
         post={selectedPost} 
@@ -611,13 +599,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         }}
       />
 
-      {/* MODAL COMENTARII DIN UNIFIED VIEWER */}
-      <SwipeableModal 
-        visible={activeCommentsPostId !== null} 
-        onClose={() => setActiveCommentsPostId(null)}
-        title="Comments"
-        heightRatio={0.65}
-      >
+      <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>
         {loadingComments ? (
           <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
         ) : (

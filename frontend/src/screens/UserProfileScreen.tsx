@@ -17,7 +17,8 @@ import CalendarModal from '../components/CalendarModal';
 const HEADER_HEIGHT = 180;
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GRID_GAP = 2;
-const ITEM_WIDTH = (width - 4 - (GRID_GAP * 2)) / 3;
+// REPARAT: Matematica corecta pentru paddingHorizontal: 4 (total 8) + 2 gap-uri
+const ITEM_WIDTH = (width - 8 - (GRID_GAP * 2)) / 3;
 
 export default function UserProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -125,13 +126,6 @@ export default function UserProfileScreen() {
     } catch (error) {} finally { setLoadingComments(false); }
   };
 
-  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
-    setUserPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
-    if (selectedPost && selectedPost.id === postId) {
-      setSelectedPost((prev: any) => ({ ...prev, isLiked: newIsLiked, likesCount: newIsLiked ? prev.likesCount + 1 : Math.max(0, prev.likesCount - 1) }));
-    }
-  };
-
   const submitComment = async () => {
     if (!newComment.trim() || !activeCommentsPostId) return;
     const text = newComment;
@@ -147,6 +141,13 @@ export default function UserProfileScreen() {
       }
       setUserPosts(curr => curr.map(p => p.id === activeCommentsPostId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p));
     } catch (error) {}
+  };
+
+  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
+    setUserPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
+    if (selectedPost && selectedPost.id === postId) {
+      setSelectedPost((prev: any) => ({ ...prev, isLiked: newIsLiked, likesCount: newIsLiked ? prev.likesCount + 1 : Math.max(0, prev.likesCount - 1) }));
+    }
   };
 
   const isWithinLast24Hours = (dateStr: string) => {
@@ -275,6 +276,12 @@ export default function UserProfileScreen() {
                  </TouchableOpacity>
                );
              })}
+             {userPosts.length === 0 && (
+               <View className="w-full py-16 items-center justify-center">
+                 <Ionicons name="camera-outline" size={32} color="rgba(255,255,255,0.08)" />
+                 <Text className="text-white/20 mt-3 font-semibold tracking-widest uppercase text-[10px]">No posts yet</Text>
+               </View>
+             )}
           </View>
         </View>
       </Animated.ScrollView>
@@ -290,8 +297,8 @@ export default function UserProfileScreen() {
         }}
       />
       
-      <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} onUserTap={(uid) => {}} />
-      <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} onUserTap={(uid) => {}} />
+      <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} />
+      <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} />
 
       {/* UNIFIED VIEWER MODAL */}
       <ImagePopoutModal 

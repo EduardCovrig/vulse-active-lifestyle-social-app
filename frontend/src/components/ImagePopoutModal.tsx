@@ -27,7 +27,6 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
 
-  // Sincronizare Live
   useEffect(() => {
     if (post) {
       setIsLiked(post.isLiked || false);
@@ -45,7 +44,7 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       Animated.parallel([
         Animated.timing(opacityAnim, { toValue: 1, duration: 250, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
-        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, bounciness: 10, speed: 18 })
+        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, bounciness: 8, speed: 16 })
       ]).start(() => setIsAnimating(false));
     } else if (!visible && !isAnimating && (opacityAnim as any)._value > 0) {
       closeAnim();
@@ -77,7 +76,7 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
     catch (error) {}
   };
 
-  if (!visible && !isAnimating) return null;
+  // FIX: Fara "return null" anticipat. Lasam <Modal> sa se ocupe singur cand `visible` e false.
 
   return (
     <Modal visible={visible || isAnimating} transparent={true} animationType="none" onRequestClose={closeAnim}>
@@ -134,12 +133,12 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>{likesCount}</Text>
                      </TouchableOpacity>
                      
-                     <TouchableOpacity onPress={() => { closeAnim(); setTimeout(() => onOpenComments && onOpenComments(post.id), 250); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                     <TouchableOpacity onPress={() => { if (onOpenComments) onOpenComments(post.id); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                        <Ionicons name="chatbubble-outline" size={28} color="white" />
                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>{commentsCount}</Text>
                      </TouchableOpacity>
 
-                     <TouchableOpacity onPress={() => { closeAnim(); setTimeout(() => onReactRequest && onReactRequest(post.id), 250); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' }}>
+                     <TouchableOpacity onPress={() => { if (onReactRequest) onReactRequest(post.id); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' }}>
                        <Ionicons name="camera-outline" size={18} color="white" />
                      </TouchableOpacity>
                    </View>

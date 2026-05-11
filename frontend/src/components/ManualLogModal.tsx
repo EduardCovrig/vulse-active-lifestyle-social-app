@@ -15,7 +15,11 @@ interface ManualLogModalProps {
 export default function ManualLogModal({ visible, onClose, editingMealId, manualMeal, setManualMeal, handleManualSave, isSavingManual }: ManualLogModalProps) {
   return (
     <SwipeableModal visible={visible} onClose={onClose} title={editingMealId ? 'Edit Log' : 'Manual Log'} subtitle={editingMealId ? 'Update your meal data' : 'Add a meal without a photo'} heightRatio={0.8}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }} 
+        showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag" // Permite ascunderea tastaturii cand dai scroll
+      >
         <View className="flex-row flex-wrap justify-between gap-y-3 mt-2">
           <View className="w-full mb-1">
             <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6, marginLeft: 4 }}>Total Calories *</Text>
