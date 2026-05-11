@@ -12,7 +12,8 @@ import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import SwipeableModal from '../components/SwipeableModal';
-import LockedFeedView from '../components/LockedFeedView'; // IMPORTUL NOU
+import LockedFeedView from '../components/LockedFeedView';
+import ImagePopoutModal from '../components/ImagePopoutModal';
 
 interface FriendsScreenProps {
   onOpenCamera?: () => void;
@@ -47,6 +48,8 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
 
   const [activeStory, setActiveStory] = useState<any>(null);
   const storyProgress = useRef(new Animated.Value(0)).current;
+
+  const [popoutImage, setPopoutImage] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -356,6 +359,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
                 setEditCaptionText(text);
                 setEditingPost(id);
               }}
+              onImageLongPress={(uri) => setPopoutImage(uri)} // ZOOM
             />
           </View>
         )}
@@ -452,6 +456,9 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
           )}
         </View>
       </Modal>
+
+      {/* ZOOM IMAGE MODAL */}
+      <ImagePopoutModal visible={popoutImage !== null} imageUri={popoutImage} onClose={() => setPopoutImage(null)} />
 
     </Animated.View>
   );

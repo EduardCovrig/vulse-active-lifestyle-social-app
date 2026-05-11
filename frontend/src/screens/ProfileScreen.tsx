@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, Alert, TextInput, Dimensions, Animated, ActivityIndicator, Modal, FlatList, PanResponder, ScrollView, Share } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Alert, TextInput, Dimensions, Animated, ActivityIndicator, Modal, FlatList, Share } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -18,6 +18,7 @@ import BlockedUsersModal from '../components/BlockedUsersModal';
 import DiscoverModal from '../components/DiscoverModal';
 import UserListModal from '../components/UserListModal';
 import CalendarModal from '../components/CalendarModal';
+import ImagePopoutModal from '../components/ImagePopoutModal';
 
 const HEADER_HEIGHT = 180;
 const { width } = Dimensions.get('window');
@@ -48,7 +49,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [showVibeModal, setShowVibeModal] = useState(false);
 
-  // New states for discover & camera
   const [showDiscoverModal, setShowDiscoverModal] = useState(false);
   const [contacts, setContacts] = useState<any[]>([]);
   const [suggestedFriends, setSuggestedFriends] = useState<any[]>([]);
@@ -67,6 +67,8 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
 
   const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
   const [recordingReel, setRecordingReel] = useState(false);
+
+  const [selectedImage, setSelectedImage] = useState<string | null>(null); // ZOOM IMAGE
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
@@ -108,7 +110,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       setNewBio(profileRes.data.bio || '');
       setMyPosts(postsRes.data);
 
-      // Load calendar snaps for "Your Week" thumbnails
       if (profileRes.data.username) {
         api.get(`/users/${profileRes.data.username}/calendar`)
           .then(res => setCalendarSnaps(res.data))
@@ -122,11 +123,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
     }
   };
 
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchProfileData();
-    }, [])
-  );
+  useFocusEffect(React.useCallback(() => { fetchProfileData(); }, []));
 
   const handleOpenSettings = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -371,21 +368,11 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         <LinearGradient colors={['rgba(122,215,198,0.04)', 'transparent']} className="flex-1" />
       </Animated.View>
 
-      {/* TOP LEFT ADD BUTTON */}
-      <TouchableOpacity 
-        onPress={handleOpenDiscover} 
-        style={{ position: 'absolute', top: insets.top + 10, left: 20, zIndex: 100 }}
-        className="w-9 h-9 bg-white/[0.06] rounded-full items-center justify-center border border-white/[0.08]"
-      >
+      <TouchableOpacity onPress={handleOpenDiscover} style={{ position: 'absolute', top: insets.top + 10, left: 20, zIndex: 100 }} className="w-9 h-9 bg-white/[0.06] rounded-full items-center justify-center border border-white/[0.08]">
         <Ionicons name="add" size={20} color="rgba(255,255,255,0.7)" />
       </TouchableOpacity>
 
-      {/* TOP RIGHT SETTINGS BUTTON */}
-      <TouchableOpacity 
-        onPress={handleOpenSettings} 
-        style={{ position: 'absolute', top: insets.top + 10, right: 20, zIndex: 100 }}
-        className="w-9 h-9 bg-white/[0.06] rounded-full items-center justify-center border border-white/[0.08]"
-      >
+      <TouchableOpacity onPress={handleOpenSettings} style={{ position: 'absolute', top: insets.top + 10, right: 20, zIndex: 100 }} className="w-9 h-9 bg-white/[0.06] rounded-full items-center justify-center border border-white/[0.08]">
         <Animated.View style={{ transform: [{ rotate: spin }] }}>
           <Ionicons name="settings-outline" size={18} color="rgba(255,255,255,0.7)" />
         </Animated.View>
@@ -432,7 +419,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
               )}
             </View>
 
-            {/* Stats section — balanced and airy */}
             <View className="flex-row items-center mt-3 mb-5 bg-white/[0.02] py-2.5 px-2 rounded-[22px] border-[0.5px] border-white/[0.04] w-full">
               <BouncyPressable onPress={openFollowers} style={{ flex: 1 }} className="items-center">
                 <Text className="text-white font-bold text-[16px]">{profile?.followersCount || 0}</Text>
@@ -450,7 +436,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
               </BouncyPressable>
             </View>
 
-            {/* Weekly Vibe (Last 7 Days) */}
             <BouncyPressable onPress={openCalendar} className="w-full bg-white/[0.03] border border-white/[0.06] rounded-[24px] p-4 mb-6 overflow-hidden relative">
               <LinearGradient colors={['rgba(122, 215, 198, 0.06)', 'transparent']} className="absolute inset-0" />
               <View className="flex-row items-center justify-between mb-3 relative z-10">
@@ -489,7 +474,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
           {/* GLOBAL PROFILE GRID */}
           <View className="px-1">
             <View className="flex-row flex-wrap" style={{ gap: GRID_GAP }}>
-              {/* FIRST ITEM: UPLOAD VIDEO */}
               <TouchableOpacity 
                 onPress={handleUploadReelChoice}
                 style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
@@ -506,6 +490,11 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setSelectedPost(post);
                   }}
+                  onLongPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                    setSelectedImage(post.mediaUrl); // ZOOM!
+                  }}
+                  delayLongPress={300}
                   style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
                   className="overflow-hidden bg-white/[0.03] rounded-lg relative"
                 >
@@ -531,46 +520,15 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </Animated.View>
       </Animated.ScrollView>
 
-      {/* --- MODAL DISCOVER / INVITE --- */}
-      <DiscoverModal 
-        visible={showDiscoverModal} 
-        onClose={() => setShowDiscoverModal(false)}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        loadingDiscover={loadingDiscover}
-        suggestedFriends={suggestedFriends}
-        contacts={contacts}
-        handleFollowUser={handleFollowUser}
-        handleInviteContact={handleInviteContact}
-      />
-
-      <UserListModal 
-        visible={showFollowers} 
-        onClose={() => setShowFollowers(false)} 
-        title="Followers" 
-        users={followersList} 
-        loading={loadingLists} 
-      />
-
-      <UserListModal 
-        visible={showFollowing} 
-        onClose={() => setShowFollowing(false)} 
-        title="Following" 
-        users={followingList} 
-        loading={loadingLists} 
-      />
-
-      <CalendarModal
-        visible={showCalendar}
-        onClose={() => setShowCalendar(false)}
-        loading={loadingCalendar}
-        snaps={calendarSnaps}
-      />
-
-      {/* --- MODAL POST VIEWER --- */}
+      {/* MODALS */}
+      <DiscoverModal visible={showDiscoverModal} onClose={() => setShowDiscoverModal(false)} searchQuery={searchQuery} setSearchQuery={setSearchQuery} loadingDiscover={loadingDiscover} suggestedFriends={suggestedFriends} contacts={contacts} handleFollowUser={handleFollowUser} handleInviteContact={handleInviteContact} />
+      <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} />
+      <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} />
+      <CalendarModal visible={showCalendar} onClose={() => setShowCalendar(false)} loading={loadingCalendar} snaps={calendarSnaps} />
+      
       <Modal visible={selectedPost !== null} animationType="fade" transparent={true} onRequestClose={() => setSelectedPost(null)}>
         <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative">
-          <View className="absolute inset-0 bg-[#090E17]/80" />
+          <View className="absolute inset-0 bg-[#090E17]/90" />
           <TouchableOpacity onPress={() => setSelectedPost(null)} style={{ top: insets.top + 10 }} className="absolute right-6 z-50 w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20">
             <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
@@ -580,23 +538,14 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                <LiquidPostCard 
                  post={selectedPost}
                  onOpenComments={() => Alert.alert("Comments", "To leave a comment, please access the post from the Feed tab.")}
-                 onPostDeleted={(id) => {
-                   setMyPosts(curr => curr.filter(p => p.id !== id));
-                   setSelectedPost(null);
-                 }}
-                 onUserBlocked={() => {}}
-                 onEditCaption={() => Alert.alert("Info", "Please edit the caption from the post menu on the Feed.")}
-                 onReactRequest={(id) => {
-                   setReactingToPostId(id);
-                   if (onHideBottomBar) onHideBottomBar(true);
-                 }}
+                 onPostDeleted={(id) => { setMyPosts(curr => curr.filter(p => p.id !== id)); setSelectedPost(null); }}
+                 onUserBlocked={() => {}} onEditCaption={() => Alert.alert("Info", "Please edit the caption from the post menu on the Feed.")} onReactRequest={() => {}}
                />
             )}
           </View>
         </BlurView>
       </Modal>
 
-      {/* MODAL WEEKLY VIBE CALENDAR */}
       <Modal visible={showVibeModal} animationType="fade" transparent={true} onRequestClose={() => setShowVibeModal(false)}>
         <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative p-6">
           <View className="absolute inset-0 bg-[#090E17]/80" />
@@ -614,61 +563,22 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </BlurView>
       </Modal>
 
-      {/* --- MODAL SETTINGS --- */}
-      <SettingsModal 
-        visible={showSettings}
-        onClose={() => setShowSettings(false)}
-        onOpenBlockedUsers={handleOpenBlockedUsers}
-        onLogout={logout}
-        onDeleteAccount={handleDeleteAccount}
-      />
-
-      {/* --- MODAL BLOCKED USERS --- */}
-      <BlockedUsersModal 
-        visible={showBlockedUsers}
-        onClose={() => setShowBlockedUsers(false)}
-        blockedUsers={blockedUsers}
-        loadingBlocked={loadingBlocked}
-        onUnblockUser={handleUnblockUser}
-      />
-
-      {/* REACTION CAMERA OVERLAY */}
-      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => {
-        setReactingToPostId(null);
-        if (onHideBottomBar) onHideBottomBar(false);
-      }}>
+      <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} onOpenBlockedUsers={handleOpenBlockedUsers} onLogout={logout} onDeleteAccount={handleDeleteAccount} />
+      <BlockedUsersModal visible={showBlockedUsers} onClose={() => setShowBlockedUsers(false)} blockedUsers={blockedUsers} loadingBlocked={loadingBlocked} onUnblockUser={handleUnblockUser} />
+      
+      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }}>
         <View style={{ flex: 1, backgroundColor: 'black' }}>
-          {reactingToPostId && (
-            <CameraScreen 
-              mode="reaction" 
-              onClose={() => {
-                setReactingToPostId(null);
-                if (onHideBottomBar) onHideBottomBar(false);
-              }} 
-              onCapture={handleReactionCapture} 
-            />
-          )}
+          {reactingToPostId && <CameraScreen mode="reaction" onClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }} onCapture={handleReactionCapture} />}
         </View>
       </Modal>
 
-      {/* REEL RECORDING CAMERA OVERLAY */}
-      <Modal visible={recordingReel} transparent={true} animationType="fade" onRequestClose={() => {
-        setRecordingReel(false);
-        if (onHideBottomBar) onHideBottomBar(false);
-      }}>
+      <Modal visible={recordingReel} transparent={true} animationType="fade" onRequestClose={() => { setRecordingReel(false); if (onHideBottomBar) onHideBottomBar(false); }}>
         <View style={{ flex: 1, backgroundColor: 'black' }}>
-          {recordingReel && (
-            <CameraScreen 
-              mode="reel" 
-              onClose={() => {
-                 setRecordingReel(false);
-                 if (onHideBottomBar) onHideBottomBar(false);
-                 fetchProfileData();
-              }} 
-            />
-          )}
+          {recordingReel && <CameraScreen mode="reel" onClose={() => { setRecordingReel(false); if (onHideBottomBar) onHideBottomBar(false); fetchProfileData(); }} />}
         </View>
       </Modal>
+
+      <ImagePopoutModal visible={selectedImage !== null} imageUri={selectedImage} onClose={() => setSelectedImage(null)} />
 
     </View>
   );

@@ -1,11 +1,11 @@
-import React from 'react';
-import { View, Modal, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Modal, TouchableOpacity, Dimensions, Animated, Easing } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
-import * as Haptics from 'expo-haptics';
 import PinchableImage from './PinchableImage';
+import * as Haptics from 'expo-haptics';
+
+const { width, height } = Dimensions.get('window');
 
 interface ImagePopoutModalProps {
   visible: boolean;
@@ -13,61 +13,72 @@ interface ImagePopoutModalProps {
   onClose: () => void;
 }
 
-const { width, height } = Dimensions.get('window');
-
 export default function ImagePopoutModal({ visible, imageUri, onClose }: ImagePopoutModalProps) {
-  const handleDownload = async () => {
-    if (!imageUri) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const [isAnimating, setIsAnimating] = useState(false);
 
-    try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need access to your photos to save images.');
-        return;
-      }
-
-      const filename = imageUri.split('/').pop() || 'vulse_snap.jpg';
-      const fileUri = FileSystem.documentDirectory + filename;
-      const downloadRes = await FileSystem.downloadAsync(imageUri, fileUri);
-      await MediaLibrary.saveToLibraryAsync(downloadRes.uri);
-      
-      Alert.alert('Saved!', 'Image saved to your gallery.');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {
-      console.error(e);
-      Alert.alert('Error', 'Could not save the image.');
+  useEffect(() => {
+    if (visible && imageUri) {
+      setIsAnimating(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Animated.parallel([
+        Animated.timing(opacityAnim, { toValue: 1, duration: 250, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
+        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, bounciness: 8, speed: 16 })
+      ]).start(() => setIsAnimating(false));
+    } else if (!visible && !isAnimating && (opacityAnim as any)._value > 0) {
+      closeAnim();
     }
+  }, [visible, imageUri]);
+
+  const closeAnim = () => {
+    setIsAnimating(true);
+    Animated.parallel([
+      Animated.timing(opacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 0.9, duration: 200, useNativeDriver: true })
+    ]).start(() => {
+      setIsAnimating(false);
+      onClose();
+    });
   };
 
-  if (!imageUri) return null;
+  if (!visible && !isAnimating) return null;
 
   return (
-    <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-        <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} activeOpacity={1} onPress={onClose} />
+    <Modal visible={visible || isAnimating} transparent={true} animationType="none" onRequestClose={closeAnim}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         
-        <View style={{ position: 'absolute', top: 60, right: 20, zIndex: 50, flexDirection: 'row', gap: 12 }}>
-          <TouchableOpacity 
-            onPress={handleDownload} 
-            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' }}
-          >
-            <Ionicons name="download-outline" size={20} color="rgba(255,255,255,0.8)" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={onClose} 
-            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' }}
-          >
-            <Ionicons name="close" size={20} color="rgba(255,255,255,0.8)" />
-          </TouchableOpacity>
-        </View>
+        <Animated.View style={{ position: 'absolute', inset: 0, opacity: opacityAnim }}>
+          <BlurView intensity={90} tint="dark" style={{ flex: 1 }}>
+            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeAnim} />
+          </BlurView>
+        </Animated.View>
 
-        <TouchableOpacity 
-          style={{ width: width * 0.94, height: height * 0.72, borderRadius: 24, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' }}
-          activeOpacity={1}
+        <Animated.View style={{ position: 'absolute', top: 50, right: 20, zIndex: 50, opacity: opacityAnim }}>
+          <TouchableOpacity 
+            onPress={closeAnim} 
+            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)' }}
+          >
+            <Ionicons name="close" size={20} color="rgba(255,255,255,0.9)" />
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View 
+          style={{ 
+            width: width * 0.92, 
+            height: height * 0.78, 
+            transform: [{ scale: scaleAnim }], 
+            opacity: opacityAnim, 
+            borderRadius: 36, 
+            overflow: 'hidden', 
+            backgroundColor: '#06090E', 
+            borderWidth: 1, 
+            borderColor: 'rgba(255,255,255,0.15)', 
+            shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 30 
+          }}
         >
-          <PinchableImage uri={imageUri} className="w-full h-full object-cover" />
-        </TouchableOpacity>
+           {imageUri && <PinchableImage uri={imageUri} />}
+        </Animated.View>
       </View>
     </Modal>
   );

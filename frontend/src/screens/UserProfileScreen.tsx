@@ -30,7 +30,6 @@ export default function UserProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   
-  // Status-ul tau (daca ai postat azi)
   const [iHavePostedToday, setIHavePostedToday] = useState(false);
 
   const [showFollowers, setShowFollowers] = useState(false);
@@ -40,7 +39,7 @@ export default function UserProfileScreen() {
   const [loadingLists, setLoadingLists] = useState(false);
 
   const [selectedPost, setSelectedPost] = useState<any>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null); // ZOOM IMAGE
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -59,11 +58,10 @@ export default function UserProfileScreen() {
   const fetchProfileData = async () => {
     setLoading(true);
     try {
-      // Tragem datele profilului + log-ul tau zilnic (ca sa vedem daca ai postat)
       const [profileRes, postsRes, circleRes] = await Promise.all([
         api.get(`/users/${username}/profile`),
         api.get(`/posts/user/${username}`),
-        api.get('/users/circle') // Folosim asta ca sa aflam statusul tau
+        api.get('/users/circle')
       ]);
       setProfile(profileRes.data);
       setIsFollowing(profileRes.data.isFollowing || false);
@@ -71,7 +69,6 @@ export default function UserProfileScreen() {
       
       const me = circleRes.data.find((c: any) => c.isMe);
       setIHavePostedToday(me?.hasPosted || false);
-
     } catch (error: any) {
       console.log("UserProfile error:", error.response?.data || error.message);
     } finally {
@@ -116,7 +113,6 @@ export default function UserProfileScreen() {
     } catch(e) {} finally { setLoadingLists(false); }
   };
 
-  // Helper pentru a verifica daca o postare e mai veche de 24h
   const isWithinLast24Hours = (dateStr: string) => {
     const postDate = new Date(dateStr).getTime();
     const now = Date.now();
@@ -150,7 +146,6 @@ export default function UserProfileScreen() {
         contentContainerStyle={{ paddingTop: insets.top + HEADER_HEIGHT * 0.4, paddingBottom: 100 }}
         className="z-10"
       >
-        {/* Profile Info */}
         <View className="items-center px-6">
           <Animated.View style={{ transform: [{ scale: profilePicScale }] }} className="mb-3">
             <View className="p-[1.5px] rounded-full bg-white/15">
@@ -193,12 +188,9 @@ export default function UserProfileScreen() {
           )}
         </View>
 
-        {/* 3 Column Grid */}
         <View className="px-1">
           <View className="flex-row flex-wrap justify-start" style={{ gap: GRID_GAP }}>
              {userPosts.map((post) => {
-               // VERIFICARE LOGICA PENTRU LOCK
-               // Se blocheaza doar daca: tu nu ai postat azi + postarea prietenului e DAILY + pusa in ultimele 24h
                const isLocked = !iHavePostedToday && post.type === 'DAILY' && isWithinLast24Hours(post.createdAt);
 
                return (
@@ -213,6 +205,12 @@ export default function UserProfileScreen() {
                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                      setSelectedPost(post);
                    }}
+                   onLongPress={() => {
+                     if (isLocked) return; // Nu dam voie la zoom pe poza blocata
+                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                     setSelectedImage(post.mediaUrl);
+                   }}
+                   delayLongPress={300}
                    style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
                    className="bg-white/[0.03] rounded-lg overflow-hidden relative items-center justify-center"
                  >
@@ -220,10 +218,9 @@ export default function UserProfileScreen() {
                      source={{ uri: post.mediaUrl }} 
                      className="absolute inset-0 w-full h-full" 
                      resizeMode="cover" 
-                     blurRadius={isLocked ? 12 : 0} // Bluram complet daca e locked
+                     blurRadius={isLocked ? 12 : 0}
                    />
                    
-                   {/* Dacă e locked, punem un overlay dark și lacătul */}
                    {isLocked && (
                      <View className="absolute inset-0 bg-black/40 items-center justify-center">
                        <Ionicons name="lock-closed" size={24} color="rgba(255,255,255,0.9)" />
@@ -281,26 +278,9 @@ export default function UserProfileScreen() {
         </BlurView>
       </Modal>
 
-      {/* Modals */}
-      <UserListModal 
-        visible={showFollowers} 
-        onClose={() => setShowFollowers(false)} 
-        title="Followers" 
-        users={followersList} 
-        loading={loadingLists} 
-        onUserTap={(uid) => {}} 
-      />
-      
-      <UserListModal 
-        visible={showFollowing} 
-        onClose={() => setShowFollowing(false)} 
-        title="Following" 
-        users={followingList} 
-        loading={loadingLists} 
-        onUserTap={(uid) => {}} 
-      />
+      <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} onUserTap={(uid) => {}} />
+      <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} onUserTap={(uid) => {}} />
 
-      {/* Image Popout */}
       <ImagePopoutModal visible={selectedImage !== null} imageUri={selectedImage} onClose={() => setSelectedImage(null)} />
 
     </View>

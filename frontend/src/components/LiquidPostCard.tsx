@@ -3,23 +3,22 @@ import { View, Text, Image, Pressable, Animated, TouchableOpacity, Alert } from 
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons'; 
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import BouncyPressable from './BouncyPressable';
-import PinchableImage from './PinchableImage';
 import ReactionListModal from './ReactionListModal';
 
 interface LiquidPostCardProps {
   post: any;
-  cardHeight?: number; // Folosit pt global feed
+  cardHeight?: number; 
   onOpenComments: (postId: string) => void;
   onPostDeleted: (postId: string) => void;
   onUserBlocked: (userId: string) => void;
   onEditCaption: (postId: string, currentCaption: string) => void;
   onOpenProfile?: (username: string) => void;
   onReactRequest?: (postId: string) => void;
+  onImageLongPress?: (uri: string) => void; // ADAUGAT
 }
 
 const getRelativeTime = (dateString?: string) => {
@@ -34,7 +33,7 @@ const getRelativeTime = (dateString?: string) => {
   return `${days}d ago`;
 };
 
-const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile, onReactRequest }: LiquidPostCardProps) => {
+const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile, onReactRequest, onImageLongPress }: LiquidPostCardProps) => {
   const { username } = useContext(AuthContext);
 
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
@@ -46,7 +45,6 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
   const lastTapRef = useRef(0);
   const [showReactions, setShowReactions] = useState(false);
 
-  // --- LIKES ---
   const toggleLike = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLiked(!isLiked);
@@ -78,7 +76,6 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
     }
   };
 
-  // --- OPTIONS MENU ---
   const handleOptions = () => {
     const isMyPost = post.author.username === username;
     const options: any[] = [{ text: "Cancel", style: "cancel" }];
@@ -130,9 +127,16 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
   return (
     <View style={{ height: cardHeight, minHeight: 400 }} className="w-full relative mb-5">
       <Animated.View style={{ transform: [{ scale: cardScale }] }} className="flex-1 rounded-[32px] overflow-hidden bg-black/40 border-[0.5px] border-white/10 relative shadow-2xl">
-        <Pressable onPress={handleDoubleTap} style={{ flex: 1, position: 'relative' }}>
-          
-          <PinchableImage uri={post.mediaUrl} className="w-full h-full object-cover" />
+        <Pressable 
+          onPress={handleDoubleTap} 
+          onLongPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            if (onImageLongPress) onImageLongPress(post.mediaUrl);
+          }}
+          delayLongPress={350}
+          style={{ flex: 1, position: 'relative' }}
+        >
+          <Image source={{ uri: post.mediaUrl }} className="w-full h-full object-cover" />
           <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.6)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none" />
 
           {post.frontMediaUrl && (
@@ -142,12 +146,11 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           )}
 
           <Animated.View pointerEvents="none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', zIndex: 20, transform: [{ scale: bigHeartScale }] }}>
-            <BlurView intensity={20} tint="light" style={{ width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', borderWeight: 1, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden' }}>
+            <BlurView intensity={20} tint="light" style={{ width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden' }}>
                <Ionicons name="heart" size={50} color="#ff4b4b" />
             </BlurView>
           </Animated.View>
 
-          {/* HEADER (AUTHOR INFO) */}
           <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} style={{ zIndex: 100, elevation: 100 }} className="absolute top-5 left-5 flex-row items-center gap-2.5">
             <View className="w-9 h-9 rounded-full bg-white/10 items-center justify-center overflow-hidden border-[0.5px] border-white/20">
               {post.author?.profilePicUrl ? (
@@ -162,12 +165,10 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
             </View>
           </BouncyPressable>
 
-          {/* OPTIONS BUTTON */}
           <TouchableOpacity onPress={handleOptions} style={{ zIndex: 100, elevation: 100 }} className="absolute top-5 right-5 w-8 h-8 bg-black/20 rounded-full items-center justify-center border-[0.5px] border-white/10">
             <Ionicons name="ellipsis-horizontal" size={16} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
 
-          {/* FOOTER (INTERACTIONS & CAPTION) */}
           <View className="absolute bottom-5 inset-x-5 z-20">
             {post.caption && post.type !== 'DAILY' && (
               <Text className="text-white/90 text-[14px] mb-4 leading-5 font-medium shadow-sm">{post.caption}</Text>
@@ -175,26 +176,22 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
             
             <View className="flex-row justify-between items-center">
               <View className="flex-row items-center gap-5">
-                {/* LIKE */}
                 <TouchableOpacity onPress={toggleLike} className="flex-row items-center gap-1.5">
                   <Ionicons name={isLiked ? "heart" : "heart-outline"} size={24} color={isLiked ? "#ff4b4b" : "rgba(255,255,255,0.9)"} />
                   <Text className={`font-bold text-[13px] ${isLiked ? 'text-white' : 'text-white/80'}`}>{likesCount}</Text>
                 </TouchableOpacity>
 
-                {/* COMMENTS */}
                 <TouchableOpacity onPress={() => onOpenComments(post.id)} className="flex-row items-center gap-1.5">
                   <Ionicons name="chatbubble-outline" size={22} color="rgba(255,255,255,0.9)" />
                   <Text className="text-white/80 font-bold text-[13px]">{post.commentsCount || 0}</Text>
                 </TouchableOpacity>
 
-                {/* ADD REACTION */}
                 <TouchableOpacity onPress={handleAddReaction} className="w-8 h-8 rounded-full border-[0.5px] border-white/30 bg-white/10 items-center justify-center">
                   <Ionicons name="camera-outline" size={16} color="rgba(255,255,255,0.8)" />
                 </TouchableOpacity>
               </View>
 
               <View className="flex-row items-center gap-2.5">
-                {/* RECENT REACTIONS AVALANCHE */}
                 {recentReactions.length > 0 && (
                   <TouchableOpacity onPress={() => setShowReactions(true)} className="flex-row-reverse">
                     {recentReactions.slice(0, 3).map((uri, index) => (
@@ -205,7 +202,6 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
                   </TouchableOpacity>
                 )}
 
-                {/* MACROS BADGE */}
                 {post.calories && (
                   <View className="border-[0.5px] border-[#7ad7c6]/40 rounded-full px-3 py-1.5 flex-row items-center gap-1.5 bg-[#7ad7c6]/20">
                     <Ionicons name="flame" size={12} color="#7ad7c6" />
