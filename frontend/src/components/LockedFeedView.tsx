@@ -49,21 +49,28 @@ export default function LockedFeedView({ circle, onOpenCamera }: LockedFeedViewP
         {displayFriends.map((f, i) => (
           <View key={f.id || i} className="w-full h-[400px] rounded-[36px] overflow-hidden bg-[#06090E] border border-white/10 relative items-center justify-center shadow-2xl">
             
-            {/* Poza de profil pe fundal, usor blurata */}
+            {/* Poza de profil pe fundal - Acum se foloseste transform scale pentru centrare perfecta */}
             {f.img ? (
-              <Image source={{ uri: f.img }} className="absolute inset-0 w-full h-full opacity-60" blurRadius={15} />
+              <Image 
+                source={{ uri: f.img }} 
+                className="absolute inset-0 w-full h-full opacity-60"
+                style={{ transform: [{ scale: 1.6 }] }} // Mărește poza cu 60% pornind exact din centru
+                blurRadius={15}
+                resizeMode="cover"
+              />
             ) : (
               <View className="absolute inset-0 w-full h-full bg-white/[0.03] items-center justify-center">
                  <Text className="text-white/10 font-bold text-6xl">{f.name.charAt(0).toUpperCase()}</Text>
               </View>
             )}
             
+            {/* Overlay negru pentru a face textul lizibil */}
             <View className="absolute inset-0 bg-black/40" />
             
-            <View className="w-20 h-20 rounded-full bg-white/10 items-center justify-center border border-white/20 mb-4 backdrop-blur-md shadow-lg">
+            <View className="w-20 h-20 rounded-full bg-white/10 items-center justify-center border border-white/20 mb-4 backdrop-blur-md shadow-lg z-10">
               <Ionicons name="lock-closed" size={32} color="rgba(255,255,255,0.9)" />
             </View>
-            <Text className="text-white/70 font-black tracking-[4px] uppercase text-xs text-center px-4">{f.name}</Text>
+            <Text className="text-white/70 font-black tracking-[4px] uppercase text-xs text-center px-4 z-10">{f.name}</Text>
           </View>
         ))}
       </View>

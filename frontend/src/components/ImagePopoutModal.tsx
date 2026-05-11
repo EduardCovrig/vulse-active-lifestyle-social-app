@@ -27,6 +27,7 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
 
+  // Sincronizare Live
   useEffect(() => {
     if (post) {
       setIsLiked(post.isLiked || false);
@@ -76,18 +77,20 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
     catch (error) {}
   };
 
-  // FIX: Fara "return null" anticipat. Lasam <Modal> sa se ocupe singur cand `visible` e false.
+  if (!visible && !isAnimating) return null;
 
   return (
     <Modal visible={visible || isAnimating} transparent={true} animationType="none" onRequestClose={closeAnim}>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         
+        {/* Fundal Blurat - Tapping outside the image closes it */}
         <Animated.View style={{ position: 'absolute', inset: 0, opacity: opacityAnim }}>
           <BlurView intensity={90} tint="dark" style={{ flex: 1 }}>
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeAnim} />
           </BlurView>
         </Animated.View>
 
+        {/* Containerul Pozei */}
         <Animated.View 
           style={{ 
             width: width * 0.95, 
@@ -102,23 +105,27 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
             shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 30 
           }}
         >
+           {/* THE IMAGE GESTURE LAYER - A simple tap here closes the modal */}
            {targetUri && <PinchableImage uri={targetUri} onSingleTap={closeAnim} />}
 
-           {post && (
+           {/* THE INTERACTIVE LAYER OVER TOP (arata doar daca e o postare reala) */}
+           {post && post.author && (
              <View style={{ position: 'absolute', inset: 0 }} pointerEvents="box-none">
                <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.8)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', inset: 0 }} pointerEvents="none" />
                
+               {/* Header (Author) */}
                <View style={{ position: 'absolute', top: 20, left: 20, flexDirection: 'row', alignItems: 'center', gap: 10 }} pointerEvents="box-none">
                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
                    {post.author?.profilePicUrl ? (
                      <Image source={{ uri: post.author.profilePicUrl }} style={{ width: '100%', height: '100%' }} />
                    ) : (
-                     <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{post.author?.username?.charAt(0).toUpperCase()}</Text>
+                     <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{post.author?.username?.charAt(0)?.toUpperCase() || 'V'}</Text>
                    )}
                  </View>
                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16, textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 4 }}>{post.author?.username}</Text>
                </View>
 
+               {/* Footer (Interactions & Caption) */}
                <View style={{ position: 'absolute', bottom: 20, left: 20, right: 20 }} pointerEvents="box-none">
                  {post.caption && (
                    <Text style={{ color: 'rgba(255,255,255,0.95)', fontSize: 15, fontWeight: '500', marginBottom: 20, textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: {width: 0, height: 1}, textShadowRadius: 4 }}>
@@ -133,12 +140,12 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>{likesCount}</Text>
                      </TouchableOpacity>
                      
-                     <TouchableOpacity onPress={() => { if (onOpenComments) onOpenComments(post.id); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                     <TouchableOpacity onPress={() => { closeAnim(); setTimeout(() => onOpenComments && onOpenComments(post.id), 250); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                        <Ionicons name="chatbubble-outline" size={28} color="white" />
                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>{commentsCount}</Text>
                      </TouchableOpacity>
 
-                     <TouchableOpacity onPress={() => { if (onReactRequest) onReactRequest(post.id); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' }}>
+                     <TouchableOpacity onPress={() => { closeAnim(); setTimeout(() => onReactRequest && onReactRequest(post.id), 250); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' }}>
                        <Ionicons name="camera-outline" size={18} color="white" />
                      </TouchableOpacity>
                    </View>

@@ -13,11 +13,11 @@ import UserListModal from '../components/UserListModal';
 import ImagePopoutModal from '../components/ImagePopoutModal';
 import SwipeableModal from '../components/SwipeableModal';
 import CalendarModal from '../components/CalendarModal';
+import CameraScreen from './CameraScreen';
 
 const HEADER_HEIGHT = 180;
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GRID_GAP = 2;
-// REPARAT: Matematica corecta pentru paddingHorizontal: 4 (total 8) + 2 gap-uri
 const ITEM_WIDTH = (width - 8 - (GRID_GAP * 2)) / 3;
 
 export default function UserProfileScreen() {
@@ -45,11 +45,14 @@ export default function UserProfileScreen() {
   const [loadingCalendar, setLoadingCalendar] = useState(false);
 
   const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
+
+  const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
@@ -126,6 +129,13 @@ export default function UserProfileScreen() {
     } catch (error) {} finally { setLoadingComments(false); }
   };
 
+  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
+    setUserPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
+    if (selectedPost && selectedPost.id === postId) {
+      setSelectedPost((prev: any) => ({ ...prev, isLiked: newIsLiked, likesCount: newIsLiked ? prev.likesCount + 1 : Math.max(0, prev.likesCount - 1) }));
+    }
+  };
+
   const submitComment = async () => {
     if (!newComment.trim() || !activeCommentsPostId) return;
     const text = newComment;
@@ -143,10 +153,25 @@ export default function UserProfileScreen() {
     } catch (error) {}
   };
 
-  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
-    setUserPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
-    if (selectedPost && selectedPost.id === postId) {
-      setSelectedPost((prev: any) => ({ ...prev, isLiked: newIsLiked, likesCount: newIsLiked ? prev.likesCount + 1 : Math.max(0, prev.likesCount - 1) }));
+  const handleReactionCapture = async (uri: string) => {
+    if (!reactingToPostId) return;
+    const postId = reactingToPostId;
+    setReactingToPostId(null);
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() || 'reaction.jpg';
+      const type = `image/${filename.split('.').pop()}`;
+      formData.append('file', { uri, name: filename, type } as any);
+
+      setUserPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
+
+      await api.post(`/interactions/${postId}/react`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (selectedPost && selectedPost.id === postId) {
+         setSelectedPost((prev: any) => ({ ...prev, recentReactions: [uri, ...(prev.recentReactions || [])].slice(0,3) }));
+      }
+    } catch (error) {
+      Alert.alert("Error", "Could not add reaction.");
     }
   };
 
@@ -293,26 +318,48 @@ export default function UserProfileScreen() {
         snaps={calendarSnaps} 
         onSnapPress={(url) => {
            setShowCalendar(false);
-           setTimeout(() => setSelectedPost({ mediaUrl: url }), 350); 
+           setTimeout(() => setSelectedImage(url), 350); 
         }}
       />
       
-      <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} />
-      <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} />
+      <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} onUserTap={(uid) => {}} />
+      <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} onUserTap={(uid) => {}} />
 
-      {/* UNIFIED VIEWER MODAL */}
+      {/* UNIFIED VIEWER MODAL AICI */}
       <ImagePopoutModal 
-        visible={selectedPost !== null} 
+        visible={selectedPost !== null || selectedImage !== null} 
         post={selectedPost} 
-        onLikeToggled={handleLikeToggled}
-        onClose={() => setSelectedPost(null)} 
+        imageUri={selectedImage}
+        onClose={() => {
+           setSelectedPost(null);
+           setSelectedImage(null);
+        }} 
         onOpenComments={(id) => {
           setSelectedPost(null);
           setTimeout(() => openComments(id), 300);
         }}
+        onReactRequest={(id) => {
+          setSelectedPost(null);
+          setTimeout(() => {
+             setReactingToPostId(id);
+          }, 300);
+        }}
       />
 
-      {/* MODAL COMENTARII DIN UNIFIED VIEWER */}
+      {/* REACTION CAMERA OVERLAY */}
+      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => setReactingToPostId(null)}>
+        <View style={{ flex: 1, backgroundColor: 'black' }}>
+          {reactingToPostId && (
+            <CameraScreen 
+              mode="reaction" 
+              onClose={() => setReactingToPostId(null)} 
+              onCapture={handleReactionCapture} 
+            />
+          )}
+        </View>
+      </Modal>
+
+      {/* COMMENTS MODAL (Daca se da click pe iconita din Unified Viewer) */}
       <SwipeableModal 
         visible={activeCommentsPostId !== null} 
         onClose={() => setActiveCommentsPostId(null)}

@@ -23,7 +23,6 @@ import SwipeableModal from '../components/SwipeableModal';
 const HEADER_HEIGHT = 180;
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GRID_GAP = 2;
-// REPARAT: Matematica corecta pentru paddingHorizontal: 4 (total 8) + 2 gap-uri
 const ITEM_WIDTH = (width - 8 - (GRID_GAP * 2)) / 3;
 
 interface ProfileScreenProps {
@@ -68,7 +67,9 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
   const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
   const [recordingReel, setRecordingReel] = useState(false);
 
+  // FIX: Stari separate pentru Post si pentru Imagini din Calendar
   const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
   const [comments, setComments] = useState<any[]>([]);
@@ -149,7 +150,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       setProfile({ ...profile, bio: newBio });
       setIsEditingBio(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) { Alert.alert("Error", "Server could not save changes."); }
+    } catch (error) {}
   };
 
   const handleChangeProfilePic = async () => {
@@ -178,7 +179,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         setProfile({ ...profile, profilePicUrl: response.data.profilePicUrl });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (error: any) {
-        Alert.alert("Error", "Could not update profile picture.");
       } finally {
         setIsUploadingPic(false);
       }
@@ -189,7 +189,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
     Alert.alert("Warning", "Deleting your account is irreversible. Continue?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
-          try { await api.delete('/users/me'); logout(); } catch (error) { Alert.alert("Error", "Check backend logs."); }
+          try { await api.delete('/users/me'); logout(); } catch (error) {}
       }}
     ]);
   };
@@ -202,7 +202,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       setLoadingBlocked(true);
       api.get('/safety/blocked')
         .then(res => setBlockedUsers(res.data))
-        .catch(() => Alert.alert("Error", "Could not fetch list."))
+        .catch(() => {})
         .finally(() => setLoadingBlocked(false));
     }, 400); 
   };
@@ -213,9 +213,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       await api.post(`/safety/block/${userId}`);
       setBlockedUsers(curr => curr.filter(u => u.id !== userId));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      Alert.alert("Error", "Could not unblock user.");
-    }
+    } catch (error) {}
   };
 
   const handleOpenDiscover = async () => {
@@ -235,7 +233,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         }
       }
     } catch (e) {
-      console.log(e);
     } finally {
       setLoadingDiscover(false);
     }
@@ -246,9 +243,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       await Share.share({
         message: `Hey ${contact.name}! Join me on Vulse. Let's start our healthy era together! 🚀\nhttps://vulse.app`,
       });
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) {}
   };
 
   const handleFollowUser = async (userId: string) => {
@@ -256,9 +251,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
      try {
        await api.post(`/users/${userId}/follow`);
        setSuggestedFriends(curr => curr.filter(u => u.id !== userId));
-     } catch (e) {
-       console.log("Eroare la follow din discover:", e);
-     }
+     } catch (e) {}
   };
 
   const handleUploadReelChoice = () => {
@@ -298,9 +291,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       await api.post('/posts/create', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchProfileData(); 
-    } catch(e) {
-      Alert.alert("Error", "Could not upload video.");
-    }
+    } catch(e) {}
   };
 
   const handleReactionCapture = async (uri: string) => {
@@ -320,9 +311,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       if (selectedPost && selectedPost.id === postId) {
          setSelectedPost((prev: any) => ({ ...prev, recentReactions: [uri, ...(prev.recentReactions || [])].slice(0,3) }));
       }
-    } catch (error) {
-      Alert.alert("Error", "Could not add reaction.");
-    }
+    } catch (error) {}
   };
 
   const openFollowers = async () => {
@@ -533,7 +522,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                   key={post.id} 
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedPost(post); // Asta deschide noul UNIFIED VIEWER
+                    setSelectedPost(post);
                   }}
                   activeOpacity={0.8}
                   style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
@@ -561,10 +550,39 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </Animated.View>
       </Animated.ScrollView>
 
+      {/* MODALS */}
       <DiscoverModal visible={showDiscoverModal} onClose={() => setShowDiscoverModal(false)} searchQuery={searchQuery} setSearchQuery={setSearchQuery} loadingDiscover={loadingDiscover} suggestedFriends={suggestedFriends} contacts={contacts} handleFollowUser={handleFollowUser} handleInviteContact={handleInviteContact} />
       <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} />
       <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} />
-      <CalendarModal visible={showCalendar} onClose={() => setShowCalendar(false)} loading={loadingCalendar} snaps={calendarSnaps} />
+      
+      <CalendarModal 
+        visible={showCalendar} 
+        onClose={() => setShowCalendar(false)} 
+        loading={loadingCalendar} 
+        snaps={calendarSnaps} 
+        onSnapPress={(url) => {
+           setShowCalendar(false);
+           setTimeout(() => setSelectedImage(url), 350); 
+        }}
+      />
+      
+      <Modal visible={showVibeModal} animationType="fade" transparent={true} onRequestClose={() => setShowVibeModal(false)}>
+        <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative p-6">
+          <View className="absolute inset-0 bg-[#090E17]/80" />
+          <TouchableOpacity onPress={() => setShowVibeModal(false)} style={{ top: insets.top + 10 }} className="absolute right-6 z-50 w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20">
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          <Text className="text-white font-black text-3xl mb-8 text-center tracking-tight">Your Visual Journey</Text>
+          <View className="flex-row flex-wrap justify-center gap-4">
+            {profile?.calendarSnaps?.map((img: string, i: number) => (
+              <View key={i} className="w-[28%] aspect-square rounded-2xl overflow-hidden border-2 border-white/10 shadow-lg shadow-black">
+                {img ? <Image source={{ uri: img }} className="w-full h-full" /> : <View className="flex-1 bg-white/5" />}
+              </View>
+            ))}
+          </View>
+        </BlurView>
+      </Modal>
+
       <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} onOpenBlockedUsers={handleOpenBlockedUsers} onLogout={logout} onDeleteAccount={handleDeleteAccount} />
       <BlockedUsersModal visible={showBlockedUsers} onClose={() => setShowBlockedUsers(false)} blockedUsers={blockedUsers} loadingBlocked={loadingBlocked} onUnblockUser={handleUnblockUser} />
       
@@ -580,12 +598,15 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </View>
       </Modal>
 
-      {/* NOUL UNIFIED VIEWER MODAL AICI */}
+      {/* UNIFIED VIEWER MODAL AICI */}
       <ImagePopoutModal 
-        visible={selectedPost !== null} 
+        visible={selectedPost !== null || selectedImage !== null} 
         post={selectedPost} 
-        onLikeToggled={handleLikeToggled}
-        onClose={() => setSelectedPost(null)} 
+        imageUri={selectedImage}
+        onClose={() => {
+           setSelectedPost(null);
+           setSelectedImage(null);
+        }} 
         onOpenComments={(id) => {
           setSelectedPost(null);
           setTimeout(() => openComments(id), 300);
@@ -599,7 +620,13 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         }}
       />
 
-      <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>
+      {/* COMMENTS MODAL (Daca se da click pe iconita din Unified Viewer) */}
+      <SwipeableModal 
+        visible={activeCommentsPostId !== null} 
+        onClose={() => setActiveCommentsPostId(null)}
+        title="Comments"
+        heightRatio={0.65}
+      >
         {loadingComments ? (
           <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
         ) : (
