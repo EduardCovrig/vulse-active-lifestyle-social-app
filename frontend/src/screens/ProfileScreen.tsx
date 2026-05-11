@@ -186,7 +186,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
     Alert.alert("Warning", "Deleting your account is irreversible. Continue?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
-          try { await api.delete('/users/me'); logout(); } catch (error) { Alert.alert("Error", "Check backend logs."); }
+          try { await api.delete('/users/me'); logout(); } catch (error) {}
       }}
     ]);
   };
@@ -210,9 +210,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       await api.post(`/safety/block/${userId}`);
       setBlockedUsers(curr => curr.filter(u => u.id !== userId));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      Alert.alert("Error", "Could not unblock user.");
-    }
+    } catch (error) {}
   };
 
   const handleOpenDiscover = async () => {
@@ -231,7 +229,8 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
           setContacts(validContacts);
         }
       }
-    } catch (e) {} finally {
+    } catch (e) {
+    } finally {
       setLoadingDiscover(false);
     }
   };
@@ -249,9 +248,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
      try {
        await api.post(`/users/${userId}/follow`);
        setSuggestedFriends(curr => curr.filter(u => u.id !== userId));
-     } catch (e) {
-       console.log("Eroare la follow din discover:", e);
-     }
+     } catch (e) {}
   };
 
   const handleUploadReelChoice = () => {
@@ -291,9 +288,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       await api.post('/posts/create', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchProfileData(); 
-    } catch(e) {
-      Alert.alert("Error", "Could not upload video.");
-    }
+    } catch(e) {}
   };
 
   const handleReactionCapture = async (uri: string) => {
@@ -318,32 +313,20 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
 
   const openFollowers = async () => {
     if (!profile) return;
-    setShowFollowers(true);
-    setLoadingLists(true);
-    try {
-      const res = await api.get(`/users/${profile.username}/followers`);
-      setFollowersList(res.data);
-    } catch(e) {} finally { setLoadingLists(false); }
+    setShowFollowers(true); setLoadingLists(true);
+    try { const res = await api.get(`/users/${profile.username}/followers`); setFollowersList(res.data); } catch(e) {} finally { setLoadingLists(false); }
   };
 
   const openFollowing = async () => {
     if (!profile) return;
-    setShowFollowing(true);
-    setLoadingLists(true);
-    try {
-      const res = await api.get(`/users/${profile.username}/following`);
-      setFollowingList(res.data);
-    } catch(e) {} finally { setLoadingLists(false); }
+    setShowFollowing(true); setLoadingLists(true);
+    try { const res = await api.get(`/users/${profile.username}/following`); setFollowingList(res.data); } catch(e) {} finally { setLoadingLists(false); }
   };
 
   const openCalendar = async () => {
     if (!profile) return;
-    setShowCalendar(true);
-    setLoadingCalendar(true);
-    try {
-      const res = await api.get(`/users/${profile.username}/calendar`);
-      setCalendarSnaps(res.data);
-    } catch(e) {} finally { setLoadingCalendar(false); }
+    setShowCalendar(true); setLoadingCalendar(true);
+    try { const res = await api.get(`/users/${profile.username}/calendar`); setCalendarSnaps(res.data); } catch(e) {} finally { setLoadingCalendar(false); }
   };
 
   const openComments = async (postId: string) => {
@@ -536,7 +519,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                   className="overflow-hidden bg-white/[0.03] rounded-lg relative"
                 >
                   <Image source={{ uri: post.mediaUrl }} className="w-full h-full" resizeMode="cover" />
-                  
                   <View className="absolute bottom-1.5 left-1.5 flex-row gap-1">
                     {post.calories && (
                        <View className="bg-black/40 rounded-full flex-row items-center px-1.5 py-0.5">
@@ -557,7 +539,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </Animated.View>
       </Animated.ScrollView>
 
-      {/* MODALS */}
       <DiscoverModal visible={showDiscoverModal} onClose={() => setShowDiscoverModal(false)} searchQuery={searchQuery} setSearchQuery={setSearchQuery} loadingDiscover={loadingDiscover} suggestedFriends={suggestedFriends} contacts={contacts} handleFollowUser={handleFollowUser} handleInviteContact={handleInviteContact} />
       <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} />
       <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} />
@@ -577,7 +558,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </View>
       </Modal>
 
-      {/* NOUL UNIFIED VIEWER MODAL AICI */}
+      {/* NOUL UNIFIED VIEWER MODAL */}
       <ImagePopoutModal 
         visible={selectedPost !== null} 
         post={selectedPost} 
@@ -595,13 +576,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         }}
       />
 
-      {/* COMMENTS MODAL (Daca se da click pe iconita din Unified Viewer) */}
-      <SwipeableModal 
-        visible={activeCommentsPostId !== null} 
-        onClose={() => setActiveCommentsPostId(null)}
-        title="Comments"
-        heightRatio={0.65}
-      >
+      <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>
         {loadingComments ? (
           <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
         ) : (

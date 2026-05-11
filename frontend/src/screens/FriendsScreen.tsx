@@ -47,8 +47,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
   const [activeStory, setActiveStory] = useState<any>(null);
   const storyProgress = useRef(new Animated.Value(0)).current;
 
-  // Stare noua pentru ZOOM & UNIFIED VIEWER
-  const [popoutPost, setPopoutPost] = useState<any>(null);
+  const [popoutImage, setPopoutImage] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -86,7 +85,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
     try {
       const res = await api.get(`/users/search?query=${encodeURIComponent(query)}`);
       setSearchResults(res.data);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const openUserProfile = (targetUsername: string) => {
@@ -134,7 +133,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
           await api.delete(`/comments/${comment.id}`);
           setComments(curr => curr.filter(c => c.id !== comment.id));
           setPosts(curr => curr.map(p => p.id === activePostId ? { ...p, commentsCount: Math.max(0, p.commentsCount - 1) } : p));
-        } catch (e) { Alert.alert("Error", "Could not delete comment."); }
+        } catch (e) {}
       }}
     ]);
   };
@@ -145,7 +144,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
       await api.patch(`/posts/${postId}/caption?caption=${encodeURIComponent(editCaptionText)}`);
       setPosts(curr => curr.map(p => p.id === postId ? { ...p, caption: editCaptionText } : p));
       setEditingPost(null);
-    } catch(e) { Alert.alert("Error", "Could not update caption."); }
+    } catch(e) {}
   };
 
   const handleReactionCapture = async (uri: string) => {
@@ -157,21 +156,19 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
       const formData = new FormData();
       const filename = uri.split('/').pop() || 'reaction.jpg';
       const type = `image/${filename.split('.').pop()}`;
-
       formData.append('file', { uri, name: filename, type } as any);
 
       setPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
 
       await api.post(`/interactions/${postId}/react`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) { Alert.alert("Error", "Could not add reaction."); }
+    } catch (error) {}
   };
 
-  const iHavePosted = circle.find(c => c.isMe)?.hasPosted || false;
+  const iHavePosted = circle.length > 0 ? (circle.find(c => c.isMe)?.hasPosted || false) : false;
 
   const handleOpenStory = (friend: any) => {
     if (!friend.hasPosted || !friend.dailyPostUrl) return;
-    
     if (!friend.isMe && !iHavePosted) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Locked 🔒", "You need to post your Daily Snap first to see what your friends are up to!");
@@ -180,13 +177,8 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setActiveStory(friend);
-    
     storyProgress.setValue(0);
-    Animated.timing(storyProgress, {
-      toValue: 1,
-      duration: 5000,
-      useNativeDriver: false,
-    }).start(({ finished }) => {
+    Animated.timing(storyProgress, { toValue: 1, duration: 5000, useNativeDriver: false }).start(({ finished }) => {
       if (finished) setActiveStory(null);
     });
   };
@@ -247,9 +239,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
           </BouncyPressable>
         )}
       />
-      {iHavePosted && (
-        <Text className="text-white/30 text-[9px] font-semibold tracking-[3px] uppercase mb-3 px-6 mt-5">Latest Updates</Text>
-      )}
+      {iHavePosted && <Text className="text-white/30 text-[9px] font-semibold tracking-[3px] uppercase mb-3 px-6 mt-5">Latest Updates</Text>}
     </View>
   );
 
@@ -302,7 +292,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         ListHeaderComponent={() => (
           <>
             {renderCircleHeader()}
-            {(!loading && !iHavePosted) && <LockedFeedView circle={circle} onOpenCamera={onOpenCamera} />}
+            {(!loading && circle.length > 0 && !iHavePosted) && <LockedFeedView circle={circle} onOpenCamera={onOpenCamera} />}
           </>
         )}
         showsVerticalScrollIndicator={false}
@@ -340,12 +330,13 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
                 setEditCaptionText(text);
                 setEditingPost(id);
               }}
-              onImageLongPress={() => setPopoutPost(item)} // ZOOM CU TOT CU POSTARE
+              onImageLongPress={() => setPopoutImage(item.mediaUrl)} // Doar poza
             />
           </View>
         )}
       />
 
+      {/* STORY VIEWER MODAL */}
       <Modal visible={activeStory !== null} animationType="fade" transparent={true} onRequestClose={closeStory}>
         <View className="flex-1 bg-black">
           {activeStory?.dailyPostUrl && (
@@ -373,7 +364,13 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         </View>
       </Modal>
 
-      <SwipeableModal visible={activePostId !== null} onClose={() => setActivePostId(null)} title="Comments" subtitle="Long press your comment to delete" heightRatio={0.65}>
+     {/* MODAL COMMENTS */}
+      <SwipeableModal 
+        visible={activePostId !== null} 
+        onClose={() => setActivePostId(null)}
+        title="Comments"
+        heightRatio={0.65}
+      >
         {loadingComments ? (
           <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
         ) : (
@@ -405,29 +402,27 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         </View>
       </SwipeableModal>
 
-      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }}>
+      {/* REACTION CAMERA OVERLAY */}
+      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => {
+        setReactingToPostId(null);
+        if (onHideBottomBar) onHideBottomBar(false);
+      }}>
         <View style={{ flex: 1, backgroundColor: 'black' }}>
-          {reactingToPostId && <CameraScreen mode="reaction" onClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }} onCapture={handleReactionCapture} />}
+          {reactingToPostId && (
+            <CameraScreen 
+              mode="reaction" 
+              onClose={() => {
+                setReactingToPostId(null);
+                if (onHideBottomBar) onHideBottomBar(false);
+              }} 
+              onCapture={handleReactionCapture} 
+            />
+          )}
         </View>
       </Modal>
 
-      {/* ZOOM & UNIFIED VIEWER MODAL AICI */}
-      <ImagePopoutModal 
-        visible={popoutPost !== null} 
-        post={popoutPost} 
-        onClose={() => setPopoutPost(null)}
-        onOpenComments={(id) => {
-          setPopoutPost(null);
-          setTimeout(() => openComments(id), 300);
-        }}
-        onReactRequest={(id) => {
-          setPopoutPost(null);
-          setTimeout(() => {
-             setReactingToPostId(id);
-             if (onHideBottomBar) onHideBottomBar(true);
-          }, 300);
-        }}
-      />
+      {/* ZOOM IMAGE MODAL (DOAR POZA, APELAT LA LONG PRESS AICI) */}
+      <ImagePopoutModal visible={popoutImage !== null} imageUri={popoutImage} onClose={() => setPopoutImage(null)} />
 
     </Animated.View>
   );

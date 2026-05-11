@@ -11,68 +11,88 @@ export default function PinchableImage({ uri, onSingleTap }: PinchableImageProps
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
 
-  const initialDistance = useRef<number | null>(null);
-  const touchStartRef = useRef<{x: number, y: number, time: number} | null>(null);
+  const pinchData = useRef({
+    isPinching: false,
+    initialDistance: 0,
+    hasMoved: false,
+    touchStartTime: 0
+  }).current;
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponder: (_, gs) => {
+        return Math.abs(gs.dx) > 5 || Math.abs(gs.dy) > 5;
+      },
+      onMoveShouldSetPanResponderCapture: () => false,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (evt) => {
         const touches = evt.nativeEvent.touches;
-        if (touches.length === 1) {
-          touchStartRef.current = { x: touches[0].pageX, y: touches[0].pageY, time: Date.now() };
-        } else if (touches.length === 2) {
-          touchStartRef.current = null; // Anulam tap-ul
-          const t1 = touches[0];
-          const t2 = touches[1];
-          initialDistance.current = Math.sqrt(Math.pow(t2.pageX - t1.pageX, 2) + Math.pow(t2.pageY - t1.pageY, 2));
+        pinchData.hasMoved = false;
+        pinchData.touchStartTime = Date.now();
+        
+        if (touches.length === 2) {
+          pinchData.isPinching = true;
+          const dx = touches[0].pageX - touches[1].pageX;
+          const dy = touches[0].pageY - touches[1].pageY;
+          pinchData.initialDistance = Math.sqrt(dx * dx + dy * dy);
+          
           scale.stopAnimation();
           translateX.stopAnimation();
           translateY.stopAnimation();
+        } else {
+          pinchData.isPinching = false;
         }
       },
       onPanResponderMove: (evt, gs) => {
         const touches = evt.nativeEvent.touches;
-        if (touches.length === 2 && initialDistance.current) {
-          const t1 = touches[0];
-          const t2 = touches[1];
-          const distance = Math.sqrt(Math.pow(t2.pageX - t1.pageX, 2) + Math.pow(t2.pageY - t1.pageY, 2));
-          const scaleValue = Math.max(1, distance / initialDistance.current);
-          scale.setValue(scaleValue);
+        if (Math.abs(gs.dx) > 5 || Math.abs(gs.dy) > 5) {
+          pinchData.hasMoved = true;
+        }
 
+        if (touches.length === 2) {
+          if (!pinchData.isPinching) {
+            pinchData.isPinching = true;
+            const dx = touches[0].pageX - touches[1].pageX;
+            const dy = touches[0].pageY - touches[1].pageY;
+            pinchData.initialDistance = Math.sqrt(dx * dx + dy * dy);
+          }
+          const dx = touches[0].pageX - touches[1].pageX;
+          const dy = touches[0].pageY - touches[1].pageY;
+          const currentDistance = Math.sqrt(dx * dx + dy * dy);
+
+          const newScale = Math.max(1, currentDistance / pinchData.initialDistance);
+          scale.setValue(newScale);
           translateX.setValue(gs.dx);
           translateY.setValue(gs.dy);
-        } else if (touches.length === 1 && touchStartRef.current) {
-           const dist = Math.abs(touches[0].pageX - touchStartRef.current.x) + Math.abs(touches[0].pageY - touchStartRef.current.y);
-           if (dist > 15) touchStartRef.current = null; // A miscat prea mult degetul, nu e tap
+        } else if (touches.length === 1 && pinchData.isPinching) {
+          // Permite mutarea imaginii daca ramane un deget pe ecran dupa pinch
+          translateX.setValue(gs.dx);
+          translateY.setValue(gs.dy);
         }
       },
       onPanResponderRelease: () => {
-         if (touchStartRef.current) {
-            const timeDiff = Date.now() - touchStartRef.current.time;
-            if (timeDiff < 250 && onSingleTap) {
-               onSingleTap();
-            }
-         }
+        const isTap = !pinchData.hasMoved && (Date.now() - pinchData.touchStartTime) < 250;
+        pinchData.isPinching = false;
         
-        // Reset super rapid stil Instagram
-        initialDistance.current = null;
+        if (isTap && onSingleTap) {
+          onSingleTap();
+        }
+
+        // Ricoșeu fluid înapoi la dimensiunea inițială
         Animated.parallel([
-          Animated.spring(scale, { toValue: 1, useNativeDriver: true, bounciness: 8, speed: 24 }),
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 8, speed: 24 }),
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 8, speed: 24 }),
+          Animated.spring(scale, { toValue: 1, useNativeDriver: true, bounciness: 12, speed: 20 }),
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 12, speed: 20 }),
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 12, speed: 20 }),
         ]).start();
       },
       onPanResponderTerminate: () => {
-        initialDistance.current = null;
+        pinchData.isPinching = false;
         Animated.parallel([
-          Animated.spring(scale, { toValue: 1, useNativeDriver: true, bounciness: 8, speed: 24 }),
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 8, speed: 24 }),
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 8, speed: 24 }),
+          Animated.spring(scale, { toValue: 1, useNativeDriver: true, bounciness: 12, speed: 20 }),
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 12, speed: 20 }),
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 12, speed: 20 }),
         ]).start();
       }
     })
@@ -82,7 +102,7 @@ export default function PinchableImage({ uri, onSingleTap }: PinchableImageProps
     <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers} collapsable={false}>
       <Animated.Image 
         source={{ uri }} 
-        style={[StyleSheet.absoluteFill, { transform: [{ scale }, { translateX }, { translateY }] }]} 
+        style={[StyleSheet.absoluteFill, { transform: [{ translateX }, { translateY }, { scale }] }]} 
         resizeMode="cover" 
       />
     </View>

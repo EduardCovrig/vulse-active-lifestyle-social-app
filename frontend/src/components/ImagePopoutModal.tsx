@@ -20,7 +20,7 @@ interface ImagePopoutModalProps {
 
 export default function ImagePopoutModal({ visible, imageUri, post, onClose, onOpenComments, onReactRequest }: ImagePopoutModalProps) {
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const [isAnimating, setIsAnimating] = useState(false);
 
   const [isLiked, setIsLiked] = useState(false);
@@ -41,7 +41,7 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       Animated.parallel([
         Animated.timing(opacityAnim, { toValue: 1, duration: 250, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
-        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, bounciness: 10, speed: 18 })
+        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, bounciness: 8, speed: 16 })
       ]).start(() => setIsAnimating(false));
     } else if (!visible && !isAnimating && (opacityAnim as any)._value > 0) {
       closeAnim();
@@ -52,7 +52,7 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
     setIsAnimating(true);
     Animated.parallel([
       Animated.timing(opacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 0.95, duration: 200, useNativeDriver: true })
+      Animated.timing(scaleAnim, { toValue: 0.9, duration: 200, useNativeDriver: true })
     ]).start(() => {
       setIsAnimating(false);
       onClose();
@@ -81,7 +81,7 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
           </BlurView>
         </Animated.View>
 
-        {/* Containerul Pozei - FARA X, Inchizi din background sau din tap pe poza */}
+        {/* Containerul Pozei */}
         <Animated.View 
           style={{ 
             width: width * 0.95, 
@@ -96,9 +96,10 @@ export default function ImagePopoutModal({ visible, imageUri, post, onClose, onO
             shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 30 
           }}
         >
+           {/* THE IMAGE GESTURE LAYER - A simple tap here closes the modal */}
            {targetUri && <PinchableImage uri={targetUri} onSingleTap={closeAnim} />}
 
-           {/* Overlays ptr. detalii Postare - pointerEvents="box-none" ca sa poti face zoom pe mijloc! */}
+           {/* THE INTERACTIVE LAYER OVER TOP */}
            {post && (
              <View style={{ position: 'absolute', inset: 0 }} pointerEvents="box-none">
                <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.8)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', inset: 0 }} pointerEvents="none" />

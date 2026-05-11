@@ -44,7 +44,6 @@ export default function UserProfileScreen() {
   const [loadingCalendar, setLoadingCalendar] = useState(false);
 
   const [selectedPost, setSelectedPost] = useState<any>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
   const [comments, setComments] = useState<any[]>([]);
@@ -81,7 +80,6 @@ export default function UserProfileScreen() {
       const me = circleRes.data.find((c: any) => c.isMe);
       setIHavePostedToday(me?.hasPosted || false);
     } catch (error: any) {
-      console.log("UserProfile error:", error.response?.data || error.message);
     } finally {
       setLoading(false);
     }
@@ -274,7 +272,6 @@ export default function UserProfileScreen() {
         </View>
       </Animated.ScrollView>
 
-      {/* MODALS */}
       <CalendarModal 
         visible={showCalendar} 
         onClose={() => setShowCalendar(false)} 
@@ -282,35 +279,25 @@ export default function UserProfileScreen() {
         snaps={calendarSnaps} 
         onSnapPress={(url) => {
            setShowCalendar(false);
-           setTimeout(() => setSelectedImage(url), 350);
+           setTimeout(() => setSelectedPost({ mediaUrl: url }), 350); // Deschidem doar ca imagine (fara detalii in viewer daca nu trimitem obiectul plin)
         }}
       />
       
       <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} onUserTap={(uid) => {}} />
       <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} onUserTap={(uid) => {}} />
 
-      {/* NOUL UNIFIED VIEWER MODAL AICI */}
+      {/* UNIFIED VIEWER MODAL */}
       <ImagePopoutModal 
-        visible={selectedPost !== null || selectedImage !== null} 
+        visible={selectedPost !== null} 
         post={selectedPost} 
-        imageUri={selectedImage}
-        onClose={() => {
-           setSelectedPost(null);
-           setSelectedImage(null);
-        }} 
+        onClose={() => setSelectedPost(null)} 
         onOpenComments={(id) => {
           setSelectedPost(null);
           setTimeout(() => openComments(id), 300);
         }}
       />
 
-      {/* COMMENTS MODAL (Daca se da click pe iconita din Unified Viewer) */}
-      <SwipeableModal 
-        visible={activeCommentsPostId !== null} 
-        onClose={() => setActiveCommentsPostId(null)}
-        title="Comments"
-        heightRatio={0.65}
-      >
+      <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>
         {loadingComments ? (
           <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
         ) : (
