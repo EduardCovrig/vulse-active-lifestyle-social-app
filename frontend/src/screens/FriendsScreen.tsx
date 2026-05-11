@@ -47,7 +47,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
   const [activeStory, setActiveStory] = useState<any>(null);
   const storyProgress = useRef(new Animated.Value(0)).current;
 
-  const [popoutImage, setPopoutImage] = useState<string | null>(null);
+  const [popoutPost, setPopoutPost] = useState<any>(null);
 
   const fetchData = async () => {
     try {
@@ -85,7 +85,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
     try {
       const res = await api.get(`/users/search?query=${encodeURIComponent(query)}`);
       setSearchResults(res.data);
-    } catch (e) { }
+    } catch (e) {}
   };
 
   const openUserProfile = (targetUsername: string) => {
@@ -110,6 +110,13 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
     } catch (error) {} finally { setLoadingComments(false); }
   };
 
+  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
+    setPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
+    if (popoutPost && popoutPost.id === postId) {
+      setPopoutPost((prev: any) => ({ ...prev, isLiked: newIsLiked, likesCount: newIsLiked ? prev.likesCount + 1 : Math.max(0, prev.likesCount - 1) }));
+    }
+  };
+
   const submitComment = async () => {
     if (!newComment.trim() || !activePostId) return;
     const text = newComment;
@@ -119,7 +126,11 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
       await api.post(`/comments/${activePostId}`, { text });
       const response = await api.get(`/comments/${activePostId}?page=0&size=50`);
       setComments(response.data.content);
+      
       setPosts(curr => curr.map(p => p.id === activePostId ? { ...p, commentsCount: p.commentsCount + 1 } : p));
+      if (popoutPost && popoutPost.id === activePostId) {
+        setPopoutPost((prev:any) => ({ ...prev, commentsCount: prev.commentsCount + 1 }));
+      }
     } catch (error) {}
   };
 
@@ -132,7 +143,11 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         try {
           await api.delete(`/comments/${comment.id}`);
           setComments(curr => curr.filter(c => c.id !== comment.id));
+          
           setPosts(curr => curr.map(p => p.id === activePostId ? { ...p, commentsCount: Math.max(0, p.commentsCount - 1) } : p));
+          if (popoutPost && popoutPost.id === activePostId) {
+            setPopoutPost((prev:any) => ({ ...prev, commentsCount: Math.max(0, prev.commentsCount - 1) }));
+          }
         } catch (e) {}
       }}
     ]);
@@ -156,9 +171,13 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
       const formData = new FormData();
       const filename = uri.split('/').pop() || 'reaction.jpg';
       const type = `image/${filename.split('.').pop()}`;
+
       formData.append('file', { uri, name: filename, type } as any);
 
       setPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
+      if (popoutPost && popoutPost.id === postId) {
+        setPopoutPost((prev:any) => ({ ...prev, recentReactions: [uri, ...(prev.recentReactions || [])].slice(0,3) }));
+      }
 
       await api.post(`/interactions/${postId}/react`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -322,6 +341,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
               onOpenComments={() => openComments(item.id)}
               onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
               onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
+              onLikeToggled={handleLikeToggled}
               onReactRequest={(id) => {
                 setReactingToPostId(id);
                 if (onHideBottomBar) onHideBottomBar(true);
@@ -330,13 +350,12 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
                 setEditCaptionText(text);
                 setEditingPost(id);
               }}
-              onImageLongPress={() => setPopoutImage(item.mediaUrl)} // Doar poza
+              onImageLongPress={() => setPopoutPost(item)} // ZOOM
             />
           </View>
         )}
       />
 
-      {/* STORY VIEWER MODAL */}
       <Modal visible={activeStory !== null} animationType="fade" transparent={true} onRequestClose={closeStory}>
         <View className="flex-1 bg-black">
           {activeStory?.dailyPostUrl && (
@@ -364,13 +383,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         </View>
       </Modal>
 
-     {/* MODAL COMMENTS */}
-      <SwipeableModal 
-        visible={activePostId !== null} 
-        onClose={() => setActivePostId(null)}
-        title="Comments"
-        heightRatio={0.65}
-      >
+      <SwipeableModal visible={activePostId !== null} onClose={() => setActivePostId(null)} title="Comments" heightRatio={0.65}>
         {loadingComments ? (
           <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
         ) : (
@@ -385,7 +398,8 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
                   {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
                 </View>
                 <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
-                  <Text className="text-white/35 text-[9px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
+                  {/* COLOR CHANGED HERE */}
+                  <Text className="text-[#7dd3fc] text-[10px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
                   <Text className="text-white/90 text-[13px] leading-5">{item.text}</Text>
                 </View>
               </TouchableOpacity>
@@ -402,27 +416,29 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         </View>
       </SwipeableModal>
 
-      {/* REACTION CAMERA OVERLAY */}
-      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => {
-        setReactingToPostId(null);
-        if (onHideBottomBar) onHideBottomBar(false);
-      }}>
+      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }}>
         <View style={{ flex: 1, backgroundColor: 'black' }}>
-          {reactingToPostId && (
-            <CameraScreen 
-              mode="reaction" 
-              onClose={() => {
-                setReactingToPostId(null);
-                if (onHideBottomBar) onHideBottomBar(false);
-              }} 
-              onCapture={handleReactionCapture} 
-            />
-          )}
+          {reactingToPostId && <CameraScreen mode="reaction" onClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }} onCapture={handleReactionCapture} />}
         </View>
       </Modal>
 
-      {/* ZOOM IMAGE MODAL (DOAR POZA, APELAT LA LONG PRESS AICI) */}
-      <ImagePopoutModal visible={popoutImage !== null} imageUri={popoutImage} onClose={() => setPopoutImage(null)} />
+      {/* UNIFIED VIEWER MODAL */}
+      <ImagePopoutModal 
+        visible={popoutPost !== null} 
+        post={popoutPost} 
+        onClose={() => setPopoutPost(null)}
+        onOpenComments={(id) => {
+          setPopoutPost(null);
+          setTimeout(() => openComments(id), 300);
+        }}
+        onReactRequest={(id) => {
+          setPopoutPost(null);
+          setTimeout(() => {
+             setReactingToPostId(id);
+             if (onHideBottomBar) onHideBottomBar(true);
+          }, 300);
+        }}
+      />
 
     </Animated.View>
   );

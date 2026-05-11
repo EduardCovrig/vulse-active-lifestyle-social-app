@@ -46,6 +46,8 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
   const [loadingBlocked, setLoadingBlocked] = useState(false);
 
+  const [showVibeModal, setShowVibeModal] = useState(false);
+
   const [showDiscoverModal, setShowDiscoverModal] = useState(false);
   const [contacts, setContacts] = useState<any[]>([]);
   const [suggestedFriends, setSuggestedFriends] = useState<any[]>([]);
@@ -186,7 +188,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
     Alert.alert("Warning", "Deleting your account is irreversible. Continue?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
-          try { await api.delete('/users/me'); logout(); } catch (error) {}
+          try { await api.delete('/users/me'); logout(); } catch (error) { Alert.alert("Error", "Check backend logs."); }
       }}
     ]);
   };
@@ -210,7 +212,9 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       await api.post(`/safety/block/${userId}`);
       setBlockedUsers(curr => curr.filter(u => u.id !== userId));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {}
+    } catch (error) {
+      Alert.alert("Error", "Could not unblock user.");
+    }
   };
 
   const handleOpenDiscover = async () => {
@@ -230,6 +234,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         }
       }
     } catch (e) {
+      console.log(e);
     } finally {
       setLoadingDiscover(false);
     }
@@ -240,7 +245,9 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       await Share.share({
         message: `Hey ${contact.name}! Join me on Vulse. Let's start our healthy era together! 🚀\nhttps://vulse.app`,
       });
-    } catch (error) {}
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleFollowUser = async (userId: string) => {
@@ -248,7 +255,9 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
      try {
        await api.post(`/users/${userId}/follow`);
        setSuggestedFriends(curr => curr.filter(u => u.id !== userId));
-     } catch (e) {}
+     } catch (e) {
+       console.log("Eroare la follow din discover:", e);
+     }
   };
 
   const handleUploadReelChoice = () => {
@@ -288,7 +297,9 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       await api.post('/posts/create', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchProfileData(); 
-    } catch(e) {}
+    } catch(e) {
+      Alert.alert("Error", "Could not upload video.");
+    }
   };
 
   const handleReactionCapture = async (uri: string) => {
@@ -308,25 +319,39 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       if (selectedPost && selectedPost.id === postId) {
          setSelectedPost((prev: any) => ({ ...prev, recentReactions: [uri, ...(prev.recentReactions || [])].slice(0,3) }));
       }
-    } catch (error) {}
+    } catch (error) {
+      Alert.alert("Error", "Could not add reaction.");
+    }
   };
 
   const openFollowers = async () => {
     if (!profile) return;
-    setShowFollowers(true); setLoadingLists(true);
-    try { const res = await api.get(`/users/${profile.username}/followers`); setFollowersList(res.data); } catch(e) {} finally { setLoadingLists(false); }
+    setShowFollowers(true);
+    setLoadingLists(true);
+    try {
+      const res = await api.get(`/users/${profile.username}/followers`);
+      setFollowersList(res.data);
+    } catch(e) {} finally { setLoadingLists(false); }
   };
 
   const openFollowing = async () => {
     if (!profile) return;
-    setShowFollowing(true); setLoadingLists(true);
-    try { const res = await api.get(`/users/${profile.username}/following`); setFollowingList(res.data); } catch(e) {} finally { setLoadingLists(false); }
+    setShowFollowing(true);
+    setLoadingLists(true);
+    try {
+      const res = await api.get(`/users/${profile.username}/following`);
+      setFollowingList(res.data);
+    } catch(e) {} finally { setLoadingLists(false); }
   };
 
   const openCalendar = async () => {
     if (!profile) return;
-    setShowCalendar(true); setLoadingCalendar(true);
-    try { const res = await api.get(`/users/${profile.username}/calendar`); setCalendarSnaps(res.data); } catch(e) {} finally { setLoadingCalendar(false); }
+    setShowCalendar(true);
+    setLoadingCalendar(true);
+    try {
+      const res = await api.get(`/users/${profile.username}/calendar`);
+      setCalendarSnaps(res.data);
+    } catch(e) {} finally { setLoadingCalendar(false); }
   };
 
   const openComments = async (postId: string) => {
@@ -354,6 +379,13 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       }
       setMyPosts(curr => curr.map(p => p.id === activeCommentsPostId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p));
     } catch (error) {}
+  };
+
+  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
+    setMyPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
+    if (selectedPost && selectedPost.id === postId) {
+      setSelectedPost((prev: any) => ({ ...prev, isLiked: newIsLiked, likesCount: newIsLiked ? prev.likesCount + 1 : Math.max(0, prev.likesCount - 1) }));
+    }
   };
 
   const handleCommentLongPress = (comment: any) => {
@@ -519,6 +551,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                   className="overflow-hidden bg-white/[0.03] rounded-lg relative"
                 >
                   <Image source={{ uri: post.mediaUrl }} className="w-full h-full" resizeMode="cover" />
+                  
                   <View className="absolute bottom-1.5 left-1.5 flex-row gap-1">
                     {post.calories && (
                        <View className="bg-black/40 rounded-full flex-row items-center px-1.5 py-0.5">
@@ -539,6 +572,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </Animated.View>
       </Animated.ScrollView>
 
+      {/* MODALS */}
       <DiscoverModal visible={showDiscoverModal} onClose={() => setShowDiscoverModal(false)} searchQuery={searchQuery} setSearchQuery={setSearchQuery} loadingDiscover={loadingDiscover} suggestedFriends={suggestedFriends} contacts={contacts} handleFollowUser={handleFollowUser} handleInviteContact={handleInviteContact} />
       <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} />
       <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} />
@@ -558,10 +592,11 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </View>
       </Modal>
 
-      {/* NOUL UNIFIED VIEWER MODAL */}
+      {/* UNIFIED VIEWER MODAL */}
       <ImagePopoutModal 
         visible={selectedPost !== null} 
         post={selectedPost} 
+        onLikeToggled={handleLikeToggled}
         onClose={() => setSelectedPost(null)} 
         onOpenComments={(id) => {
           setSelectedPost(null);
@@ -576,7 +611,13 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         }}
       />
 
-      <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>
+      {/* MODAL COMENTARII DIN UNIFIED VIEWER */}
+      <SwipeableModal 
+        visible={activeCommentsPostId !== null} 
+        onClose={() => setActiveCommentsPostId(null)}
+        title="Comments"
+        heightRatio={0.65}
+      >
         {loadingComments ? (
           <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
         ) : (
@@ -591,7 +632,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                   {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
                 </View>
                 <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
-                  <Text className="text-white/35 text-[9px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
+                  <Text className="text-[#7dd3fc] text-[10px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
                   <Text className="text-white/90 text-[13px] leading-5">{item.text}</Text>
                 </View>
               </View>

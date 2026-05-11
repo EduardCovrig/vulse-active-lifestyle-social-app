@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { View, Text, Image, Pressable, Animated, TouchableOpacity, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons'; 
@@ -18,7 +18,8 @@ interface LiquidPostCardProps {
   onEditCaption: (postId: string, currentCaption: string) => void;
   onOpenProfile?: (username: string) => void;
   onReactRequest?: (postId: string) => void;
-  onImageLongPress?: () => void; 
+  onImageLongPress?: (uri?: string) => void; 
+  onLikeToggled?: (postId: string, isLiked: boolean) => void;
 }
 
 const getRelativeTime = (dateString?: string) => {
@@ -33,12 +34,19 @@ const getRelativeTime = (dateString?: string) => {
   return `${days}d ago`;
 };
 
-const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile, onReactRequest, onImageLongPress }: LiquidPostCardProps) => {
+const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile, onReactRequest, onImageLongPress, onLikeToggled }: LiquidPostCardProps) => {
   const { username } = useContext(AuthContext);
 
-  const [isLiked, setIsLiked] = useState(post.isLiked || false);
-  const [likesCount, setLikesCount] = useState(post.likesCount || 0);
+  const [isLiked, setIsLiked] = useState<boolean>(post.isLiked || false);
+  const [likesCount, setLikesCount] = useState<number>(post.likesCount || 0);
   const [recentReactions, setRecentReactions] = useState<string[]>(post.recentReactions || []);
+
+  // SINCRONIZARE LIVE: Dacă postarea se schimbă din exterior, actualizăm și UI-ul local
+  useEffect(() => {
+    setIsLiked(post.isLiked || false);
+    setLikesCount(post.likesCount || 0);
+    setRecentReactions(post.recentReactions || []);
+  }, [post.isLiked, post.likesCount, post.recentReactions]);
 
   const cardScale = useRef(new Animated.Value(1)).current;
   const bigHeartScale = useRef(new Animated.Value(0)).current;
@@ -47,8 +55,15 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
 
   const toggleLike = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsLiked(!isLiked);
-    setLikesCount((prev: number) => isLiked ? prev - 1 : prev + 1);
+    const newLikedState = !isLiked;
+    
+    setIsLiked(newLikedState);
+    // FIX PENTRU EROAREA TYPESCRIPT: am specificat tipul (prev: number) explicit
+    setLikesCount((prev: number) => newLikedState ? prev + 1 : prev - 1);
+    
+    // Notificăm ecranul părinte ca să se actualizeze
+    if (onLikeToggled) onLikeToggled(post.id, newLikedState);
+
     try { await api.post(`/interactions/${post.id}/like`); } 
     catch (error) { console.error("Like error:", error); }
   };
@@ -131,6 +146,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           onPress={handleDoubleTap} 
           onLongPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            // Dacă din componenta părinte nu trimit poză anume, apelăm simplu fără argumente
             if (onImageLongPress) onImageLongPress();
           }}
           delayLongPress={350}
@@ -183,6 +199,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
 
                 <TouchableOpacity onPress={() => onOpenComments(post.id)} className="flex-row items-center gap-1.5">
                   <Ionicons name="chatbubble-outline" size={22} color="rgba(255,255,255,0.9)" />
+                  {/* Citim direct de pe POST numarul (live props) */}
                   <Text className="text-white/80 font-bold text-[13px]">{post.commentsCount || 0}</Text>
                 </TouchableOpacity>
 
@@ -194,7 +211,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
               <View className="flex-row items-center gap-2.5">
                 {recentReactions.length > 0 && (
                   <TouchableOpacity onPress={() => setShowReactions(true)} className="flex-row-reverse">
-                    {recentReactions.slice(0, 3).map((uri, index) => (
+                    {recentReactions.slice(0, 3).map((uri: string, index: number) => (
                       <View key={index} style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', marginRight: index > 0 ? -10 : 0 }}>
                          <Image source={{ uri }} className="w-full h-full object-cover" />
                       </View>

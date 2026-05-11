@@ -125,6 +125,13 @@ export default function UserProfileScreen() {
     } catch (error) {} finally { setLoadingComments(false); }
   };
 
+  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
+    setUserPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
+    if (selectedPost && selectedPost.id === postId) {
+      setSelectedPost((prev: any) => ({ ...prev, isLiked: newIsLiked, likesCount: newIsLiked ? prev.likesCount + 1 : Math.max(0, prev.likesCount - 1) }));
+    }
+  };
+
   const submitComment = async () => {
     if (!newComment.trim() || !activeCommentsPostId) return;
     const text = newComment;
@@ -279,7 +286,7 @@ export default function UserProfileScreen() {
         snaps={calendarSnaps} 
         onSnapPress={(url) => {
            setShowCalendar(false);
-           setTimeout(() => setSelectedPost({ mediaUrl: url }), 350); // Deschidem doar ca imagine (fara detalii in viewer daca nu trimitem obiectul plin)
+           setTimeout(() => setSelectedPost({ mediaUrl: url }), 350); 
         }}
       />
       
@@ -290,6 +297,7 @@ export default function UserProfileScreen() {
       <ImagePopoutModal 
         visible={selectedPost !== null} 
         post={selectedPost} 
+        onLikeToggled={handleLikeToggled}
         onClose={() => setSelectedPost(null)} 
         onOpenComments={(id) => {
           setSelectedPost(null);
@@ -297,7 +305,13 @@ export default function UserProfileScreen() {
         }}
       />
 
-      <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>
+      {/* MODAL COMENTARII DIN UNIFIED VIEWER */}
+      <SwipeableModal 
+        visible={activeCommentsPostId !== null} 
+        onClose={() => setActiveCommentsPostId(null)}
+        title="Comments"
+        heightRatio={0.65}
+      >
         {loadingComments ? (
           <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
         ) : (
@@ -312,7 +326,7 @@ export default function UserProfileScreen() {
                   {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
                 </View>
                 <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
-                  <Text className="text-white/35 text-[9px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
+                  <Text className="text-[#7dd3fc] text-[10px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
                   <Text className="text-white/90 text-[13px] leading-5">{item.text}</Text>
                 </View>
               </View>

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, PanResponder, Animated, Dimensions, KeyboardAvoidingView, Platform, Easing } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, PanResponder, Animated, Dimensions, Platform, Easing, Keyboard } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -19,6 +19,20 @@ export default function SwipeableModal({ visible, onClose, children, title, subt
   const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const [isAnimating, setIsAnimating] = useState(false);
+  
+  // Stare pentru înălțimea tastaturii
+  const [kbHeight, setKbHeight] = useState(0);
+
+  useEffect(() => {
+    // Ascultăm evenimentele de tastatură pentru a împinge modalul în sus manual
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    
+    const showSub = Keyboard.addListener(showEvt, (e) => setKbHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(hideEvt, () => setKbHeight(0));
+    
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -38,13 +52,14 @@ export default function SwipeableModal({ visible, onClose, children, title, subt
         })
       ]).start(() => setIsAnimating(false));
     } else {
-      if (!isAnimating && panY._value === 0) {
+      if (!isAnimating && (panY as any)._value === 0) {
         closeAnim();
       }
     }
   }, [visible]);
 
   const closeAnim = () => {
+    Keyboard.dismiss(); // Ascundem tastatura când se închide modalul
     setIsAnimating(true);
     Animated.parallel([
       Animated.spring(panY, {
@@ -91,40 +106,45 @@ export default function SwipeableModal({ visible, onClose, children, title, subt
 
   return (
     <Modal transparent visible={visible || isAnimating} animationType="none" onRequestClose={closeAnim}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
+      <View style={{ flex: 1 }}>
         
-        {/* Backdrop animat */}
+        {/* Backdrop animat fixat pe tot ecranul */}
         <Animated.View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', opacity: backdropOpacity }}>
            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeAnim} />
         </Animated.View>
 
-        {/* Modalul propriu-zis */}
-        <Animated.View style={{ transform: [{ translateY: panY }], height: SCREEN_HEIGHT * heightRatio, width: '100%' }}>
-          <BlurView intensity={85} tint="dark" style={{ flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden' }}>
-            <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(9,14,23,0.85)' }} />
+        {/* Container care glisează în sus exact cu înălțimea tastaturii */}
+        <Animated.View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: kbHeight }}>
+          
+          {/* Modalul propriu-zis */}
+          <Animated.View style={{ transform: [{ translateY: panY }], height: SCREEN_HEIGHT * heightRatio, width: '100%' }}>
+            <BlurView intensity={85} tint="dark" style={{ flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden' }}>
+              <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(9,14,23,0.85)' }} />
 
-            {/* HEADER DRAGGABLE */}
-            <View {...panResponder.panHandlers} style={{ width: '100%', paddingBottom: 16, backgroundColor: 'transparent', zIndex: 10 }}>
-              <View style={{ width: '100%', height: 30, alignItems: 'center', justifyContent: 'center' }}>
-                <View style={{ width: 40, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+              {/* HEADER DRAGGABLE */}
+              <View {...panResponder.panHandlers} style={{ width: '100%', paddingBottom: 16, backgroundColor: 'transparent', zIndex: 10 }}>
+                <View style={{ width: '100%', height: 30, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ width: 40, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+                </View>
+                
+                {title && <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center', letterSpacing: -0.5 }}>{title}</Text>}
+                {subtitle && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, textAlign: 'center', marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>{subtitle}</Text>}
               </View>
-              
-              {title && <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18, textAlign: 'center', letterSpacing: -0.5 }}>{title}</Text>}
-              {subtitle && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, textAlign: 'center', marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 }}>{subtitle}</Text>}
-            </View>
 
-            {/* X Button fixat */}
-            <TouchableOpacity onPress={closeAnim} style={{ position: 'absolute', top: 12, right: 20, zIndex: 50, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="close" size={16} color="rgba(255,255,255,0.6)" />
-            </TouchableOpacity>
+              {/* X Button fixat */}
+              <TouchableOpacity onPress={closeAnim} style={{ position: 'absolute', top: 12, right: 20, zIndex: 50, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="close" size={16} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
 
-            {/* Aici intra restul continutului (liste, texte) */}
-            <View style={{ flex: 1 }}>
-              {children}
-            </View>
-          </BlurView>
+              {/* Aici intra restul continutului (liste, texte) */}
+              <View style={{ flex: 1 }}>
+                {children}
+              </View>
+            </BlurView>
+          </Animated.View>
+
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

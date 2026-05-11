@@ -40,6 +40,10 @@ export default function FeedScreen() {
     fetchGlobalFeed();
   }, []);
 
+  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
+    setPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
+  };
+
   const handleReactionCapture = async (uri: string) => {
     if (!reactingToPostId) return;
     const postId = reactingToPostId;
@@ -50,17 +54,12 @@ export default function FeedScreen() {
       const type = `image/${filename.split('.').pop()}`;
 
       formData.append('file', { uri, name: filename, type } as any);
-
-      // Optimistic update
       setPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
 
       await api.post(`/interactions/${postId}/react`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      // Import * as Haptics if needed or just skip it since it's in LiquidPostCard
-    } catch (error) {
-      console.error("Reaction error", error);
-    }
+    } catch (error) {}
   };
 
   return (
@@ -95,6 +94,7 @@ export default function FeedScreen() {
                     onOpenComments={() => console.log("Global comments in progress")}
                     onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
                     onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
+                    onLikeToggled={handleLikeToggled}
                     onReactRequest={(id) => setReactingToPostId(id)}
                     onEditCaption={(id, text) => console.log("Edit")}
                   />
