@@ -18,7 +18,7 @@ interface LiquidPostCardProps {
   onEditCaption: (postId: string, currentCaption: string) => void;
   onOpenProfile?: (username: string) => void;
   onReactRequest?: (postId: string) => void;
-  onImageLongPress?: (uri: string) => void; // ADAUGAT
+  onImageLongPress?: () => void; 
 }
 
 const getRelativeTime = (dateString?: string) => {
@@ -131,7 +131,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           onPress={handleDoubleTap} 
           onLongPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            if (onImageLongPress) onImageLongPress(post.mediaUrl);
+            if (onImageLongPress) onImageLongPress();
           }}
           delayLongPress={350}
           style={{ flex: 1, position: 'relative' }}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import { View, Text, Image, TouchableOpacity, Dimensions, Animated, ActivityIndicator, Modal, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Dimensions, Animated, ActivityIndicator, Modal, Alert, FlatList, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,9 +9,10 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import BouncyPressable from '../components/BouncyPressable';
-import LiquidPostCard from '../components/LiquidPostCard';
 import UserListModal from '../components/UserListModal';
 import ImagePopoutModal from '../components/ImagePopoutModal';
+import SwipeableModal from '../components/SwipeableModal';
+import CalendarModal from '../components/CalendarModal';
 
 const HEADER_HEIGHT = 180;
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -38,10 +39,20 @@ export default function UserProfileScreen() {
   const [followingList, setFollowingList] = useState<any[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
 
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarSnaps, setCalendarSnaps] = useState<any[]>([]);
+  const [loadingCalendar, setLoadingCalendar] = useState(false);
+
   const [selectedPost, setSelectedPost] = useState<any>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null); // ZOOM IMAGE
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0.3)).current;
 
   const headerTranslateY = scrollY.interpolate({
     inputRange: [-100, 0, HEADER_HEIGHT],
@@ -86,31 +97,51 @@ export default function UserProfileScreen() {
       setIsFollowing(!isFollowing);
       setProfile((prev: any) => ({
         ...prev,
-        followersCount: isFollowing 
-          ? Math.max(0, (prev.followersCount || 0) - 1) 
-          : (prev.followersCount || 0) + 1
+        followersCount: isFollowing ? Math.max(0, (prev.followersCount || 0) - 1) : (prev.followersCount || 0) + 1
       }));
-    } catch (e) {
-      console.log("Error following");
-    }
+    } catch (e) {}
   };
 
   const openFollowers = async () => {
-    setShowFollowers(true);
-    setLoadingLists(true);
-    try {
-      const res = await api.get(`/users/${username}/followers`);
-      setFollowersList(res.data);
-    } catch(e) {} finally { setLoadingLists(false); }
+    setShowFollowers(true); setLoadingLists(true);
+    try { const res = await api.get(`/users/${username}/followers`); setFollowersList(res.data); } catch(e) {} finally { setLoadingLists(false); }
   };
 
   const openFollowing = async () => {
-    setShowFollowing(true);
-    setLoadingLists(true);
+    setShowFollowing(true); setLoadingLists(true);
+    try { const res = await api.get(`/users/${username}/following`); setFollowingList(res.data); } catch(e) {} finally { setLoadingLists(false); }
+  };
+
+  const openCalendar = async () => {
+    setShowCalendar(true); setLoadingCalendar(true);
+    try { const res = await api.get(`/users/${username}/calendar`); setCalendarSnaps(res.data); } catch(e) {} finally { setLoadingCalendar(false); }
+  };
+
+  const openComments = async (postId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveCommentsPostId(postId);
+    setLoadingComments(true);
     try {
-      const res = await api.get(`/users/${username}/following`);
-      setFollowingList(res.data);
-    } catch(e) {} finally { setLoadingLists(false); }
+      const response = await api.get(`/comments/${postId}?page=0&size=50`);
+      setComments(response.data.content);
+    } catch (error) {} finally { setLoadingComments(false); }
+  };
+
+  const submitComment = async () => {
+    if (!newComment.trim() || !activeCommentsPostId) return;
+    const text = newComment;
+    setNewComment('');
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await api.post(`/comments/${activeCommentsPostId}`, { text });
+      const response = await api.get(`/comments/${activeCommentsPostId}?page=0&size=50`);
+      setComments(response.data.content);
+      
+      if (selectedPost && selectedPost.id === activeCommentsPostId) {
+        setSelectedPost({ ...selectedPost, commentsCount: (selectedPost.commentsCount || 0) + 1 });
+      }
+      setUserPosts(curr => curr.map(p => p.id === activeCommentsPostId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p));
+    } catch (error) {}
   };
 
   const isWithinLast24Hours = (dateStr: string) => {
@@ -122,7 +153,9 @@ export default function UserProfileScreen() {
   if (loading) {
     return (
       <View className="flex-1 bg-[#090E17] items-center justify-center">
-        <ActivityIndicator color="#7ad7c6" size="large" />
+        <Animated.View style={{ opacity: pulseAnim }} className="w-24 h-24 rounded-full bg-[#7ad7c6]/20 items-center justify-center">
+           <ActivityIndicator color="#7ad7c6" size="large" />
+        </Animated.View>
       </View>
     );
   }
@@ -205,12 +238,7 @@ export default function UserProfileScreen() {
                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                      setSelectedPost(post);
                    }}
-                   onLongPress={() => {
-                     if (isLocked) return; // Nu dam voie la zoom pe poza blocata
-                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                     setSelectedImage(post.mediaUrl);
-                   }}
-                   delayLongPress={300}
+                   activeOpacity={0.8}
                    style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
                    className="bg-white/[0.03] rounded-lg overflow-hidden relative items-center justify-center"
                  >
@@ -242,46 +270,77 @@ export default function UserProfileScreen() {
                  </TouchableOpacity>
                );
              })}
-             {userPosts.length === 0 && (
-               <View className="w-full py-16 items-center justify-center">
-                 <Ionicons name="camera-outline" size={32} color="rgba(255,255,255,0.08)" />
-                 <Text className="text-white/20 mt-3 font-semibold tracking-widest uppercase text-[10px]">No posts yet</Text>
-               </View>
-             )}
           </View>
         </View>
       </Animated.ScrollView>
 
-      {/* Post Viewer Modal */}
-      <Modal visible={selectedPost !== null} animationType="fade" transparent={true} onRequestClose={() => setSelectedPost(null)}>
-        <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative">
-          <View className="absolute inset-0 bg-[#090E17]/90" />
-          <TouchableOpacity onPress={() => setSelectedPost(null)} style={{ top: insets.top + 10 }} className="absolute right-6 z-50 w-9 h-9 bg-white/[0.06] rounded-full items-center justify-center border border-white/[0.08]">
-            <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
-          </TouchableOpacity>
-
-          <View className="px-4" style={{ height: SCREEN_HEIGHT * 0.75 }}>
-            {selectedPost && (
-               <LiquidPostCard 
-                 post={selectedPost}
-                 onOpenComments={() => Alert.alert("Comments", "View this post from the Friends tab for full interaction.")}
-                 onPostDeleted={(id) => {
-                   setUserPosts(curr => curr.filter(p => p.id !== id));
-                   setSelectedPost(null);
-                 }}
-                 onUserBlocked={() => {}}
-                 onEditCaption={() => {}}
-                 onReactRequest={() => {}}
-               />
-            )}
-          </View>
-        </BlurView>
-      </Modal>
-
+      {/* MODALS */}
+      <CalendarModal 
+        visible={showCalendar} 
+        onClose={() => setShowCalendar(false)} 
+        loading={loadingCalendar} 
+        snaps={calendarSnaps} 
+        onSnapPress={(url) => {
+           setShowCalendar(false);
+           setTimeout(() => setSelectedImage(url), 350);
+        }}
+      />
+      
       <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} onUserTap={(uid) => {}} />
       <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} onUserTap={(uid) => {}} />
 
-      <ImagePopoutModal visible={selectedImage !== null} imageUri={selectedImage} onClose={() => setSelectedImage(null)} />
+      {/* NOUL UNIFIED VIEWER MODAL AICI */}
+      <ImagePopoutModal 
+        visible={selectedPost !== null || selectedImage !== null} 
+        post={selectedPost} 
+        imageUri={selectedImage}
+        onClose={() => {
+           setSelectedPost(null);
+           setSelectedImage(null);
+        }} 
+        onOpenComments={(id) => {
+          setSelectedPost(null);
+          setTimeout(() => openComments(id), 300);
+        }}
+      />
+
+      {/* COMMENTS MODAL (Daca se da click pe iconita din Unified Viewer) */}
+      <SwipeableModal 
+        visible={activeCommentsPostId !== null} 
+        onClose={() => setActiveCommentsPostId(null)}
+        title="Comments"
+        heightRatio={0.65}
+      >
+        {loadingComments ? (
+          <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
+        ) : (
+          <FlatList
+            data={comments}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+            renderItem={({ item }) => (
+              <View className="flex-row gap-3 mb-4">
+                <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
+                  {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
+                </View>
+                <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
+                  <Text className="text-white/35 text-[9px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
+                  <Text className="text-white/90 text-[13px] leading-5">{item.text}</Text>
+                </View>
+              </View>
+            )}
+            ListEmptyComponent={<Text className="text-white/20 text-center mt-10 text-xs">No comments yet.</Text>}
+          />
+        )}
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(9,14,23,0.95)' }}>
+          <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.2)" keyboardAppearance="dark" style={{ flex: 1, height: 44, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 22, paddingHorizontal: 16, color: 'white', fontSize: 14, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />
+          <TouchableOpacity onPress={submitComment} disabled={!newComment.trim()} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: newComment.trim() ? '#7dd3fc' : 'rgba(255,255,255,0.04)' }}>
+            <Ionicons name="arrow-up" size={20} color={newComment.trim() ? '#090E17' : 'rgba(255,255,255,0.15)'} />
+          </TouchableOpacity>
+        </View>
+      </SwipeableModal>
 
     </View>
   );

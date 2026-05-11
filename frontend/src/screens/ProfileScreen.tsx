@@ -11,7 +11,6 @@ import * as Contacts from 'expo-contacts';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import BouncyPressable from '../components/BouncyPressable';
-import LiquidPostCard from '../components/LiquidPostCard';
 import CameraScreen from './CameraScreen';
 import SettingsModal from '../components/SettingsModal';
 import BlockedUsersModal from '../components/BlockedUsersModal';
@@ -19,9 +18,10 @@ import DiscoverModal from '../components/DiscoverModal';
 import UserListModal from '../components/UserListModal';
 import CalendarModal from '../components/CalendarModal';
 import ImagePopoutModal from '../components/ImagePopoutModal';
+import SwipeableModal from '../components/SwipeableModal';
 
 const HEADER_HEIGHT = 180;
-const { width } = Dimensions.get('window');
+const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const GRID_GAP = 2;
 const ITEM_WIDTH = (width - 4 - (GRID_GAP * 2)) / 3;
 
@@ -46,9 +46,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
   const [loadingBlocked, setLoadingBlocked] = useState(false);
 
-  const [selectedPost, setSelectedPost] = useState<any>(null);
-  const [showVibeModal, setShowVibeModal] = useState(false);
-
   const [showDiscoverModal, setShowDiscoverModal] = useState(false);
   const [contacts, setContacts] = useState<any[]>([]);
   const [suggestedFriends, setSuggestedFriends] = useState<any[]>([]);
@@ -68,7 +65,12 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
   const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
   const [recordingReel, setRecordingReel] = useState(false);
 
-  const [selectedImage, setSelectedImage] = useState<string | null>(null); // ZOOM IMAGE
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+
+  const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
@@ -229,9 +231,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
           setContacts(validContacts);
         }
       }
-    } catch (e) {
-      console.log(e);
-    } finally {
+    } catch (e) {} finally {
       setLoadingDiscover(false);
     }
   };
@@ -241,9 +241,17 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       await Share.share({
         message: `Hey ${contact.name}! Join me on Vulse. Let's start our healthy era together! 🚀\nhttps://vulse.app`,
       });
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) {}
+  };
+
+  const handleFollowUser = async (userId: string) => {
+     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+     try {
+       await api.post(`/users/${userId}/follow`);
+       setSuggestedFriends(curr => curr.filter(u => u.id !== userId));
+     } catch (e) {
+       console.log("Eroare la follow din discover:", e);
+     }
   };
 
   const handleUploadReelChoice = () => {
@@ -305,19 +313,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       if (selectedPost && selectedPost.id === postId) {
          setSelectedPost((prev: any) => ({ ...prev, recentReactions: [uri, ...(prev.recentReactions || [])].slice(0,3) }));
       }
-    } catch (error) {
-      Alert.alert("Error", "Could not add reaction.");
-    }
-  };
-
-  const handleFollowUser = async (userId: string) => {
-     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-     try {
-       await api.post(`/users/${userId}/follow`);
-       setSuggestedFriends(curr => curr.filter(u => u.id !== userId));
-     } catch (e) {
-       console.log(e);
-     }
+    } catch (error) {}
   };
 
   const openFollowers = async () => {
@@ -350,6 +346,51 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
     } catch(e) {} finally { setLoadingCalendar(false); }
   };
 
+  const openComments = async (postId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveCommentsPostId(postId);
+    setLoadingComments(true);
+    try {
+      const response = await api.get(`/comments/${postId}?page=0&size=50`);
+      setComments(response.data.content);
+    } catch (error) {} finally { setLoadingComments(false); }
+  };
+
+  const submitComment = async () => {
+    if (!newComment.trim() || !activeCommentsPostId) return;
+    const text = newComment;
+    setNewComment('');
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await api.post(`/comments/${activeCommentsPostId}`, { text });
+      const response = await api.get(`/comments/${activeCommentsPostId}?page=0&size=50`);
+      setComments(response.data.content);
+      
+      if (selectedPost && selectedPost.id === activeCommentsPostId) {
+        setSelectedPost({ ...selectedPost, commentsCount: (selectedPost.commentsCount || 0) + 1 });
+      }
+      setMyPosts(curr => curr.map(p => p.id === activeCommentsPostId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p));
+    } catch (error) {}
+  };
+
+  const handleCommentLongPress = (comment: any) => {
+    if (comment.user.username !== username) return; 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    Alert.alert("Delete Comment", "Do you want to delete this comment?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        try {
+          await api.delete(`/comments/${comment.id}`);
+          setComments(curr => curr.filter(c => c.id !== comment.id));
+          if (selectedPost && selectedPost.id === activeCommentsPostId) {
+            setSelectedPost({ ...selectedPost, commentsCount: Math.max(0, (selectedPost.commentsCount || 0) - 1) });
+          }
+          setMyPosts(curr => curr.map(p => p.id === activeCommentsPostId ? { ...p, commentsCount: Math.max(0, p.commentsCount - 1) } : p));
+        } catch (e) {}
+      }}
+    ]);
+  };
+
   if (loading) {
     return (
       <View className="flex-1 bg-[#090E17]">
@@ -364,8 +405,8 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
 
   return (
     <View className="flex-1 bg-[#090E17]">
-      <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT, transform: [{ translateY: headerTranslateY }] }}>
-        <LinearGradient colors={['rgba(122,215,198,0.04)', 'transparent']} className="flex-1" />
+      <Animated.View style={{ transform: [{ translateY: headerTranslateY }], position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT, zIndex: 1 }}>
+        <LinearGradient colors={['rgba(122, 215, 198, 0.04)', 'transparent']} className="absolute inset-0" />
       </Animated.View>
 
       <TouchableOpacity onPress={handleOpenDiscover} style={{ position: 'absolute', top: insets.top + 10, left: 20, zIndex: 100 }} className="w-9 h-9 bg-white/[0.06] rounded-full items-center justify-center border border-white/[0.08]">
@@ -490,11 +531,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setSelectedPost(post);
                   }}
-                  onLongPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                    setSelectedImage(post.mediaUrl); // ZOOM!
-                  }}
-                  delayLongPress={300}
+                  activeOpacity={0.8}
                   style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
                   className="overflow-hidden bg-white/[0.03] rounded-lg relative"
                 >
@@ -525,44 +562,6 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} />
       <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} />
       <CalendarModal visible={showCalendar} onClose={() => setShowCalendar(false)} loading={loadingCalendar} snaps={calendarSnaps} />
-      
-      <Modal visible={selectedPost !== null} animationType="fade" transparent={true} onRequestClose={() => setSelectedPost(null)}>
-        <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative">
-          <View className="absolute inset-0 bg-[#090E17]/90" />
-          <TouchableOpacity onPress={() => setSelectedPost(null)} style={{ top: insets.top + 10 }} className="absolute right-6 z-50 w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20">
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-
-          <View className="px-4" style={{ height: Dimensions.get('window').height * 0.75 }}>
-            {selectedPost && (
-               <LiquidPostCard 
-                 post={selectedPost}
-                 onOpenComments={() => Alert.alert("Comments", "To leave a comment, please access the post from the Feed tab.")}
-                 onPostDeleted={(id) => { setMyPosts(curr => curr.filter(p => p.id !== id)); setSelectedPost(null); }}
-                 onUserBlocked={() => {}} onEditCaption={() => Alert.alert("Info", "Please edit the caption from the post menu on the Feed.")} onReactRequest={() => {}}
-               />
-            )}
-          </View>
-        </BlurView>
-      </Modal>
-
-      <Modal visible={showVibeModal} animationType="fade" transparent={true} onRequestClose={() => setShowVibeModal(false)}>
-        <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative p-6">
-          <View className="absolute inset-0 bg-[#090E17]/80" />
-          <TouchableOpacity onPress={() => setShowVibeModal(false)} style={{ top: insets.top + 10 }} className="absolute right-6 z-50 w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20">
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white font-black text-3xl mb-8 text-center tracking-tight">Your Visual Journey</Text>
-          <View className="flex-row flex-wrap justify-center gap-4">
-            {profile?.calendarSnaps?.map((img: string, i: number) => (
-              <View key={i} className="w-[28%] aspect-square rounded-2xl overflow-hidden border-2 border-white/10 shadow-lg shadow-black">
-                {img ? <Image source={{ uri: img }} className="w-full h-full" /> : <View className="flex-1 bg-white/5" />}
-              </View>
-            ))}
-          </View>
-        </BlurView>
-      </Modal>
-
       <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} onOpenBlockedUsers={handleOpenBlockedUsers} onLogout={logout} onDeleteAccount={handleDeleteAccount} />
       <BlockedUsersModal visible={showBlockedUsers} onClose={() => setShowBlockedUsers(false)} blockedUsers={blockedUsers} loadingBlocked={loadingBlocked} onUnblockUser={handleUnblockUser} />
       
@@ -578,7 +577,61 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </View>
       </Modal>
 
-      <ImagePopoutModal visible={selectedImage !== null} imageUri={selectedImage} onClose={() => setSelectedImage(null)} />
+      {/* NOUL UNIFIED VIEWER MODAL AICI */}
+      <ImagePopoutModal 
+        visible={selectedPost !== null} 
+        post={selectedPost} 
+        onClose={() => setSelectedPost(null)} 
+        onOpenComments={(id) => {
+          setSelectedPost(null);
+          setTimeout(() => openComments(id), 300);
+        }}
+        onReactRequest={(id) => {
+          setSelectedPost(null);
+          setTimeout(() => {
+             setReactingToPostId(id);
+             if (onHideBottomBar) onHideBottomBar(true);
+          }, 300);
+        }}
+      />
+
+      {/* COMMENTS MODAL (Daca se da click pe iconita din Unified Viewer) */}
+      <SwipeableModal 
+        visible={activeCommentsPostId !== null} 
+        onClose={() => setActiveCommentsPostId(null)}
+        title="Comments"
+        heightRatio={0.65}
+      >
+        {loadingComments ? (
+          <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
+        ) : (
+          <FlatList
+            data={comments}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+            renderItem={({ item }) => (
+              <View className="flex-row gap-3 mb-4">
+                <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
+                  {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
+                </View>
+                <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
+                  <Text className="text-white/35 text-[9px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
+                  <Text className="text-white/90 text-[13px] leading-5">{item.text}</Text>
+                </View>
+              </View>
+            )}
+            ListEmptyComponent={<Text className="text-white/20 text-center mt-10 text-xs">No comments yet.</Text>}
+          />
+        )}
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(9,14,23,0.95)' }}>
+          <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.2)" keyboardAppearance="dark" style={{ flex: 1, height: 44, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 22, paddingHorizontal: 16, color: 'white', fontSize: 14, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />
+          <TouchableOpacity onPress={submitComment} disabled={!newComment.trim()} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: newComment.trim() ? '#7dd3fc' : 'rgba(255,255,255,0.04)' }}>
+            <Ionicons name="arrow-up" size={20} color={newComment.trim() ? '#090E17' : 'rgba(255,255,255,0.15)'} />
+          </TouchableOpacity>
+        </View>
+      </SwipeableModal>
 
     </View>
   );
