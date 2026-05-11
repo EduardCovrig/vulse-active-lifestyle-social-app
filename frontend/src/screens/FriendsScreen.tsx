@@ -178,7 +178,6 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
 
       formData.append('file', { uri, name: filename, type } as any);
 
-      // Optimistic update
       setPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
 
       await api.post(`/interactions/${postId}/react`, formData, {
@@ -190,8 +189,18 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
     }
   };
 
+  const iHavePosted = circle.find(c => c.isMe)?.hasPosted || false;
+
   const handleOpenStory = (friend: any) => {
     if (!friend.hasPosted || !friend.dailyPostUrl) return;
+    
+    // BEREAL LOCK: Nu te lasa sa vezi pana nu postezi
+    if (!friend.isMe && !iHavePosted) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Locked 🔒", "You need to post your Daily Snap first to see what your friends are up to!");
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setActiveStory(friend);
     
@@ -210,7 +219,6 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
     setActiveStory(null);
   };
 
-  // Vulse Circle 
   const renderCircleHeader = () => (
     <View className="mb-4 mt-2">
       <Text className="text-[#7ad7c6]/70 text-[9px] font-black tracking-[2px] uppercase mb-4 px-6">Daily Circle</Text>
@@ -237,7 +245,13 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
               {item.hasPosted ? (
                 <LinearGradient colors={['rgba(122,215,198,0.6)', 'rgba(125,211,252,0.6)']} className="absolute inset-0 rounded-full" style={{ padding: 1.5 }}>
                   <View className="flex-1 bg-[#090E17] rounded-full border-[1.5px] border-[#090E17] overflow-hidden items-center justify-center">
-                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" /> : <View className="w-full h-full bg-white/10 items-center justify-center"><Text className="text-white/80 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text></View>}
+                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" blurRadius={(!item.isMe && !iHavePosted) ? 10 : 0} /> : <View className="w-full h-full bg-white/10 items-center justify-center"><Text className="text-white/80 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text></View>}
+                    {/* Lock Icon pe story-ul prietenilor */}
+                    {(!item.isMe && !iHavePosted) && (
+                      <View className="absolute inset-0 bg-black/40 items-center justify-center">
+                        <Ionicons name="lock-closed" size={16} color="white" />
+                      </View>
+                    )}
                   </View>
                 </LinearGradient>
               ) : (
@@ -328,34 +342,71 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         ListEmptyComponent={
           loading ? <ActivityIndicator size="large" color="#7dd3fc" className="mt-20" /> : <Text className="text-white/40 text-center mt-20">No posts in your circle today.</Text>
         }
-        renderItem={({ item }) => (
-          <View className="px-5 mb-4">
-            {editingPost === item.id && (
-              <View className="flex-row items-center bg-white/5 rounded-2xl border border-white/20 mb-4 px-2 py-1 z-50">
-                <TextInput autoFocus className="flex-1 text-white p-3 font-body-md" value={editCaptionText} onChangeText={setEditCaptionText} />
-                <TouchableOpacity className="bg-[#7ad7c6]/20 p-2 rounded-full" onPress={() => saveCaptionEdit(item.id)}>
-                  <Ionicons name="checkmark" size={20} color="#7ad7c6" />
-                </TouchableOpacity>
+        renderItem={({ item }) => {
+          const isMyPost = item.author?.username === myUsername;
+
+          // BEREAL LOCK RENDER
+          if (!iHavePosted && !isMyPost) {
+            return (
+              <View className="px-5 mb-4 relative">
+                <View style={{ opacity: 0.4 }}>
+                   <LiquidPostCard 
+                     post={item} 
+                     onOpenProfile={() => {}} 
+                     onOpenComments={() => {}} 
+                     onPostDeleted={() => {}} 
+                     onUserBlocked={() => {}} 
+                     onReactRequest={() => {}} 
+                     onEditCaption={() => {}} 
+                   />
+                </View>
+                <View className="absolute inset-0 z-20 m-5 rounded-[32px] overflow-hidden">
+                  <BlurView intensity={60} tint="dark" className="flex-1 items-center justify-center">
+                    <View className="w-16 h-16 bg-white/10 rounded-full items-center justify-center mb-3 border border-white/20">
+                      <Ionicons name="lock-closed" size={32} color="white" />
+                    </View>
+                    <Text className="text-white font-bold text-lg">Hidden Daily Snap</Text>
+                    <Text className="text-white/60 text-xs mt-1 text-center px-10">Post your daily snap to unlock and see what {item.author?.username} is up to.</Text>
+                    
+                    <TouchableOpacity onPress={() => onOpenCamera && onOpenCamera()} className="mt-6 bg-[#7dd3fc] px-6 py-2.5 rounded-full shadow-lg shadow-[#7dd3fc]/50">
+                      <Text className="text-[#090E17] font-bold tracking-wide">POST NOW</Text>
+                    </TouchableOpacity>
+                  </BlurView>
+                </View>
               </View>
-            )}
-            
-            <LiquidPostCard 
-              post={item} 
-              onOpenProfile={openUserProfile}
-              onOpenComments={() => openComments(item.id)}
-              onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
-              onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
-              onReactRequest={(id) => {
-                setReactingToPostId(id);
-                if (onHideBottomBar) onHideBottomBar(true);
-              }}
-              onEditCaption={(id, text) => {
-                setEditCaptionText(text);
-                setEditingPost(id);
-              }}
-            />
-          </View>
-        )}
+            );
+          }
+
+          // NORMAL RENDER
+          return (
+            <View className="px-5 mb-4">
+              {editingPost === item.id && (
+                <View className="flex-row items-center bg-white/5 rounded-2xl border border-white/20 mb-4 px-2 py-1 z-50">
+                  <TextInput autoFocus className="flex-1 text-white p-3 font-body-md" value={editCaptionText} onChangeText={setEditCaptionText} />
+                  <TouchableOpacity className="bg-[#7ad7c6]/20 p-2 rounded-full" onPress={() => saveCaptionEdit(item.id)}>
+                    <Ionicons name="checkmark" size={20} color="#7ad7c6" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              <LiquidPostCard 
+                post={item} 
+                onOpenProfile={openUserProfile}
+                onOpenComments={() => openComments(item.id)}
+                onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
+                onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
+                onReactRequest={(id) => {
+                  setReactingToPostId(id);
+                  if (onHideBottomBar) onHideBottomBar(true);
+                }}
+                onEditCaption={(id, text) => {
+                  setEditCaptionText(text);
+                  setEditingPost(id);
+                }}
+              />
+            </View>
+          );
+        }}
       />
 
       {/* STORY VIEWER MODAL */}
@@ -431,7 +482,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         </View>
       </SwipeableModal>
 
-      {/* REACTION CAMERA */}
+      {/* REACTION CAMERA OVERLAY */}
       <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => {
         setReactingToPostId(null);
         if (onHideBottomBar) onHideBottomBar(false);

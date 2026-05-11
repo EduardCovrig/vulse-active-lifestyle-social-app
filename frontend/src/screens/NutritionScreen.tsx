@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Animated, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Image, PanResponder, ScrollView, Dimensions } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Animated, ActivityIndicator, Modal, Dimensions, ScrollView, Image, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { api } from '../services/api';
 import BouncyPressable from '../components/BouncyPressable';
 import ManualLogModal from '../components/ManualLogModal';
+import ConcentricRings from '../components/ConcentricRings';
+import FriendNutritionModal from '../components/FriendNutritionModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,8 +20,8 @@ export default function NutritionScreen() {
   const [meals, setMeals] = useState<any[]>([]);
   const [goals, setGoals] = useState<any>({ cal: 2000, pro: 150, carb: 250, fat: 70 });
   const [currentDate, setCurrentDate] = useState(new Date());
+  
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [manualMeal, setManualMeal] = useState({ cal: '', pro: '', carbs: '', fat: '', desc: '' });
@@ -28,8 +29,11 @@ export default function NutritionScreen() {
   const [macroDial, setMacroDial] = useState<{ visible: boolean, type: 'cal'|'pro'|'carb'|'fat', label: string, baseColor: string }>({ visible: false, type: 'cal', label: '', baseColor: '#7dd3fc' });
   const [dialValue, setDialValue] = useState(0);
   const [isSavingDial, setIsSavingDial] = useState(false);
+
+  // Reale de la Backend
+  const [friendsNutrition, setFriendsNutrition] = useState<any[]>([]);
+  const [selectedFriend, setSelectedFriend] = useState<any>(null);
   
-  // Refs pentru matematica precisă a cercului
   const dialValueRef = useRef(0);
   const dialTypeRef = useRef<'cal'|'pro'|'carb'|'fat'>('cal');
   const startValueRef = useRef(0);
@@ -42,31 +46,14 @@ export default function NutritionScreen() {
     return d.toISOString().split('T')[0];
   };
 
-  const openEditModal = (meal: any) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setEditingMealId(meal.id);
-    setManualMeal({
-      cal: meal.calories?.toString() || '',
-      pro: meal.proteinsGrams?.toString() || '',
-      carbs: meal.carbsGrams?.toString() || '',
-      fat: meal.fatsGrams?.toString() || '',
-      desc: meal.name || ''
-    });
-    setShowAddModal(true);
-  };
-
-  const closeAddModal = () => {
-    setShowAddModal(false);
-    setEditingMealId(null);
-    setManualMeal({ cal: '', pro: '', carbs: '', fat: '', desc: '' });
-  };
-
   const fetchNutritionData = async () => {
     setLoading(true);
     try {
-      const [logRes, userRes] = await Promise.all([
-        api.get(`/nutrition/log?date=${formatDateForApi(currentDate)}`),
-        api.get('/users/me')
+      const dateStr = formatDateForApi(currentDate);
+      const [logRes, userRes, friendsRes] = await Promise.all([
+        api.get(`/nutrition/log?date=${dateStr}`),
+        api.get('/users/me'),
+        api.get(`/nutrition/friends/log?date=${dateStr}`)
       ]);
       setMeals(logRes.data);
       setGoals({
@@ -75,6 +62,7 @@ export default function NutritionScreen() {
         carb: userRes.data.carbsGoal || 250,
         fat: userRes.data.fatGoal || 70,
       });
+      setFriendsNutrition(friendsRes.data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -94,41 +82,41 @@ export default function NutritionScreen() {
     setCurrentDate(newDate);
   };
 
+  const openEditModal = (meal: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditingMealId(meal.id);
+    setManualMeal({ cal: meal.calories?.toString() || '', pro: meal.proteinGrams?.toString() || '', carbs: meal.carbsGrams?.toString() || '', fat: meal.fatGrams?.toString() || '', desc: meal.name || '' });
+    setShowAddModal(true);
+  };
+
+  const closeAddModal = () => {
+    setShowAddModal(false);
+    setEditingMealId(null);
+    setManualMeal({ cal: '', pro: '', carbs: '', fat: '', desc: '' });
+  };
+
   const handleAddManualMeal = async () => {
-    if (!manualMeal.cal) {
-      Alert.alert("Error", "Please enter at least the number of calories.");
-      return;
-    }
+    if (!manualMeal.cal) { Alert.alert("Error", "Please enter calories."); return; }
     setIsSubmitting(true);
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const payload = {
-        calories: parseInt(manualMeal.cal) || 0,
-        proteins: parseInt(manualMeal.pro) || 0,
-        carbs: parseInt(manualMeal.carbs) || 0,
-        fats: parseInt(manualMeal.fat) || 0,
-        name: manualMeal.desc || 'Manual Log',
-        date: formatDateForApi(currentDate) 
+        calories: parseInt(manualMeal.cal) || 0, protein: parseInt(manualMeal.pro) || 0, carbs: parseInt(manualMeal.carbs) || 0, fat: parseInt(manualMeal.fat) || 0,
+        name: manualMeal.desc || 'Manual Log', date: formatDateForApi(currentDate) 
       };
 
-      if (editingMealId) {
-         await api.put(`/nutrition/manual/${editingMealId}`, payload);
-      } else {
-         await api.post('/nutrition/manual', payload);
-      }
+      if (editingMealId) await api.put(`/nutrition/manual/${editingMealId}`, payload);
+      else await api.post('/nutrition/manual', payload);
 
       closeAddModal();
       fetchNutritionData();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      Alert.alert("Error", "Could not save meal.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch (error) { Alert.alert("Error", "Could not save meal."); } 
+    finally { setIsSubmitting(false); }
   };
 
   const handleDeleteMeal = (mealId: string) => {
-    Alert.alert("Delete Meal", "Are you sure you want to remove this meal from your log?", [
+    Alert.alert("Delete Meal", "Remove this meal from your log?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
           try {
@@ -154,32 +142,25 @@ export default function NutritionScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       const paramMap: any = { cal: 'dailyCaloriesGoal', pro: 'proteinGoal', carb: 'carbsGoal', fat: 'fatGoal' };
-      
       await api.put(`/users/me?${paramMap[macroDial.type]}=${dialValueRef.current}`);
       setGoals((prev: any) => ({ ...prev, [macroDial.type]: dialValueRef.current }));
       setMacroDial({ ...macroDial, visible: false });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      Alert.alert("Error", "Could not save new goal.");
-    } finally {
-      setIsSavingDial(false);
-    }
+    } catch (error) { Alert.alert("Error", "Could not save goal."); } 
+    finally { setIsSavingDial(false); }
   };
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: (e, gestureState) => {
-        const cx = width / 2;
-        const cy = height / 2;
+        const cx = width / 2, cy = height / 2;
         lastAngleRef.current = Math.atan2(gestureState.y0 - cy, gestureState.x0 - cx) * (180 / Math.PI);
         startValueRef.current = dialValueRef.current;
         accumulatedAngleRef.current = 0; 
       },
       onPanResponderMove: (e, gestureState) => {
-        const cx = width / 2;
-        const cy = height / 2;
-        
+        const cx = width / 2, cy = height / 2;
         const currentAngle = Math.atan2(gestureState.moveY - cy, gestureState.moveX - cx) * (180 / Math.PI);
         let delta = currentAngle - lastAngleRef.current;
 
@@ -190,11 +171,8 @@ export default function NutritionScreen() {
         accumulatedAngleRef.current += delta;
 
         const stepSize = dialTypeRef.current === 'cal' ? 100 : 5; 
-        const degreesPerStep = 18; 
-
-        const stepsMoved = Math.floor(accumulatedAngleRef.current / degreesPerStep);
+        const stepsMoved = Math.floor(accumulatedAngleRef.current / 18);
         let newVal = startValueRef.current + (stepsMoved * stepSize);
-        
         if (newVal < 0) newVal = 0;
 
         if (newVal !== dialValueRef.current) {
@@ -210,7 +188,6 @@ export default function NutritionScreen() {
     const isCal = macroDial.type === 'cal';
     const maxPerLap = isCal ? 2000 : 100;
     const laps = Math.floor(dialValue / (maxPerLap || 1));
-    
     const progressInLap = dialValue % maxPerLap;
     const rotationDegrees = (progressInLap / maxPerLap) * 360;
 
@@ -234,6 +211,7 @@ export default function NutritionScreen() {
   return (
     <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17', paddingTop: insets.top }}>
       
+      {/* HEADER */}
       <View className="flex-row items-center justify-between px-6 mb-6 mt-4">
         <TouchableOpacity onPress={() => changeDate(-1)} className="w-10 h-10 bg-white/5 rounded-full items-center justify-center border border-white/10">
           <Ionicons name="chevron-back" size={20} color="white" />
@@ -257,6 +235,7 @@ export default function NutritionScreen() {
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 150 }}
           ListHeaderComponent={
             <View className="mb-8">
+              {/* MAIN NUTRITION RINGS/BARS */}
               <View className="bg-white/[0.03] border border-white/5 rounded-[40px] p-8 items-center mb-6 shadow-2xl shadow-black/50">
                 <Text className="text-white/40 text-xs font-bold uppercase tracking-[4px] mb-4">Calories</Text>
                 
@@ -266,11 +245,7 @@ export default function NutritionScreen() {
                 </TouchableOpacity>
                 
                 <View className="w-full h-3 bg-white/10 rounded-full overflow-hidden mb-6">
-                  <LinearGradient 
-                    colors={['#7ad7c6', '#7dd3fc']} 
-                    start={{x:0, y:0}} end={{x:1, y:1}} 
-                    style={{ width: `${Math.min((totalConsumed.cal / (goals?.cal || 1)) * 100, 100)}%`, height: '100%' }} 
-                  />
+                  <LinearGradient colors={['#7ad7c6', '#7dd3fc']} start={{x:0, y:0}} end={{x:1, y:1}} style={{ width: `${Math.min((totalConsumed.cal / (goals?.cal || 1)) * 100, 100)}%`, height: '100%' }} />
                 </View>
 
                 <View className="flex-row justify-between w-full">
@@ -282,11 +257,11 @@ export default function NutritionScreen() {
                     </View>
                   </TouchableOpacity>
                   
-                  <TouchableOpacity activeOpacity={0.7} onPress={() => openDial('carb', 'CARBS', '#60a5fa', goals.carb)} className="items-center flex-1 border-x border-white/5">
+                  <TouchableOpacity activeOpacity={0.7} onPress={() => openDial('carb', 'CARBS', '#3b82f6', goals.carb)} className="items-center flex-1 border-x border-white/5">
                     <Text className="text-white/40 text-[10px] uppercase font-bold mb-2 tracking-widest">Carbs (g)</Text>
-                    <Text className="text-white font-bold mb-2">{totalConsumed.carb} / <Text className="text-[#60a5fa]">{goals?.carb}</Text></Text>
+                    <Text className="text-white font-bold mb-2">{totalConsumed.carb} / <Text className="text-[#3b82f6]">{goals?.carb}</Text></Text>
                     <View className="w-full max-w-[60px] h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <View className="h-full bg-blue-400" style={{ width: `${Math.min((totalConsumed.carb / (goals?.carb || 1)) * 100, 100)}%` }} />
+                      <View className="h-full bg-blue-500" style={{ width: `${Math.min((totalConsumed.carb / (goals?.carb || 1)) * 100, 100)}%` }} />
                     </View>
                   </TouchableOpacity>
                   
@@ -342,58 +317,62 @@ export default function NutritionScreen() {
               </View>
             </BouncyPressable>
           )}
+          ListFooterComponent={
+            <View className="mt-8 border-t border-white/10 pt-6">
+              <Text className="text-white/50 text-[11px] font-black tracking-[4px] uppercase ml-2 mb-6">Friends Activity</Text>
+              {friendsNutrition.length === 0 ? (
+                <Text className="text-white/30 text-center text-xs">Your friends haven't logged any meals today.</Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10, gap: 16 }}>
+                  {friendsNutrition.map((friend) => (
+                    <BouncyPressable 
+                      key={friend.id} 
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedFriend(friend);
+                      }}
+                      className="items-center"
+                    >
+                      <ConcentricRings friend={friend} />
+                      <Text className="text-white/70 text-[10px] font-semibold mt-2">{friend.username}</Text>
+                    </BouncyPressable>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          }
         />
       )}
 
+      {/* COMPONENTE MODALE DECUPLATE */}
       <ManualLogModal 
-        visible={showAddModal}
-        onClose={closeAddModal}
-        editingMealId={editingMealId}
-        manualMeal={manualMeal}
-        setManualMeal={setManualMeal}
-        handleManualSave={handleAddManualMeal}
-        isSavingManual={isSubmitting}
+        visible={showAddModal} onClose={closeAddModal} editingMealId={editingMealId}
+        manualMeal={manualMeal} setManualMeal={setManualMeal} handleManualSave={handleAddManualMeal} isSavingManual={isSubmitting}
       />
 
-      {/* --- LIQUID GLASSY ROTARY DIAL MODAL --- */}
+      <FriendNutritionModal 
+        visible={selectedFriend !== null} onClose={() => setSelectedFriend(null)} friend={selectedFriend}
+      />
+
+      {/* DIAL MODAL */}
       <Modal visible={macroDial.visible} animationType="fade" transparent={true}>
         <View className="flex-1 bg-[#090E17]/95 justify-center items-center relative" {...panResponder.panHandlers}>
-          
-          <TouchableOpacity 
-            style={{ position: 'absolute', top: insets.top + 20, right: 20, zIndex: 100 }} 
-            onPress={() => setMacroDial({...macroDial, visible: false})}
-            className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20"
-          >
+          <TouchableOpacity onPress={() => setMacroDial({...macroDial, visible: false})} style={{ position: 'absolute', top: insets.top + 20, right: 20, zIndex: 100 }} className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20">
             <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
+          <Text className="text-white/40 text-sm font-bold tracking-[5px] uppercase absolute top-40 pointer-events-none">TARGET {macroDial.label}</Text>
 
-          <Text className="text-white/40 text-sm font-bold tracking-[5px] uppercase absolute top-40 pointer-events-none">
-            TARGET {macroDial.label}
-          </Text>
-
-          {/* FITNESS RING STYLE WITH DYNAMIC COLOR */}
           <View className="items-center justify-center pointer-events-none">
-            <View 
-              style={{ backgroundColor: uiParams.currentColor, shadowColor: uiParams.currentColor, shadowRadius: 40, shadowOpacity: 0.6, shadowOffset: {width: 0, height: 0} }}
-              className="w-[280px] h-[280px] rounded-full items-center justify-center p-3"
-            >
+            <View style={{ backgroundColor: uiParams.currentColor, shadowColor: uiParams.currentColor, shadowRadius: 40, shadowOpacity: 0.6, shadowOffset: {width: 0, height: 0} }} className="w-[280px] h-[280px] rounded-full items-center justify-center p-3">
               <View className="w-full h-full bg-[#06090E] rounded-full items-center justify-center relative shadow-inner">
-                <Text style={{ color: uiParams.currentColor }} className="text-6xl font-black tracking-tighter">
-                  {dialValue}
-                </Text>
+                <Text style={{ color: uiParams.currentColor }} className="text-6xl font-black tracking-tighter">{dialValue}</Text>
                 <Text className="text-white/50 font-bold uppercase mt-1">{macroDial.type === 'cal' ? 'kcal' : 'grams'}</Text>
-                
-                {/* LAPS INDICATOR */}
                 {uiParams.laps > 0 && (
                    <View className="absolute top-10 flex-row gap-1">
-                      {Array.from({length: Math.min(uiParams.laps, 3)}).map((_, i) => (
-                         <View key={i} className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
-                      ))}
+                      {Array.from({length: Math.min(uiParams.laps, 3)}).map((_, i) => <View key={i} className="w-1.5 h-1.5 rounded-full bg-white opacity-80" /> )}
                       {uiParams.laps > 3 && <Text className="text-white text-[8px] font-bold">+{(uiParams.laps - 3)}</Text>}
                    </View>
                 )}
-                
-                {/* ROTATING KNOB INDICATOR */}
                 <Animated.View style={{ position: 'absolute', width: '100%', height: '100%', transform: [{ rotate: `${uiParams.rotationDegrees}deg` }] }}>
                    <View className="absolute top-2 w-5 h-5 rounded-full bg-white self-center shadow-[0_0_15px_white]" />
                 </Animated.View>
@@ -405,13 +384,11 @@ export default function NutritionScreen() {
             <Ionicons name="sync" size={24} color="white" />
             <Text className="text-[10px] text-white font-bold tracking-widest mt-2">SWIRL TO ADJUST</Text>
           </View>
-
           <TouchableOpacity onPress={saveMacroGoal} disabled={isSavingDial} className="absolute bottom-20 z-50">
             <LinearGradient colors={[uiParams.currentColor, '#ffffff']} className="px-10 h-14 rounded-full items-center justify-center flex-row shadow-[0_0_20px_rgba(255,255,255,0.2)]">
               {isSavingDial ? <ActivityIndicator color="#090E17" /> : <Text className="text-[#090E17] font-black text-lg tracking-wider">SET GOAL</Text>}
             </LinearGradient>
           </TouchableOpacity>
-
         </View>
       </Modal>
 
