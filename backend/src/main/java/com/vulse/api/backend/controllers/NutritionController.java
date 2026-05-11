@@ -27,8 +27,14 @@ public class NutritionController {
 
     @GetMapping("/log")
     public ResponseEntity<List<SavedMeal>> getDailyLog(@AuthenticationPrincipal User user, @RequestParam("date") String dateString) {
-        LocalDate date = LocalDate.parse(dateString); // Expected format: YYYY-MM-DD
+        LocalDate date = LocalDate.parse(dateString);
         return ResponseEntity.ok(nutritionService.getDailyLog(user, date));
+    }
+
+    @GetMapping("/friends/log")
+    public ResponseEntity<List<Map<String, Object>>> getFriendsDailyLog(@AuthenticationPrincipal User user, @RequestParam("date") String dateString) {
+        LocalDate date = LocalDate.parse(dateString);
+        return ResponseEntity.ok(nutritionService.getFriendsDailyLog(user, date));
     }
 
     @DeleteMapping("/{mealId}")
@@ -37,7 +43,6 @@ public class NutritionController {
         return ResponseEntity.noContent().build();
     }
 
-    // Endpoint for manual meal entry
     @PostMapping("/manual")
     public ResponseEntity<Void> addManualMeal(@AuthenticationPrincipal User user, @RequestBody Map<String, Object> payload) {
         LocalDate date = payload.containsKey("date") ? LocalDate.parse((String) payload.get("date")) : LocalDate.now();
