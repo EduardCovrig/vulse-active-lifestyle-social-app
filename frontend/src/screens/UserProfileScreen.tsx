@@ -29,6 +29,9 @@ export default function UserProfileScreen() {
   const [userPosts, setUserPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
+  
+  // Status-ul tau (daca ai postat azi)
+  const [iHavePostedToday, setIHavePostedToday] = useState(false);
 
   const [showFollowers, setShowFollowers] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
@@ -56,13 +59,19 @@ export default function UserProfileScreen() {
   const fetchProfileData = async () => {
     setLoading(true);
     try {
-      const [profileRes, postsRes] = await Promise.all([
+      // Tragem datele profilului + log-ul tau zilnic (ca sa vedem daca ai postat)
+      const [profileRes, postsRes, circleRes] = await Promise.all([
         api.get(`/users/${username}/profile`),
-        api.get(`/posts/user/${username}`)
+        api.get(`/posts/user/${username}`),
+        api.get('/users/circle') // Folosim asta ca sa aflam statusul tau
       ]);
       setProfile(profileRes.data);
       setIsFollowing(profileRes.data.isFollowing || false);
       setUserPosts(postsRes.data || []);
+      
+      const me = circleRes.data.find((c: any) => c.isMe);
+      setIHavePostedToday(me?.hasPosted || false);
+
     } catch (error: any) {
       console.log("UserProfile error:", error.response?.data || error.message);
     } finally {
@@ -78,7 +87,6 @@ export default function UserProfileScreen() {
     try {
       await api.post(`/users/${profile.id}/follow`);
       setIsFollowing(!isFollowing);
-      // Update count optimistically
       setProfile((prev: any) => ({
         ...prev,
         followersCount: isFollowing 
@@ -106,6 +114,13 @@ export default function UserProfileScreen() {
       const res = await api.get(`/users/${username}/following`);
       setFollowingList(res.data);
     } catch(e) {} finally { setLoadingLists(false); }
+  };
+
+  // Helper pentru a verifica daca o postare e mai veche de 24h
+  const isWithinLast24Hours = (dateStr: string) => {
+    const postDate = new Date(dateStr).getTime();
+    const now = Date.now();
+    return (now - postDate) < 24 * 60 * 60 * 1000;
   };
 
   if (loading) {
@@ -181,31 +196,55 @@ export default function UserProfileScreen() {
         {/* 3 Column Grid */}
         <View className="px-1">
           <View className="flex-row flex-wrap justify-start" style={{ gap: GRID_GAP }}>
-             {userPosts.map((post) => (
-               <TouchableOpacity 
-                 key={post.id} 
-                 onPress={() => {
-                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                   setSelectedPost(post);
-                 }}
-                 style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
-                 className="bg-white/[0.03] rounded-lg overflow-hidden relative"
-               >
-                 <Image source={{ uri: post.mediaUrl }} className="w-full h-full" resizeMode="cover" />
-                 <View className="absolute bottom-1.5 left-1.5 flex-row gap-1">
-                   {post.calories && (
-                     <View className="bg-black/40 rounded-full flex-row items-center px-1.5 py-0.5">
-                       <Ionicons name="flame" size={7} color="#7ad7c6" />
+             {userPosts.map((post) => {
+               // VERIFICARE LOGICA PENTRU LOCK
+               // Se blocheaza doar daca: tu nu ai postat azi + postarea prietenului e DAILY + pusa in ultimele 24h
+               const isLocked = !iHavePostedToday && post.type === 'DAILY' && isWithinLast24Hours(post.createdAt);
+
+               return (
+                 <TouchableOpacity 
+                   key={post.id} 
+                   onPress={() => {
+                     if (isLocked) {
+                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                       Alert.alert("Locked 🔒", "Post your Daily Snap to unlock your friends' latest daily moments!");
+                       return;
+                     }
+                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                     setSelectedPost(post);
+                   }}
+                   style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
+                   className="bg-white/[0.03] rounded-lg overflow-hidden relative items-center justify-center"
+                 >
+                   <Image 
+                     source={{ uri: post.mediaUrl }} 
+                     className="absolute inset-0 w-full h-full" 
+                     resizeMode="cover" 
+                     blurRadius={isLocked ? 12 : 0} // Bluram complet daca e locked
+                   />
+                   
+                   {/* Dacă e locked, punem un overlay dark și lacătul */}
+                   {isLocked && (
+                     <View className="absolute inset-0 bg-black/40 items-center justify-center">
+                       <Ionicons name="lock-closed" size={24} color="rgba(255,255,255,0.9)" />
                      </View>
                    )}
-                   {post.type === 'REEL' && (
-                     <View className="bg-black/40 rounded-full flex-row items-center px-1.5 py-0.5">
-                       <Ionicons name="play" size={7} color="rgba(255,255,255,0.8)" />
-                     </View>
-                   )}
-                 </View>
-               </TouchableOpacity>
-             ))}
+
+                   <View className="absolute bottom-1.5 left-1.5 flex-row gap-1">
+                     {post.calories && !isLocked && (
+                        <View className="bg-black/40 rounded-full flex-row items-center px-1.5 py-0.5">
+                          <Ionicons name="flame" size={7} color="#7ad7c6" />
+                        </View>
+                     )}
+                     {post.type === 'REEL' && (
+                        <View className="bg-black/40 rounded-full flex-row items-center px-1.5 py-0.5">
+                          <Ionicons name="play" size={7} color="rgba(255,255,255,0.8)" />
+                        </View>
+                     )}
+                   </View>
+                 </TouchableOpacity>
+               );
+             })}
              {userPosts.length === 0 && (
                <View className="w-full py-16 items-center justify-center">
                  <Ionicons name="camera-outline" size={32} color="rgba(255,255,255,0.08)" />
