@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { View, Text, Image, Pressable, Animated, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, Image, Pressable, Animated, TouchableOpacity, Alert, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons'; 
 import * as Haptics from 'expo-haptics';
@@ -41,7 +41,6 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
   const [likesCount, setLikesCount] = useState<number>(post.likesCount || 0);
   const [recentReactions, setRecentReactions] = useState<string[]>(post.recentReactions || []);
 
-  // SINCRONIZARE LIVE: Dacă postarea se schimbă din exterior, actualizăm și UI-ul local
   useEffect(() => {
     setIsLiked(post.isLiked || false);
     setLikesCount(post.likesCount || 0);
@@ -53,15 +52,14 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
   const lastTapRef = useRef(0);
   const [showReactions, setShowReactions] = useState(false);
 
+  const isFullScreenReel = post.type === 'REEL' && cardHeight === Dimensions.get('window').height;
+
   const toggleLike = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const newLikedState = !isLiked;
     
     setIsLiked(newLikedState);
-    // FIX PENTRU EROAREA TYPESCRIPT: am specificat tipul (prev: number) explicit
     setLikesCount((prev: number) => newLikedState ? prev + 1 : prev - 1);
-    
-    // Notificăm ecranul părinte ca să se actualizeze
     if (onLikeToggled) onLikeToggled(post.id, newLikedState);
 
     try { await api.post(`/interactions/${post.id}/like`); } 
@@ -86,8 +84,6 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onReactRequest) {
       onReactRequest(post.id);
-    } else {
-      Alert.alert("Camera unavailable", "Custom camera reaction is not implemented on this screen yet.");
     }
   };
 
@@ -140,23 +136,22 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
   };
 
   return (
-    <View style={{ height: cardHeight, minHeight: 400 }} className="w-full relative mb-5">
-      <Animated.View style={{ transform: [{ scale: cardScale }] }} className="flex-1 rounded-[32px] overflow-hidden bg-black/40 border-[0.5px] border-white/10 relative shadow-2xl">
+    <View style={{ height: cardHeight, minHeight: 400, width: isFullScreenReel ? '100%' : 'auto' }} className={`relative ${isFullScreenReel ? '' : 'mb-5 w-full'}`}>
+      <Animated.View style={{ transform: [{ scale: cardScale }] }} className={`flex-1 overflow-hidden relative ${isFullScreenReel ? 'bg-black rounded-none border-0' : 'rounded-[32px] bg-black/40 border-[0.5px] border-white/10 shadow-2xl'}`}>
         <Pressable 
           onPress={handleDoubleTap} 
           onLongPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            // Dacă din componenta părinte nu trimit poză anume, apelăm simplu fără argumente
             if (onImageLongPress) onImageLongPress();
           }}
           delayLongPress={350}
           style={{ flex: 1, position: 'relative' }}
         >
           <Image source={{ uri: post.mediaUrl }} className="w-full h-full object-cover" />
-          <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.6)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none" />
+          <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.85)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none" />
 
           {post.frontMediaUrl && (
-            <View className="absolute top-16 right-4 w-24 h-32 rounded-2xl border-[1.5px] border-white/20 overflow-hidden shadow-2xl z-10 bg-black/40">
+            <View className={`absolute right-4 w-24 h-32 rounded-2xl border-[1.5px] border-white/20 overflow-hidden shadow-2xl z-10 bg-black/40 ${isFullScreenReel ? 'top-24' : 'top-16'}`}>
                <Image source={{ uri: post.frontMediaUrl }} className="w-full h-full object-cover" />
             </View>
           )}
@@ -167,52 +162,76 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
             </BlurView>
           </Animated.View>
 
-          <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} style={{ zIndex: 100, elevation: 100 }} className="absolute top-5 left-5 flex-row items-center gap-2.5">
-            <View className="w-9 h-9 rounded-full bg-white/10 items-center justify-center overflow-hidden border-[0.5px] border-white/20">
-              {post.author?.profilePicUrl ? (
-                <Image source={{ uri: post.author.profilePicUrl }} className="w-full h-full" />
-              ) : (
-                <Text className="text-white font-semibold text-xs">{post.author?.username?.charAt(0).toUpperCase()}</Text>
-              )}
-            </View>
-            <View>
-              <Text className="text-white text-sm font-bold tracking-tight shadow-sm">{post.author?.username}</Text>
-              <Text className="text-white/60 text-[9px] font-bold uppercase tracking-widest">{getRelativeTime(post.createdAt)}</Text>
-            </View>
-          </BouncyPressable>
+          {/* DACA NU E REEL FULL SCREEN, APARE SUS */}
+          {!isFullScreenReel && (
+            <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} style={{ zIndex: 100, elevation: 100 }} className="absolute top-5 left-5 flex-row items-center gap-2.5">
+              <View className="w-9 h-9 rounded-full bg-white/10 items-center justify-center overflow-hidden border-[0.5px] border-white/20">
+                {post.author?.profilePicUrl ? (
+                  <Image source={{ uri: post.author.profilePicUrl }} className="w-full h-full" />
+                ) : (
+                  <Text className="text-white font-semibold text-xs">{post.author?.username?.charAt(0).toUpperCase()}</Text>
+                )}
+              </View>
+              <View>
+                <Text className="text-white text-sm font-bold tracking-tight shadow-sm">{post.author?.username}</Text>
+                <Text className="text-white/60 text-[9px] font-bold uppercase tracking-widest">{getRelativeTime(post.createdAt)}</Text>
+              </View>
+            </BouncyPressable>
+          )}
 
-          <TouchableOpacity onPress={handleOptions} style={{ zIndex: 100, elevation: 100 }} className="absolute top-5 right-5 w-8 h-8 bg-black/20 rounded-full items-center justify-center border-[0.5px] border-white/10">
+          <TouchableOpacity onPress={handleOptions} style={{ zIndex: 100, elevation: 100 }} className={`absolute right-5 w-8 h-8 bg-black/20 rounded-full items-center justify-center border-[0.5px] border-white/10 ${isFullScreenReel ? 'top-16' : 'top-5'}`}>
             <Ionicons name="ellipsis-horizontal" size={16} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
 
-          <View className="absolute bottom-5 inset-x-5 z-20">
+          {/* PARTEA DE JOS: TEXT SI BUTOANE */}
+          <View className="absolute inset-x-5 z-20" style={{ bottom: isFullScreenReel ? 115 : 20 }}>
+            
+            {/* DACA E REEL FULL SCREEN, APARE AUTORUL JOS (STIL TIKTOK) */}
+            {isFullScreenReel && (
+              <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} className="flex-row items-center gap-3 mb-3">
+                <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center overflow-hidden border-[1px] border-white/30">
+                  {post.author?.profilePicUrl ? (
+                    <Image source={{ uri: post.author.profilePicUrl }} className="w-full h-full" />
+                  ) : (
+                    <Text className="text-white font-bold text-sm">{post.author?.username?.charAt(0).toUpperCase()}</Text>
+                  )}
+                </View>
+                <View>
+                  <Text className="text-white text-base font-extrabold tracking-tight shadow-sm">{post.author?.username}</Text>
+                  <Text className="text-white/80 text-[10px] font-semibold uppercase tracking-widest">{getRelativeTime(post.createdAt)}</Text>
+                </View>
+              </BouncyPressable>
+            )}
+
             {post.caption && post.type !== 'DAILY' && (
-              <Text className="text-white/90 text-[14px] mb-4 leading-5 font-medium shadow-sm">{post.caption}</Text>
+              <Text className="text-white/95 text-[14px] mb-4 leading-5 font-medium shadow-md">{post.caption}</Text>
             )}
             
             <View className="flex-row justify-between items-center">
               <View className="flex-row items-center gap-5">
                 <TouchableOpacity onPress={toggleLike} className="flex-row items-center gap-1.5">
-                  <Ionicons name={isLiked ? "heart" : "heart-outline"} size={24} color={isLiked ? "#ff4b4b" : "rgba(255,255,255,0.9)"} />
-                  <Text className={`font-bold text-[13px] ${isLiked ? 'text-white' : 'text-white/80'}`}>{likesCount}</Text>
+                  <Ionicons name={isLiked ? "heart" : "heart-outline"} size={26} color={isLiked ? "#ff4b4b" : "rgba(255,255,255,0.95)"} />
+                  <Text className={`font-bold text-[14px] ${isLiked ? 'text-white' : 'text-white/80'}`}>{likesCount}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => onOpenComments(post.id)} className="flex-row items-center gap-1.5">
-                  <Ionicons name="chatbubble-outline" size={22} color="rgba(255,255,255,0.9)" />
-                  {/* Citim direct de pe POST numarul (live props) */}
-                  <Text className="text-white/80 font-bold text-[13px]">{post.commentsCount || 0}</Text>
+                  <Ionicons name="chatbubble-outline" size={24} color="rgba(255,255,255,0.95)" />
+                  <Text className="text-white/90 font-bold text-[14px]">{post.commentsCount || 0}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={handleAddReaction} className="w-8 h-8 rounded-full border-[0.5px] border-white/30 bg-white/10 items-center justify-center">
-                  <Ionicons name="camera-outline" size={16} color="rgba(255,255,255,0.8)" />
-                </TouchableOpacity>
+                {/* ASCUNDEM REACTIILE LA REELS */}
+                {post.type !== 'REEL' && (
+                  <TouchableOpacity onPress={handleAddReaction} className="w-9 h-9 rounded-full border-[0.5px] border-white/30 bg-white/15 items-center justify-center">
+                    <Ionicons name="camera-outline" size={18} color="rgba(255,255,255,0.9)" />
+                  </TouchableOpacity>
+                )}
               </View>
 
               <View className="flex-row items-center gap-2.5">
-                {recentReactions.length > 0 && (
+                {recentReactions.length > 0 && post.type !== 'REEL' && (
                   <TouchableOpacity onPress={() => setShowReactions(true)} className="flex-row-reverse">
                     {recentReactions.slice(0, 3).map((uri: string, index: number) => (
-                      <View key={index} style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', marginRight: index > 0 ? -10 : 0 }}>
+                      <View key={index} style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', marginRight: index > 0 ? -12 : 0 }}>
                          <Image source={{ uri }} className="w-full h-full object-cover" />
                       </View>
                     ))}
@@ -220,9 +239,9 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
                 )}
 
                 {post.calories && (
-                  <View className="border-[0.5px] border-[#7ad7c6]/40 rounded-full px-3 py-1.5 flex-row items-center gap-1.5 bg-[#7ad7c6]/20">
+                  <View className="border-[0.5px] border-[#7ad7c6]/50 rounded-full px-3 py-1.5 flex-row items-center gap-1.5 bg-[#7ad7c6]/20">
                     <Ionicons name="flame" size={12} color="#7ad7c6" />
-                    <Text className="text-[#7ad7c6] font-black text-[10px] uppercase tracking-wider">{post.calories}</Text>
+                    <Text className="text-[#7ad7c6] font-black text-[11px] uppercase tracking-wider">{post.calories}</Text>
                   </View>
                 )}
               </View>

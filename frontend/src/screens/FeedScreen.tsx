@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, Dimensions, StyleSheet, ActivityIndicator, Text, Modal } from 'react-native';
+import { View, FlatList, Dimensions, StyleSheet, ActivityIndicator, Text, Modal, TextInput, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import LiquidPostCard from '../components/LiquidPostCard';
@@ -8,9 +8,12 @@ import CameraScreen from './CameraScreen';
 import ProfileScreen from './ProfileScreen';
 import FriendsScreen from './FriendsScreen';
 import NutritionScreen from './NutritionScreen';
+import SwipeableModal from '../components/SwipeableModal';
 import { api } from '../services/api';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
@@ -22,7 +25,11 @@ export default function FeedScreen() {
   const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
   const [hideTabBar, setHideTabBar] = useState(false);
 
-  const CARD_HEIGHT = height - insets.top - insets.bottom - 100;
+  // States pentru comentarii (Global Feed)
+  const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
 
   const fetchGlobalFeed = async () => {
     try {
@@ -62,11 +69,35 @@ export default function FeedScreen() {
     } catch (error) {}
   };
 
+  // Functii Comentarii
+  const openComments = async (postId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveCommentsPostId(postId);
+    setLoadingComments(true);
+    try {
+      const res = await api.get(`/comments/${postId}?page=0&size=50`);
+      setComments(res.data.content);
+    } catch (e) {} finally { setLoadingComments(false); }
+  };
+
+  const submitComment = async () => {
+    if (!newComment.trim() || !activeCommentsPostId) return;
+    const text = newComment;
+    setNewComment('');
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await api.post(`/comments/${activeCommentsPostId}`, { text });
+      const res = await api.get(`/comments/${activeCommentsPostId}?page=0&size=50`);
+      setComments(res.data.content);
+      setPosts(curr => curr.map(p => p.id === activeCommentsPostId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p));
+    } catch (e) {}
+  };
+
   return (
     <View style={StyleSheet.absoluteFill} className="bg-[#090E17]">
       <View className="flex-1">
         {activeTab === 'feed' ? (
-          <View className="flex-1" style={{ paddingTop: insets.top }}>
+          <View className="flex-1 bg-black">
             {loading ? (
               <ActivityIndicator size="large" color="#7dd3fc" className="mt-20" />
             ) : posts.length === 0 ? (
@@ -77,9 +108,10 @@ export default function FeedScreen() {
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 pagingEnabled
-                snapToInterval={CARD_HEIGHT + 20}
+                snapToInterval={height}
+                snapToAlignment="start"
                 decelerationRate="fast"
-                contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 150 }}
+                contentContainerStyle={{ paddingBottom: 0 }}
                 removeClippedSubviews={true}
                 initialNumToRender={3}
                 maxToRenderPerBatch={3}
@@ -87,17 +119,19 @@ export default function FeedScreen() {
                 onRefresh={fetchGlobalFeed}
                 refreshing={loading}
                 renderItem={({ item }) => (
-                  <LiquidPostCard 
-                    post={item} 
-                    cardHeight={CARD_HEIGHT} 
-                    onOpenProfile={(username) => navigation.navigate('UserProfile', { username })}
-                    onOpenComments={() => console.log("Global comments in progress")}
-                    onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
-                    onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
-                    onLikeToggled={handleLikeToggled}
-                    onReactRequest={(id) => setReactingToPostId(id)}
-                    onEditCaption={(id, text) => console.log("Edit")}
-                  />
+                  <View style={{ height, width }}>
+                    <LiquidPostCard 
+                      post={item} 
+                      cardHeight={height} 
+                      onOpenProfile={(username) => navigation.navigate('UserProfile', { username })}
+                      onOpenComments={() => openComments(item.id)}
+                      onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
+                      onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
+                      onLikeToggled={handleLikeToggled}
+                      onReactRequest={(id) => setReactingToPostId(id)}
+                      onEditCaption={(id, text) => console.log("Edit")}
+                    />
+                  </View>
                 )}
               />
             )}
@@ -111,9 +145,11 @@ export default function FeedScreen() {
         ) : null}
       </View>
 
-      {activeTab !== 'camera' && reactingToPostId === null && !hideTabBar && (
+      {/* Am adaugat activeCommentsPostId === null ca bara sa se ascunda cand scrii commenturi */}
+      {activeTab !== 'camera' && reactingToPostId === null && activeCommentsPostId === null && !hideTabBar && (
         <GlassTabBar activeTab={activeTab} onTabPress={(tab) => setActiveTab(tab as any)} />
       )}
+      
       {activeTab === 'camera' && (
         <View style={StyleSheet.absoluteFill} className="z-[100]">
           <CameraScreen onClose={() => setActiveTab('friends')} />
@@ -132,6 +168,48 @@ export default function FeedScreen() {
           )}
         </View>
       </Modal>
+
+      {/* COMMENTS MODAL FOR GLOBAL FEED - CU PROTECTII ?. ACTIVE */}
+      <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>
+        {loadingComments ? (
+          <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
+        ) : (
+          <FlatList
+            data={comments}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+            renderItem={({ item }) => (
+              <View className="flex-row gap-3 mb-4">
+                <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
+                  {item?.user?.profilePicUrl ? (
+                    <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" />
+                  ) : (
+                    <Text className="text-white/60 text-xs font-semibold">
+                      {item?.user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                    </Text>
+                  )}
+                </View>
+                <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
+                  <Text className="text-[#7dd3fc] text-[10px] font-bold mb-1 tracking-wider uppercase">
+                    {item?.user?.username || 'Unknown'}
+                  </Text>
+                  <Text className="text-white/90 text-[13px] leading-5">{item?.text || ''}</Text>
+                </View>
+              </View>
+            )}
+            ListEmptyComponent={<Text className="text-white/20 text-center mt-10 text-xs">No comments yet.</Text>}
+          />
+        )}
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(9,14,23,0.95)' }}>
+          <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.2)" keyboardAppearance="dark" style={{ flex: 1, height: 44, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 22, paddingHorizontal: 16, color: 'white', fontSize: 14, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />
+          <TouchableOpacity onPress={submitComment} disabled={!newComment.trim()} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: newComment.trim() ? '#7dd3fc' : 'rgba(255,255,255,0.04)' }}>
+            <Ionicons name="arrow-up" size={20} color={newComment.trim() ? '#090E17' : 'rgba(255,255,255,0.15)'} />
+          </TouchableOpacity>
+        </View>
+      </SwipeableModal>
+
     </View>
   );
 }

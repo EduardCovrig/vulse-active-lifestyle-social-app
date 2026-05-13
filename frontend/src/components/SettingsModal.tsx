@@ -15,7 +15,6 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ visible, onClose, onOpenBlockedUsers, onLogout, onDeleteAccount }: SettingsModalProps) {
   const settingsItems = [
-    { icon: 'notifications-outline' as const, label: 'Notifications', color: 'rgba(255,255,255,0.7)', onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onClose(); } },
     { icon: 'shield-half-outline' as const, label: 'Blocked Users', color: 'rgba(255,255,255,0.7)', onPress: onOpenBlockedUsers },
     { icon: 'log-out-outline' as const, label: 'Sign Out', color: 'rgba(255,255,255,0.7)', onPress: () => { onClose(); onLogout(); } },
     { icon: 'trash-outline' as const, label: 'Delete Account', color: '#ff6b6b', onPress: () => { onClose(); onDeleteAccount(); }, danger: true },

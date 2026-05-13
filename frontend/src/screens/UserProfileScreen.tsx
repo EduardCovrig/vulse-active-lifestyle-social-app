@@ -12,7 +12,6 @@ import BouncyPressable from '../components/BouncyPressable';
 import UserListModal from '../components/UserListModal';
 import ImagePopoutModal from '../components/ImagePopoutModal';
 import SwipeableModal from '../components/SwipeableModal';
-import CalendarModal from '../components/CalendarModal';
 import CameraScreen from './CameraScreen';
 
 const HEADER_HEIGHT = 180;
@@ -22,7 +21,7 @@ const ITEM_WIDTH = (width - 8 - (GRID_GAP * 2)) / 3;
 
 export default function UserProfileScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute();
   const { username: myUsername } = useContext(AuthContext);
   const { username } = route.params as { username: string };
@@ -39,10 +38,6 @@ export default function UserProfileScreen() {
   const [followersList, setFollowersList] = useState<any[]>([]);
   const [followingList, setFollowingList] = useState<any[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
-
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [calendarSnaps, setCalendarSnaps] = useState<any[]>([]);
-  const [loadingCalendar, setLoadingCalendar] = useState(false);
 
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -112,11 +107,6 @@ export default function UserProfileScreen() {
   const openFollowing = async () => {
     setShowFollowing(true); setLoadingLists(true);
     try { const res = await api.get(`/users/${username}/following`); setFollowingList(res.data); } catch(e) {} finally { setLoadingLists(false); }
-  };
-
-  const openCalendar = async () => {
-    setShowCalendar(true); setLoadingCalendar(true);
-    try { const res = await api.get(`/users/${username}/calendar`); setCalendarSnaps(res.data); } catch(e) {} finally { setLoadingCalendar(false); }
   };
 
   const openComments = async (postId: string) => {
@@ -211,46 +201,52 @@ export default function UserProfileScreen() {
         className="z-10"
       >
         <View className="items-center px-6">
-          <Animated.View style={{ transform: [{ scale: profilePicScale }] }} className="mb-3">
-            <View className="p-[1.5px] rounded-full bg-white/15">
-              <View className="w-[88px] h-[88px] rounded-full bg-[#0c1018] overflow-hidden items-center justify-center">
-                {profile?.profilePicUrl ? <Image source={{ uri: profile.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white font-bold text-3xl">{profile?.username?.charAt(0).toUpperCase()}</Text>}
+          <Animated.View style={{ transform: [{ scale: profilePicScale }] }} className="mb-4">
+            <View className="p-[2px] rounded-full bg-white/15 shadow-xl shadow-black/50">
+              <View className="w-[100px] h-[100px] rounded-full bg-[#0c1018] overflow-hidden items-center justify-center">
+                {profile?.profilePicUrl ? <Image source={{ uri: profile.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white font-bold text-4xl">{profile?.username?.charAt(0).toUpperCase()}</Text>}
               </View>
             </View>
           </Animated.View>
 
-          <Text className="text-white font-bold text-2xl tracking-tight mb-0.5">{profile?.username}</Text>
-          <Text className="text-white/40 text-[13px] text-center max-w-[80%] mb-5">{profile?.bio || 'Living the active life'}</Text>
+          <Text className="text-white font-black text-[28px] tracking-tight mb-2">{profile?.username}</Text>
+          <Text className="text-white/70 text-[14px] text-center max-w-[80%] mb-6 font-medium leading-5">{profile?.bio || 'Living the active life'}</Text>
 
-          <View className="flex-row items-center mb-5 bg-white/[0.02] py-2.5 px-2 rounded-[22px] border-[0.5px] border-white/[0.04] w-full">
-            <BouncyPressable onPress={openFollowers} style={{ flex: 1 }} className="items-center">
-              <Text className="text-white font-bold text-[16px]">{profile?.followersCount || 0}</Text>
-              <Text className="text-white/30 text-[7.5px] font-bold tracking-[1.5px] uppercase mt-0.5">Followers</Text>
-            </BouncyPressable>
-            <View style={{ width: 0.5, height: 20, backgroundColor: 'rgba(255,255,255,0.06)' }} />
-            <View style={{ flex: 1 }} className="items-center">
-              <Text className="text-white font-bold text-[16px]">{userPosts.length}</Text>
-              <Text className="text-white/30 text-[7.5px] font-bold tracking-[1.5px] uppercase mt-0.5">Posts</Text>
+          <View className="px-5 w-full mb-6">
+            <View className="flex-row justify-evenly items-center py-4 px-2 rounded-full border border-white/10 bg-white/[0.03] shadow-lg shadow-black/50 w-full">
+              <BouncyPressable onPress={openFollowers} className="items-center w-24">
+                <Text className="text-white font-black text-[20px]">{profile?.followersCount || 0}</Text>
+                <Text className="text-white/40 text-[10px] uppercase font-bold mt-1">Followers</Text>
+              </BouncyPressable>
+              
+              <View className="w-[1px] h-6 bg-white/20" />
+              
+              <View className="items-center w-24">
+                <Text className="text-white font-black text-[20px]">{userPosts.length}</Text>
+                <Text className="text-white/40 text-[10px] uppercase font-bold mt-1">Posts</Text>
+              </View>
+
+              <View className="w-[1px] h-6 bg-white/20" />
+              
+              <BouncyPressable onPress={openFollowing} className="items-center w-24">
+                <Text className="text-white font-black text-[20px]">{profile?.followingCount || 0}</Text>
+                <Text className="text-white/40 text-[10px] uppercase font-bold mt-1">Following</Text>
+              </BouncyPressable>
             </View>
-            <View style={{ width: 0.5, height: 20, backgroundColor: 'rgba(255,255,255,0.06)' }} />
-            <BouncyPressable onPress={openFollowing} style={{ flex: 1 }} className="items-center">
-              <Text className="text-white font-bold text-[16px]">{profile?.followingCount || 0}</Text>
-              <Text className="text-white/30 text-[7.5px] font-bold tracking-[1.5px] uppercase mt-0.5">Following</Text>
-            </BouncyPressable>
           </View>
 
-          {username !== myUsername && (
-            <TouchableOpacity 
-              onPress={handleFollowUser} 
-              className={`px-8 py-2.5 rounded-full mb-8 ${isFollowing ? 'bg-white/[0.06] border border-white/[0.1]' : 'bg-[#7ad7c6]'}`}
-              style={!isFollowing ? { shadowColor: '#7ad7c6', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 10 } : {}}
-            >
-              <Text className={`font-bold text-sm tracking-wide ${isFollowing ? 'text-white/70' : 'text-[#090E17]'}`}>
-                {isFollowing ? 'Following ✓' : 'Follow'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity 
+            onPress={handleFollowUser} 
+            className={`px-12 py-3.5 rounded-full mb-8 ${isFollowing ? 'bg-white/[0.06] border border-white/[0.1]' : 'bg-[#7ad7c6]'}`}
+            style={!isFollowing ? { shadowColor: '#7ad7c6', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 10 } : {}}
+          >
+            <Text className={`font-bold text-[15px] tracking-wide ${isFollowing ? 'text-white/70' : 'text-[#090E17]'}`}>
+              {isFollowing ? 'Following ✓' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
         </View>
+
+        {/* FĂRĂ CALENDAR AICI (INTIMITATE) */}
 
         <View className="px-1">
           <View className="flex-row flex-wrap justify-start" style={{ gap: GRID_GAP }}>
@@ -311,21 +307,29 @@ export default function UserProfileScreen() {
         </View>
       </Animated.ScrollView>
 
-      <CalendarModal 
-        visible={showCalendar} 
-        onClose={() => setShowCalendar(false)} 
-        loading={loadingCalendar} 
-        snaps={calendarSnaps} 
-        onSnapPress={(url) => {
-           setShowCalendar(false);
-           setTimeout(() => setSelectedImage(url), 350); 
-        }}
+      <UserListModal 
+        visible={showFollowers} 
+        onClose={() => setShowFollowers(false)} 
+        title="Followers" 
+        users={followersList} 
+        loading={loadingLists} 
+        onUserTap={(u) => { setShowFollowers(false); navigation.navigate('UserProfile', { username: u }); }}
       />
-      
-      <UserListModal visible={showFollowers} onClose={() => setShowFollowers(false)} title="Followers" users={followersList} loading={loadingLists} onUserTap={(uid) => {}} />
-      <UserListModal visible={showFollowing} onClose={() => setShowFollowing(false)} title="Following" users={followingList} loading={loadingLists} onUserTap={(uid) => {}} />
+      <UserListModal 
+        visible={showFollowing} 
+        onClose={() => setShowFollowing(false)} 
+        title="Following" 
+        users={followingList} 
+        loading={loadingLists} 
+        onUserTap={(u) => { setShowFollowing(false); navigation.navigate('UserProfile', { username: u }); }}
+      />
 
-      {/* UNIFIED VIEWER MODAL AICI */}
+      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => { setReactingToPostId(null); }}>
+        <View style={{ flex: 1, backgroundColor: 'black' }}>
+          {reactingToPostId && <CameraScreen mode="reaction" onClose={() => { setReactingToPostId(null); }} onCapture={handleReactionCapture} />}
+        </View>
+      </Modal>
+
       <ImagePopoutModal 
         visible={selectedPost !== null || selectedImage !== null} 
         post={selectedPost} 
@@ -346,20 +350,6 @@ export default function UserProfileScreen() {
         }}
       />
 
-      {/* REACTION CAMERA OVERLAY */}
-      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => setReactingToPostId(null)}>
-        <View style={{ flex: 1, backgroundColor: 'black' }}>
-          {reactingToPostId && (
-            <CameraScreen 
-              mode="reaction" 
-              onClose={() => setReactingToPostId(null)} 
-              onCapture={handleReactionCapture} 
-            />
-          )}
-        </View>
-      </Modal>
-
-      {/* COMMENTS MODAL (Daca se da click pe iconita din Unified Viewer) */}
       <SwipeableModal 
         visible={activeCommentsPostId !== null} 
         onClose={() => setActiveCommentsPostId(null)}
@@ -377,11 +367,15 @@ export default function UserProfileScreen() {
             renderItem={({ item }) => (
               <View className="flex-row gap-3 mb-4">
                 <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
-                  {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
+                  {item?.user?.profilePicUrl ? (
+                    <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" />
+                  ) : (
+                    <Text className="text-white/60 text-xs font-semibold">{item?.user?.username?.charAt(0).toUpperCase() || 'U'}</Text>
+                  )}
                 </View>
                 <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
-                  <Text className="text-[#7dd3fc] text-[10px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
-                  <Text className="text-white/90 text-[13px] leading-5">{item.text}</Text>
+                  <Text className="text-[#7dd3fc] text-[10px] font-bold mb-1 tracking-wider uppercase">{item?.user?.username || 'Unknown'}</Text>
+                  <Text className="text-white/90 text-[13px] leading-5">{item?.text || ''}</Text>
                 </View>
               </View>
             )}

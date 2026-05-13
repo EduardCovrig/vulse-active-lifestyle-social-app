@@ -9,7 +9,7 @@ interface UserListModalProps {
   title: string;
   users: any[];
   loading: boolean;
-  onUserTap?: (userId: string) => void;
+  onUserTap?: (username: string) => void;
 }
 
 export default function UserListModal({ visible, onClose, title, users, loading, onUserTap }: UserListModalProps) {
@@ -29,7 +29,11 @@ export default function UserListModal({ visible, onClose, title, users, loading,
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16, paddingTop: 8 }}
           renderItem={({ item }) => (
-            <TouchableOpacity activeOpacity={0.7} onPress={() => onUserTap && onUserTap(item.id)} className="flex-row items-center justify-between py-3" style={{ borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.04)' }}>
+            <TouchableOpacity 
+              activeOpacity={0.7} 
+              onPress={() => onUserTap && onUserTap(item.username)} 
+              className="flex-row items-center justify-between py-3" style={{ borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.04)' }}
+            >
               <View className="flex-row items-center gap-3">
                 <View className="w-10 h-10 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.06]">
                   {item.profilePicUrl ? <Image source={{ uri: item.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 font-semibold text-sm">{item.username.charAt(0).toUpperCase()}</Text>}

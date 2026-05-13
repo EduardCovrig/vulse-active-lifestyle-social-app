@@ -56,7 +56,15 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         api.get('/users/circle')
       ]);
 
-      if (feedRes.status === 'fulfilled') setPosts(feedRes.value.data.content);
+      if (feedRes.status === 'fulfilled') {
+        const now = Date.now();
+        // FILTRU DE 24 DE ORE PENTRU FEED-UL DE PRIETENI (STERGE TOT CE E MAI VECHI DE 24H)
+        const recentPosts = feedRes.value.data.content.filter((p: any) => {
+           return (now - new Date(p.createdAt).getTime()) < 24 * 60 * 60 * 1000;
+        });
+        setPosts(recentPosts);
+      }
+      
       if (circleRes.status === 'fulfilled') setCircle(circleRes.value.data);
       else setCircle([{ id: 'me', name: 'Your Daily', img: null, hasPosted: false, isMe: true }]);
     } finally {
@@ -221,7 +229,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
             className="items-center" 
             scaleTo={0.92} 
             onPress={() => {
-              if (item.isMe && !item.hasPosted) {
+              if (item.isMe && !item.hasPosted && !iHavePosted) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 if (onOpenCamera) onOpenCamera();
               } else {
@@ -248,7 +256,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
                   </View>
                 </View>
               )}
-              {item.isMe && !item.hasPosted && (
+              {item.isMe && !item.hasPosted && !iHavePosted && (
                 <View className="absolute bottom-0 right-0 bg-[#7dd3fc] w-5 h-5 rounded-full items-center justify-center border-2 border-[#090E17]">
                   <Ionicons name="add" size={12} color="#090E17" />
                 </View>
@@ -264,44 +272,47 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
 
   return (
     <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17' }}>
+      
       <View className="px-6 mb-2 z-[200]" style={{ paddingTop: insets.top + 10 }}>
-        <BlurView intensity={40} tint="dark" className="flex-row items-center px-4 h-11 rounded-full border border-white/[0.08] bg-white/[0.03]">
-          <Ionicons name="search" size={18} color="rgba(190,200,206,0.5)" />
-          <TextInput 
-            placeholder="Search friends..." 
-            placeholderTextColor="rgba(190,200,206,0.35)" 
-            className="flex-1 ml-3 text-white text-[14px]" 
-            keyboardAppearance="dark" 
-            value={searchQuery} 
-            onChangeText={handleSearch}
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); Keyboard.dismiss(); }}>
-              <Ionicons name="close-circle" size={18} color="rgba(190,200,206,0.4)" />
-            </TouchableOpacity>
-          )}
-        </BlurView>
-
-        {searchResults.length > 0 && (
-          <View style={{ position: 'absolute', top: 56, left: 20, right: 20, zIndex: 300, backgroundColor: 'rgba(12,16,24,0.97)', borderRadius: 20, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)', paddingVertical: 6, maxHeight: 340, overflow: 'hidden' }}>
-            {searchResults.map((u, i) => (
-              <TouchableOpacity key={u.id} onPress={() => openUserProfile(u.username)} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: i < searchResults.length - 1 ? 0.5 : 0, borderBottomColor: 'rgba(255,255,255,0.04)' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }}>
-                    {u.profilePicUrl ? <Image source={{ uri: u.profilePicUrl }} style={{ width: '100%', height: '100%' }} /> : <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 14 }}>{u.username.charAt(0).toUpperCase()}</Text>}
-                  </View>
-                  <View>
-                    <Text style={{ color: 'white', fontWeight: '600', fontSize: 15, letterSpacing: 0.3 }}>{u.username}</Text>
-                    {u.mutualsText && <Text style={{ color: 'rgba(122,215,198,0.7)', fontSize: 10, fontWeight: '600', marginTop: 2, letterSpacing: 1, textTransform: 'uppercase' }}>{u.mutualsText}</Text>}
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.15)" />
+        <View className="relative z-[300]">
+          <BlurView intensity={40} tint="dark" className="flex-row items-center px-4 h-11 rounded-full border border-white/[0.08] bg-white/[0.03] overflow-hidden">
+            <Ionicons name="search" size={18} color="rgba(190,200,206,0.5)" />
+            <TextInput 
+              placeholder="Search friends..." 
+              placeholderTextColor="rgba(190,200,206,0.35)" 
+              className="flex-1 ml-3 text-white text-[14px]" 
+              keyboardAppearance="dark" 
+              value={searchQuery} 
+              onChangeText={handleSearch}
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); Keyboard.dismiss(); }}>
+                <Ionicons name="close-circle" size={18} color="rgba(190,200,206,0.4)" />
               </TouchableOpacity>
-            ))}
-          </View>
-        )}
+            )}
+          </BlurView>
+
+          {searchResults.length > 0 && (
+            <View style={{ position: 'absolute', top: 52, left: 0, right: 0, backgroundColor: 'rgba(12,16,24,0.97)', borderRadius: 20, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)', paddingVertical: 6, maxHeight: 340, overflow: 'hidden' }}>
+              {searchResults.map((u, i) => (
+                <TouchableOpacity key={u.id} onPress={() => openUserProfile(u.username)} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: i < searchResults.length - 1 ? 0.5 : 0, borderBottomColor: 'rgba(255,255,255,0.04)' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }}>
+                      {u.profilePicUrl ? <Image source={{ uri: u.profilePicUrl }} style={{ width: '100%', height: '100%' }} /> : <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 14 }}>{u.username.charAt(0).toUpperCase()}</Text>}
+                    </View>
+                    <View>
+                      <Text style={{ color: 'white', fontWeight: '600', fontSize: 15, letterSpacing: 0.3 }}>{u.username}</Text>
+                      {u.mutualsText && <Text style={{ color: 'rgba(122,215,198,0.7)', fontSize: 10, fontWeight: '600', marginTop: 2, letterSpacing: 1, textTransform: 'uppercase' }}>{u.mutualsText}</Text>}
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.15)" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
 
       <FlatList
@@ -350,12 +361,13 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
                 setEditCaptionText(text);
                 setEditingPost(id);
               }}
-              onImageLongPress={() => setPopoutPost(item)} // ZOOM
+              onImageLongPress={() => setPopoutPost(item)}
             />
           </View>
         )}
       />
 
+      {/* STORY VIEWER MODAL */}
       <Modal visible={activeStory !== null} animationType="fade" transparent={true} onRequestClose={closeStory}>
         <View className="flex-1 bg-black">
           {activeStory?.dailyPostUrl && (
@@ -383,6 +395,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         </View>
       </Modal>
 
+      {/* COMMENTS MODAL */}
       <SwipeableModal visible={activePostId !== null} onClose={() => setActivePostId(null)} title="Comments" heightRatio={0.65}>
         {loadingComments ? (
           <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
@@ -395,12 +408,11 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
             renderItem={({ item }) => (
               <TouchableOpacity activeOpacity={0.8} onLongPress={() => handleCommentLongPress(item)} className="flex-row gap-3 mb-4">
                 <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
-                  {item.user.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item.user.username.charAt(0).toUpperCase()}</Text>}
+                  {item?.user?.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item?.user?.username?.charAt(0).toUpperCase() || 'U'}</Text>}
                 </View>
                 <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
-                  {/* COLOR CHANGED HERE */}
-                  <Text className="text-[#7dd3fc] text-[10px] font-bold mb-1 tracking-wider uppercase">{item.user.username}</Text>
-                  <Text className="text-white/90 text-[13px] leading-5">{item.text}</Text>
+                  <Text className="text-[#7dd3fc] text-[10px] font-bold mb-1 tracking-wider uppercase">{item?.user?.username || 'Unknown'}</Text>
+                  <Text className="text-white/90 text-[13px] leading-5">{item?.text || ''}</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -434,8 +446,8 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         onReactRequest={(id) => {
           setPopoutPost(null);
           setTimeout(() => {
-             setReactingToPostId(id);
-             if (onHideBottomBar) onHideBottomBar(true);
+              setReactingToPostId(id);
+              if (onHideBottomBar) onHideBottomBar(true);
           }, 300);
         }}
       />
