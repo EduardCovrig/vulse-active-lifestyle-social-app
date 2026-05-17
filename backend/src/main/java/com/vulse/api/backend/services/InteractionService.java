@@ -52,7 +52,7 @@ public class InteractionService {
     }
 
     @Transactional
-    public void addReaction(User user, UUID postId, MultipartFile file) throws IOException {
+    public void addReaction(User user, UUID postId, MultipartFile file, String message) throws IOException {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalStateException("Post not found"));
 
@@ -63,6 +63,7 @@ public class InteractionService {
                 .post(post)
                 .mediaUrl(uploadResult.get("secure_url").toString())
                 .mediaPublicId(uploadResult.get("public_id").toString())
+                .message(message)
                 .build();
 
         reactionRepository.save(reaction);

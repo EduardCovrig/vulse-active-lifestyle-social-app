@@ -28,8 +28,8 @@ public class InteractionController {
     }
 
     @PostMapping("/{postId}/react")
-    public ResponseEntity<Void> addReaction(@AuthenticationPrincipal User user, @PathVariable UUID postId, @RequestParam("file") MultipartFile file) throws IOException {
-        interactionService.addReaction(user, postId, file);
+    public ResponseEntity<Void> addReaction(@AuthenticationPrincipal User user, @PathVariable UUID postId, @RequestParam("file") MultipartFile file, @RequestParam(value = "message", required = false) String message) throws IOException {
+        interactionService.addReaction(user, postId, file, message);
         return ResponseEntity.ok().build();
     }
 
@@ -49,6 +49,7 @@ public class InteractionController {
             map.put("username", r.getUser().getRealUsername());
             map.put("profilePicUrl", r.getUser().getProfilePicUrl());
             map.put("createdAt", r.getCreatedAt());
+            map.put("message", r.getMessage());
             return map;
         }).collect(Collectors.toList());
         return ResponseEntity.ok(result);
