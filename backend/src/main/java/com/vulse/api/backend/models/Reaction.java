@@ -29,6 +29,8 @@ public class Reaction {
 
     private String mediaPublicId; // Required to delete the file from Cloudinary
 
+    private String message;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 

@@ -69,4 +69,9 @@ public class NutritionController {
         );
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<Map<String, Object>>> getNutritionHistory(@AuthenticationPrincipal User user, @RequestParam("days") int days) {
+        return ResponseEntity.ok(nutritionService.getNutritionHistory(user, days));
+    }
 }

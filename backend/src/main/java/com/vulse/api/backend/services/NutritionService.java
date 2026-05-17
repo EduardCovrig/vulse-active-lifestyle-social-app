@@ -121,4 +121,42 @@ public class NutritionService {
                 }).filter(data -> (Integer) data.get("cal") > 0) // only show those who added atleast 1 cal today
                 .collect(Collectors.toList());
     }
+
+    public List<Map<String, Object>> getNutritionHistory(User user, int days) {
+        LocalDate startDate = LocalDate.now().minusDays(days);
+        List<SavedMeal> meals = savedMealRepository.findAll().stream()
+            .filter(m -> m.getUser().getId().equals(user.getId()) && !m.getConsumedDate().isBefore(startDate))
+            .collect(Collectors.toList());
+        
+        Map<LocalDate, Map<String, Object>> historyMap = new HashMap<>();
+        for (int i = 0; i < days; i++) {
+            LocalDate d = LocalDate.now().minusDays(i);
+            Map<String, Object> map = new HashMap<>();
+            map.put("date", d.toString());
+            map.put("cal", 0);
+            map.put("pro", 0);
+            map.put("carbs", 0);
+            map.put("fat", 0);
+            map.put("calGoal", user.getDailyCaloriesGoal() != null ? user.getDailyCaloriesGoal() : 2000);
+            map.put("proGoal", user.getProteinGoal() != null ? user.getProteinGoal() : 150);
+            map.put("carbsGoal", user.getCarbsGoal() != null ? user.getCarbsGoal() : 250);
+            map.put("fatGoal", user.getFatGoal() != null ? user.getFatGoal() : 70);
+            historyMap.put(d, map);
+        }
+
+        for (SavedMeal meal : meals) {
+            LocalDate d = meal.getConsumedDate();
+            if (historyMap.containsKey(d)) {
+                Map<String, Object> map = historyMap.get(d);
+                map.put("cal", (Integer) map.get("cal") + (meal.getCalories() != null ? meal.getCalories() : 0));
+                map.put("pro", (Integer) map.get("pro") + (meal.getProteinGrams() != null ? meal.getProteinGrams() : 0));
+                map.put("carbs", (Integer) map.get("carbs") + (meal.getCarbsGrams() != null ? meal.getCarbsGrams() : 0));
+                map.put("fat", (Integer) map.get("fat") + (meal.getFatGrams() != null ? meal.getFatGrams() : 0));
+            }
+        }
+        
+        return historyMap.values().stream()
+                .sorted((a, b) -> ((String) b.get("date")).compareTo((String) a.get("date")))
+                .collect(Collectors.toList());
+    }
 }
