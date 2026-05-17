@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { View, Text, TextInput, Image, Animated, TouchableOpacity, Modal, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, RefreshControl, Keyboard } from 'react-native';
+import { View, Text, TextInput, Image, Animated, TouchableOpacity, Modal, FlatList, ActivityIndicator, Alert, RefreshControl, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,6 @@ import CameraScreen from './CameraScreen';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-import SwipeableModal from '../components/SwipeableModal';
 import LockedFeedView from '../components/LockedFeedView';
 import ImagePopoutModal from '../components/ImagePopoutModal';
 
@@ -23,18 +22,13 @@ interface FriendsScreenProps {
 export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: FriendsScreenProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const enterAnim = useRef(new Animated.Value(0)).current;
   const { username: myUsername } = useContext(AuthContext); 
 
   const [posts, setPosts] = useState<any[]>([]);
   const [circle, setCircle] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const [activePostId, setActivePostId] = useState<string | null>(null);
-  const [comments, setComments] = useState<any[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [loadingComments, setLoadingComments] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -74,7 +68,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
   };
 
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    Animated.spring(enterAnim, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }).start();
     fetchData();
   }, []);
 
@@ -108,58 +102,6 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
     navigation.navigate('UserProfile', { username: targetUsername });
   };
 
-  const openComments = async (postId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActivePostId(postId);
-    setLoadingComments(true);
-    try {
-      const response = await api.get(`/comments/${postId}?page=0&size=50`);
-      setComments(response.data.content);
-    } catch (error) {} finally { setLoadingComments(false); }
-  };
-
-  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
-    setPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
-    if (popoutPost && popoutPost.id === postId) {
-      setPopoutPost((prev: any) => ({ ...prev, isLiked: newIsLiked, likesCount: newIsLiked ? prev.likesCount + 1 : Math.max(0, prev.likesCount - 1) }));
-    }
-  };
-
-  const submitComment = async () => {
-    if (!newComment.trim() || !activePostId) return;
-    const text = newComment;
-    setNewComment('');
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await api.post(`/comments/${activePostId}`, { text });
-      const response = await api.get(`/comments/${activePostId}?page=0&size=50`);
-      setComments(response.data.content);
-      
-      setPosts(curr => curr.map(p => p.id === activePostId ? { ...p, commentsCount: p.commentsCount + 1 } : p));
-      if (popoutPost && popoutPost.id === activePostId) {
-        setPopoutPost((prev:any) => ({ ...prev, commentsCount: prev.commentsCount + 1 }));
-      }
-    } catch (error) {}
-  };
-
-  const handleCommentLongPress = (comment: any) => {
-    if (comment.user.username !== myUsername) return; 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert("Delete Comment", "Do you want to delete this comment?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
-        try {
-          await api.delete(`/comments/${comment.id}`);
-          setComments(curr => curr.filter(c => c.id !== comment.id));
-          
-          setPosts(curr => curr.map(p => p.id === activePostId ? { ...p, commentsCount: Math.max(0, p.commentsCount - 1) } : p));
-          if (popoutPost && popoutPost.id === activePostId) {
-            setPopoutPost((prev:any) => ({ ...prev, commentsCount: Math.max(0, prev.commentsCount - 1) }));
-          }
-        } catch (e) {}
-      }}
-    ]);
-  };
 
   const saveCaptionEdit = async (postId: string) => {
     try {
@@ -170,7 +112,21 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
     } catch(e) {}
   };
 
-  const handleReactionCapture = async (uri: string) => {
+  const handleLikeToggled = (postId: string, newIsLiked: boolean) => {
+    setPosts(curr => curr.map(p => p.id === postId
+      ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) }
+      : p
+    ));
+    if (popoutPost && popoutPost.id === postId) {
+      setPopoutPost((prev: any) => ({
+        ...prev,
+        isLiked: newIsLiked,
+        likesCount: newIsLiked ? prev.likesCount + 1 : Math.max(0, prev.likesCount - 1),
+      }));
+    }
+  };
+
+  const handleReactionCapture = async (uri: string, message?: string) => {
     if (!reactingToPostId) return;
     const postId = reactingToPostId;
     setReactingToPostId(null);
@@ -181,6 +137,9 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
       const type = `image/${filename.split('.').pop()}`;
 
       formData.append('file', { uri, name: filename, type } as any);
+      if (message) {
+         formData.append('message', message);
+      }
 
       setPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
       if (popoutPost && popoutPost.id === postId) {
@@ -237,22 +196,22 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
               }
             }}
           >
-            <View className="relative w-[50px] h-[50px] rounded-full items-center justify-center mb-1.5">
+            <View className="relative w-[50px] h-[50px] rounded-full items-center justify-center mb-1.5" style={{ borderRadius: 25 }}>
               {item.hasPosted ? (
-                <LinearGradient colors={['rgba(122,215,198,0.6)', 'rgba(125,211,252,0.6)']} className="absolute inset-0 rounded-full" style={{ padding: 1.5 }}>
-                  <View className="flex-1 bg-[#090E17] rounded-full border-[1.5px] border-[#090E17] overflow-hidden items-center justify-center">
-                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" blurRadius={(!item.isMe && !iHavePosted) ? 10 : 0} /> : <View className="w-full h-full bg-white/10 items-center justify-center"><Text className="text-white/80 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text></View>}
+                <LinearGradient colors={['rgba(122,215,198,0.6)', 'rgba(125,211,252,0.6)']} className="absolute inset-0 rounded-full" style={{ padding: 1.5, borderRadius: 25 }}>
+                  <View className="w-full h-full bg-[#090E17] rounded-full border-[1.5px] border-[#090E17] overflow-hidden items-center justify-center" style={{ borderRadius: 23 }}>
+                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} style={{ width: '100%', height: '100%', borderRadius: 23 }} resizeMode="cover" blurRadius={(!item.isMe && !iHavePosted) ? 10 : 0} /> : <View style={{ width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', borderRadius: 23 }}><Text className="text-white/80 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text></View>}
                     {(!item.isMe && !iHavePosted) && (
-                      <View className="absolute inset-0 bg-black/40 items-center justify-center">
+                      <View className="absolute inset-0 bg-black/40 items-center justify-center" style={{ borderRadius: 23 }}>
                         <Ionicons name="lock-closed" size={16} color="white" />
                       </View>
                     )}
                   </View>
                 </LinearGradient>
               ) : (
-                <View className="absolute inset-0 rounded-full border-[0.5px] border-white/10 p-[1.5px]">
-                  <View className="flex-1 rounded-full overflow-hidden opacity-30 bg-white/5 items-center justify-center">
-                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} className="w-full h-full object-cover" /> : <Text className="text-white/40 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text>}
+                <View className="absolute inset-0 rounded-full border-[0.5px] border-white/10 p-[1.5px]" style={{ borderRadius: 25 }}>
+                  <View className="w-full h-full rounded-full overflow-hidden opacity-30 bg-white/5 items-center justify-center" style={{ borderRadius: 23 }}>
+                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} style={{ width: '100%', height: '100%', borderRadius: 23 }} resizeMode="cover" /> : <Text className="text-white/40 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text>}
                   </View>
                 </View>
               )}
@@ -271,7 +230,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
   );
 
   return (
-    <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17' }}>
+    <Animated.View style={{ flex: 1, opacity: enterAnim, transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }], backgroundColor: '#090E17' }}>
       
       <View className="px-6 mb-2 z-[200]" style={{ paddingTop: insets.top + 10 }}>
         <View className="relative z-[300]">
@@ -349,7 +308,6 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
             <LiquidPostCard 
               post={item} 
               onOpenProfile={openUserProfile}
-              onOpenComments={() => openComments(item.id)}
               onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
               onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
               onLikeToggled={handleLikeToggled}
@@ -395,38 +353,6 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         </View>
       </Modal>
 
-      {/* COMMENTS MODAL */}
-      <SwipeableModal visible={activePostId !== null} onClose={() => setActivePostId(null)} title="Comments" heightRatio={0.65}>
-        {loadingComments ? (
-          <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
-        ) : (
-          <FlatList
-            data={comments}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity activeOpacity={0.8} onLongPress={() => handleCommentLongPress(item)} className="flex-row gap-3 mb-4">
-                <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
-                  {item?.user?.profilePicUrl ? <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 text-xs font-semibold">{item?.user?.username?.charAt(0).toUpperCase() || 'U'}</Text>}
-                </View>
-                <View className="flex-1 bg-white/[0.03] p-3.5 rounded-2xl rounded-tl-sm border border-white/[0.04]">
-                  <Text className="text-[#7dd3fc] text-[10px] font-bold mb-1 tracking-wider uppercase">{item?.user?.username || 'Unknown'}</Text>
-                  <Text className="text-white/90 text-[13px] leading-5">{item?.text || ''}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={<Text className="text-white/20 text-center mt-10 text-xs">No comments yet.</Text>}
-          />
-        )}
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(9,14,23,0.95)' }}>
-          <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.2)" keyboardAppearance="dark" style={{ flex: 1, height: 44, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 22, paddingHorizontal: 16, color: 'white', fontSize: 14, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />
-          <TouchableOpacity onPress={submitComment} disabled={!newComment.trim()} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: newComment.trim() ? '#7dd3fc' : 'rgba(255,255,255,0.04)' }}>
-            <Ionicons name="arrow-up" size={20} color={newComment.trim() ? '#090E17' : 'rgba(255,255,255,0.15)'} />
-          </TouchableOpacity>
-        </View>
-      </SwipeableModal>
 
       <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }}>
         <View style={{ flex: 1, backgroundColor: 'black' }}>
@@ -439,10 +365,6 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         visible={popoutPost !== null} 
         post={popoutPost} 
         onClose={() => setPopoutPost(null)}
-        onOpenComments={(id) => {
-          setPopoutPost(null);
-          setTimeout(() => openComments(id), 300);
-        }}
         onReactRequest={(id) => {
           setPopoutPost(null);
           setTimeout(() => {

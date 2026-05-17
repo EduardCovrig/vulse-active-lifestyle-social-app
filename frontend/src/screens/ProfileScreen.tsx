@@ -331,7 +331,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
     } catch(e) {}
   };
 
-  const handleReactionCapture = async (uri: string) => {
+  const handleReactionCapture = async (uri: string, message?: string) => {
     if (!reactingToPostId) return;
     const postId = reactingToPostId;
     setReactingToPostId(null);
@@ -340,6 +340,9 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
       const filename = uri.split('/').pop() || 'reaction.jpg';
       const type = `image/${filename.split('.').pop()}`;
       formData.append('file', { uri, name: filename, type } as any);
+      if (message) {
+         formData.append('message', message);
+      }
 
       setMyPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
 
@@ -651,7 +654,8 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         snaps={calendarSnaps} 
         onSnapPress={(url) => {
            setShowCalendar(false);
-           setTimeout(() => setSelectedImage(url), 350); 
+           // Wait for SwipeableModal spring exit animation (~400ms) before opening ImagePopoutModal
+           setTimeout(() => setSelectedImage(url), 500); 
         }}
       />
       

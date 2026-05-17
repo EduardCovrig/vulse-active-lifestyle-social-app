@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, FlatList, Dimensions, StyleSheet, ActivityIndicator, Text, Modal, TextInput, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, FlatList, Dimensions, StyleSheet, ActivityIndicator, Text, Modal, TextInput, TouchableOpacity, Image, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import LiquidPostCard from '../components/LiquidPostCard';
@@ -22,8 +22,15 @@ export default function FeedScreen() {
 
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reactingToPostId, setReactingToPostId] = useState<string | null>(null);
   const [hideTabBar, setHideTabBar] = useState(false);
+  const feedEnterAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (activeTab === 'feed') {
+      feedEnterAnim.setValue(0);
+      Animated.spring(feedEnterAnim, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }).start();
+    }
+  }, [activeTab]);
 
   // States pentru comentarii (Global Feed)
   const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
@@ -51,23 +58,6 @@ export default function FeedScreen() {
     setPosts(curr => curr.map(p => p.id === postId ? { ...p, isLiked: newIsLiked, likesCount: newIsLiked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1) } : p));
   };
 
-  const handleReactionCapture = async (uri: string) => {
-    if (!reactingToPostId) return;
-    const postId = reactingToPostId;
-    setReactingToPostId(null);
-    try {
-      const formData = new FormData();
-      const filename = uri.split('/').pop() || 'reaction.jpg';
-      const type = `image/${filename.split('.').pop()}`;
-
-      formData.append('file', { uri, name: filename, type } as any);
-      setPosts(curr => curr.map(p => p.id === postId ? { ...p, recentReactions: [uri, ...(p.recentReactions || [])].slice(0, 3) } : p));
-
-      await api.post(`/interactions/${postId}/react`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-    } catch (error) {}
-  };
 
   // Functii Comentarii
   const openComments = async (postId: string) => {
@@ -97,7 +87,7 @@ export default function FeedScreen() {
     <View style={StyleSheet.absoluteFill} className="bg-[#090E17]">
       <View className="flex-1">
         {activeTab === 'feed' ? (
-          <View className="flex-1 bg-black">
+          <Animated.View style={{ flex: 1, backgroundColor: 'black', opacity: feedEnterAnim, transform: [{ translateY: feedEnterAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }] }}>
             {loading ? (
               <ActivityIndicator size="large" color="#7dd3fc" className="mt-20" />
             ) : posts.length === 0 ? (
@@ -128,14 +118,13 @@ export default function FeedScreen() {
                       onPostDeleted={(id) => setPosts(curr => curr.filter(p => p.id !== id))}
                       onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
                       onLikeToggled={handleLikeToggled}
-                      onReactRequest={(id) => setReactingToPostId(id)}
                       onEditCaption={(id, text) => console.log("Edit")}
                     />
                   </View>
                 )}
               />
             )}
-          </View>
+          </Animated.View>
         ) : activeTab === 'friends' ? (
           <FriendsScreen onOpenCamera={() => setActiveTab('camera')} onHideBottomBar={setHideTabBar} />
         ) : activeTab === 'profile' ? (
@@ -146,7 +135,7 @@ export default function FeedScreen() {
       </View>
 
       {/* Am adaugat activeCommentsPostId === null ca bara sa se ascunda cand scrii commenturi */}
-      {activeTab !== 'camera' && reactingToPostId === null && activeCommentsPostId === null && !hideTabBar && (
+      {activeTab !== 'camera' && activeCommentsPostId === null && !hideTabBar && (
         <GlassTabBar activeTab={activeTab} onTabPress={(tab) => setActiveTab(tab as any)} />
       )}
       
@@ -156,18 +145,6 @@ export default function FeedScreen() {
         </View>
       )}
 
-      {/* REACTION CAMERA OVERLAY */}
-      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => setReactingToPostId(null)}>
-        <View style={StyleSheet.absoluteFill} className="bg-black">
-          {reactingToPostId && (
-            <CameraScreen 
-              mode="reaction" 
-              onClose={() => setReactingToPostId(null)} 
-              onCapture={handleReactionCapture} 
-            />
-          )}
-        </View>
-      </Modal>
 
       {/* COMMENTS MODAL FOR GLOBAL FEED - CU PROTECTII ?. ACTIVE */}
       <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>

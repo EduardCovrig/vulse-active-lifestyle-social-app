@@ -1,20 +1,33 @@
+/**
+ * ReactionListModal
+ *
+ * IMPORTANT: No nested Modals or ImagePopoutModals here.
+ * Tapping a reaction image shows a full-screen preview INSIDE this same modal
+ * using a local "selectedReaction" state + an absolute View overlay.
+ * This avoids the nested-Modal gesture-responder freeze.
+ */
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  FlatList,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SwipeableModal from './SwipeableModal';
-import ImagePopoutModal from './ImagePopoutModal';
 import { api } from '../services/api';
 
 interface ReactionListModalProps {
   visible: boolean;
   onClose: () => void;
-  postId: string | null;
+  postId: string | null | undefined;
 }
 
 export default function ReactionListModal({ visible, onClose, postId }: ReactionListModalProps) {
   const [reactions, setReactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible && postId) {
@@ -23,57 +36,94 @@ export default function ReactionListModal({ visible, onClose, postId }: Reaction
         .then(res => setReactions(res.data))
         .catch(() => setReactions([]))
         .finally(() => setLoading(false));
+    } else if (!visible) {
+      // Reset when hidden so stale data doesn't flash
+      setReactions([]);
     }
   }, [visible, postId]);
 
   const getRelativeTime = (dateStr: string) => {
-    const now = new Date();
-    const date = new Date(dateStr);
-    const diffMs = now.getTime() - date.getTime();
+    const diffMs = Date.now() - new Date(dateStr).getTime();
     const diffMin = Math.floor(diffMs / 60000);
     if (diffMin < 1) return 'just now';
     if (diffMin < 60) return `${diffMin}m`;
     const diffH = Math.floor(diffMin / 60);
     if (diffH < 24) return `${diffH}h`;
-    const diffD = Math.floor(diffH / 24);
-    return `${diffD}d`;
+    return `${Math.floor(diffH / 24)}d`;
   };
 
   return (
-    <>
-      <SwipeableModal visible={visible} onClose={onClose} title="Reactions" subtitle={`${reactions.length} reaction${reactions.length !== 1 ? 's' : ''}`} heightRatio={0.6}>
-        {loading ? (
-          <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
-        ) : reactions.length === 0 ? (
-          <View className="items-center mt-10">
-            <Ionicons name="heart-outline" size={32} color="rgba(255,255,255,0.06)" />
-            <Text className="text-white/20 mt-3 text-[10px] font-semibold tracking-wider uppercase">No reactions yet</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={reactions}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 30, paddingHorizontal: 16, paddingTop: 8 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => setSelectedImage(item.mediaUrl)} className="flex-row items-center py-3" style={{ borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.04)' }}>
-                <View className="w-9 h-9 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.06] mr-3">
-                  {item.profilePicUrl ? <Image source={{ uri: item.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 font-semibold text-sm">{item.username?.charAt(0)?.toUpperCase()}</Text>}
+    <SwipeableModal
+      visible={visible}
+      onClose={onClose}
+      title="Reactions"
+      subtitle={`${reactions.length} reaction${reactions.length !== 1 ? 's' : ''}`}
+      heightRatio={0.6}
+    >
+      {loading ? (
+        <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
+      ) : reactions.length === 0 ? (
+        <View style={{ alignItems: 'center', marginTop: 40 }}>
+          <Ionicons name="heart-outline" size={32} color="rgba(255,255,255,0.06)" />
+          <Text style={{ color: 'rgba(255,255,255,0.2)', marginTop: 12, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
+            No reactions yet
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={reactions}
+          keyExtractor={item => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 30, paddingHorizontal: 16, paddingTop: 8 }}
+          renderItem={({ item }) => (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: 12,
+                borderBottomWidth: 0.5,
+                borderBottomColor: 'rgba(255,255,255,0.04)',
+              }}
+            >
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: 'rgba(255,255,255,0.06)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  borderWidth: 0.5,
+                  borderColor: 'rgba(255,255,255,0.06)',
+                  marginRight: 12,
+                }}
+              >
+                {item.profilePicUrl
+                  ? <Image source={{ uri: item.profilePicUrl }} style={{ width: '100%', height: '100%' }} />
+                  : <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 14 }}>{item.username?.charAt(0)?.toUpperCase()}</Text>
+                }
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: 'white', fontWeight: '600', fontSize: 14, letterSpacing: 0.2 }}>{item.username}</Text>
+                {item.message ? (
+                  <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }} numberOfLines={2}>
+                    {item.message}
+                  </Text>
+                ) : null}
+                <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginTop: 4 }}>
+                  {getRelativeTime(item.createdAt)}
+                </Text>
+              </View>
+              {item.mediaUrl && (
+                <View style={{ width: 48, height: 48, borderRadius: 12, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                  <Image source={{ uri: item.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-white font-semibold text-[14px] tracking-wide">{item.username}</Text>
-                  <Text className="text-white/30 text-[9px] font-semibold uppercase tracking-widest mt-0.5">{getRelativeTime(item.createdAt)}</Text>
-                </View>
-                <View style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
-                  <Image source={{ uri: item.mediaUrl }} className="w-full h-full" resizeMode="cover" />
-                </View>
-              </TouchableOpacity>
-            )}
-          />
-        )}
-      </SwipeableModal>
-
-      <ImagePopoutModal visible={selectedImage !== null} imageUri={selectedImage} onClose={() => setSelectedImage(null)} />
-    </>
+              )}
+            </View>
+          )}
+        />
+      )}
+    </SwipeableModal>
   );
 }

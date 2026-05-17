@@ -12,7 +12,7 @@ import ReactionListModal from './ReactionListModal';
 interface LiquidPostCardProps {
   post: any;
   cardHeight?: number; 
-  onOpenComments: (postId: string) => void;
+  onOpenComments?: (postId: string) => void;
   onPostDeleted: (postId: string) => void;
   onUserBlocked: (userId: string) => void;
   onEditCaption: (postId: string, currentCaption: string) => void;
@@ -214,10 +214,12 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
                   <Text className={`font-bold text-[14px] ${isLiked ? 'text-white' : 'text-white/80'}`}>{likesCount}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => onOpenComments(post.id)} className="flex-row items-center gap-1.5">
-                  <Ionicons name="chatbubble-outline" size={24} color="rgba(255,255,255,0.95)" />
-                  <Text className="text-white/90 font-bold text-[14px]">{post.commentsCount || 0}</Text>
-                </TouchableOpacity>
+                {post.type !== 'DAILY' && (
+                  <TouchableOpacity onPress={() => onOpenComments && onOpenComments(post.id)} className="flex-row items-center gap-1.5">
+                    <Ionicons name="chatbubble-outline" size={24} color="rgba(255,255,255,0.95)" />
+                    <Text className="text-white/90 font-bold text-[14px]">{post.commentsCount || 0}</Text>
+                  </TouchableOpacity>
+                )}
 
                 {/* ASCUNDEM REACTIILE LA REELS */}
                 {post.type !== 'REEL' && (
