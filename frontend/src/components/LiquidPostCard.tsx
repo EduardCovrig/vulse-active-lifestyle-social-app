@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode } from 'expo-av';
 import BouncyPressable from './BouncyPressable';
 import ReactionListModal from './ReactionListModal';
 
@@ -147,12 +148,20 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           delayLongPress={350}
           style={{ flex: 1, position: 'relative' }}
         >
-          <Image source={{ uri: post.mediaUrl }} className="w-full h-full object-cover" />
+          {post.mediaUrl && (post.mediaUrl.toLowerCase().endsWith('.mp4') || post.mediaUrl.toLowerCase().endsWith('.mov')) ? (
+            <Video source={{ uri: post.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={false} />
+          ) : (
+            <Image source={{ uri: post.mediaUrl }} className="w-full h-full object-cover" />
+          )}
           <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.85)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none" />
 
           {post.frontMediaUrl && (
             <View className={`absolute right-4 w-24 h-32 rounded-2xl border-[1.5px] border-white/20 overflow-hidden shadow-2xl z-10 bg-black/40 ${isFullScreenReel ? 'top-24' : 'top-16'}`}>
-               <Image source={{ uri: post.frontMediaUrl }} className="w-full h-full object-cover" />
+               {post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov') ? (
+                 <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
+               ) : (
+                 <Image source={{ uri: post.frontMediaUrl }} className="w-full h-full object-cover" />
+               )}
             </View>
           )}
 

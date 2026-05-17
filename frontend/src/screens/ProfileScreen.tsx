@@ -652,11 +652,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         onClose={() => setShowCalendar(false)} 
         loading={loadingCalendar} 
         snaps={calendarSnaps} 
-        onSnapPress={(url) => {
-           setShowCalendar(false);
-           // Wait for SwipeableModal spring exit animation (~400ms) before opening ImagePopoutModal
-           setTimeout(() => setSelectedImage(url), 500); 
-        }}
+        onSnapPress={(url) => setSelectedImage(url)}
       />
       
       <Modal visible={showVibeModal} animationType="fade" transparent={true} onRequestClose={() => setShowVibeModal(false)}>

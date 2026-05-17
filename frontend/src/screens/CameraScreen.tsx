@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { Video, ResizeMode } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import BouncyPressable from '../components/BouncyPressable';
@@ -149,8 +150,8 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
       const formData = new FormData();
       
       const filename = mediaUri.split('/').pop() || (mediaType === 'video' ? 'upload.mp4' : 'upload.jpg');
-      const ext = filename.split('.').pop() || 'jpg';
-      let mime = mediaType === 'video' ? `video/${ext}` : `image/${ext}`;
+      let ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
+      let mime = mediaType === 'video' ? (ext === 'mov' ? 'video/quicktime' : `video/${ext}`) : `image/${ext}`;
       
       formData.append('file', { uri: mediaUri, name: filename, type: mime } as any);
       
@@ -284,7 +285,11 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View className="flex-1 bg-black relative justify-center items-center">
               <View className="w-full aspect-[3/4] rounded-[40px] overflow-hidden border-2 border-white/10">
-                <Image source={{ uri: mediaUri }} className="w-full h-full" resizeMode="cover" />
+                {mediaType === 'video' ? (
+                  <Video source={{ uri: mediaUri }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={false} />
+                ) : (
+                  <Image source={{ uri: mediaUri }} className="w-full h-full" resizeMode="cover" />
+                )}
               </View>
               
               <View className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/80 to-transparent pointer-events-none" />
@@ -323,7 +328,11 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
       return (
         <View className="flex-1 bg-black relative">
           <TouchableOpacity activeOpacity={1} onPress={() => setSwapped(!swapped)} style={{ flex: 1 }}>
-            <Image source={{ uri: primaryUri! }} className="flex-1" resizeMode="cover" />
+            {(!swapped && mediaType === 'video') || (swapped && frontMediaUri && false) ? (
+              <Video source={{ uri: primaryUri! }} style={{ flex: 1 }} resizeMode={ResizeMode.COVER} shouldPlay isLooping />
+            ) : (
+              <Image source={{ uri: primaryUri! }} className="flex-1" resizeMode="cover" />
+            )}
           </TouchableOpacity>
           
           <View className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
@@ -364,7 +373,11 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
     // Reel mode preview
     return (
       <View className="flex-1 bg-black relative">
-        <Image source={{ uri: mediaUri }} className="flex-1" resizeMode="cover" />
+        {mediaType === 'video' ? (
+          <Video source={{ uri: mediaUri }} style={{ flex: 1 }} resizeMode={ResizeMode.COVER} shouldPlay isLooping />
+        ) : (
+          <Image source={{ uri: mediaUri }} className="flex-1" resizeMode="cover" />
+        )}
         <View className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
         <View className="absolute z-50 flex-row justify-between w-full px-6" style={{ top: insets.top + 10 }}>
           <BouncyPressable onPress={() => { setMediaUri(null); setCapturePhase('idle'); }} className="w-12 h-12 bg-black/40 rounded-full items-center justify-center border border-white/20 backdrop-blur-md">

@@ -1,10 +1,9 @@
 /**
  * SwipeableModal - Crash-safe bottom sheet modal.
  *
- * DESIGN RULES:
- * - Uses a single `isClosing` ref to prevent double-close calls
- * - `onClose` is fired exactly once, after the exit animation finishes
- * - Keyboard is always dismissed before animating out
+ * KEY FIX: Added `afterClose` callback that fires AFTER the native Modal
+ * has been dismissed (unmounted from native layer). This is essential for
+ * chaining modals — e.g. calendar → image viewer — without touch-intercept freeze.
  */
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
@@ -29,6 +28,8 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 interface SwipeableModalProps {
   visible: boolean;
   onClose: () => void;
+  /** Called after the modal animation AND native dismissal is fully done */
+  afterClose?: () => void;
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
@@ -38,6 +39,7 @@ interface SwipeableModalProps {
 export default function SwipeableModal({
   visible,
   onClose,
+  afterClose,
   children,
   title,
   subtitle,
@@ -80,7 +82,7 @@ export default function SwipeableModal({
         Animated.timing(backdropOpacity, { toValue: 1, duration: 280, easing: Easing.out(Easing.ease), useNativeDriver: true }),
       ]).start();
     } else if (!visible && isOpen.current && !isClosing.current) {
-      runCloseAnim();
+      runCloseAnim(afterClose);
     }
   }, [visible]);
 
@@ -94,7 +96,7 @@ export default function SwipeableModal({
       onPanResponderRelease: (_, gs) => {
         if (gs.dy > SCREEN_HEIGHT * 0.18 || gs.vy > 0.7) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          runCloseAnim();
+          runCloseAnim(afterClose);
         } else {
           Animated.spring(panY, { toValue: 0, useNativeDriver: true, bounciness: 8, speed: 18 }).start();
         }
@@ -110,12 +112,12 @@ export default function SwipeableModal({
       visible={internalVisible}
       animationType="none"
       statusBarTranslucent
-      onRequestClose={() => runCloseAnim()}
+      onRequestClose={() => runCloseAnim(afterClose)}
     >
       <View style={{ flex: 1 }}>
         {/* Backdrop */}
         <Animated.View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.65)', opacity: backdropOpacity }}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => runCloseAnim()} />
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => runCloseAnim(afterClose)} />
         </Animated.View>
 
         <KeyboardAvoidingView
@@ -141,7 +143,7 @@ export default function SwipeableModal({
 
               {/* Close button */}
               <TouchableOpacity
-                onPress={() => runCloseAnim()}
+                onPress={() => runCloseAnim(afterClose)}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={{ position: 'absolute', top: 10, right: 16, zIndex: 50, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}
               >

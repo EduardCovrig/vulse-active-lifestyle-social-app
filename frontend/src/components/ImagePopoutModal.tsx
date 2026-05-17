@@ -1,12 +1,11 @@
 /**
- * ImagePopoutModal - A self-contained, crash-safe image viewer.
+ * ImagePopoutModal - A self-contained, crash-safe image viewer with pinch-to-zoom.
  *
  * KEY DESIGN DECISIONS:
- * - Never renders nested Modals or SwipeableModals (they fight gesture responders)
- * - Uses a single "closing" ref to prevent double-close race conditions
- * - ReactionListModal is shown via a simple state flag but rendered as a sibling at the
- *   root level of the Modal — NOT nested inside another SwipeableModal/Modal tree
- * - onClose is only called ONCE, after the close animation finishes
+ * - Never renders nested Modals (they fight gesture responders)
+ * - Uses isClosing + isOpen refs to guarantee onClose fires exactly once
+ * - ReactionsPanel is an absolute overlay inside the same Modal (not a nested Modal)
+ * - PinchableImage handles all zoom/pan gestures, single-tap closes the modal
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
@@ -26,7 +25,9 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode } from 'expo-av';
 import { api } from '../services/api';
+import PinchableImage from './PinchableImage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,7 +41,8 @@ interface ImagePopoutModalProps {
   onLikeToggled?: (postId: string, isLiked: boolean) => void;
 }
 
-// Inline Reactions Panel shown inside the same Modal to avoid nested-modal bug
+// Inline Reactions Panel — rendered as an absolute view inside the SAME Modal.
+// This avoids the nested-Modal gesture-responder freeze entirely.
 function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => void }) {
   const [reactions, setReactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,11 +65,10 @@ function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => vo
   };
 
   return (
-    <View style={{ position: 'absolute', inset: 0, zIndex: 999 }}>
+    <View style={{ position: 'absolute', inset: 0, zIndex: 999, borderRadius: 36, overflow: 'hidden' }}>
       <BlurView intensity={85} tint="dark" style={{ flex: 1 }}>
-        <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(9,14,23,0.9)' }} />
+        <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(9,14,23,0.92)' }} />
         <SafeAreaView style={{ flex: 1 }}>
-          {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
             <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18 }}>Reactions</Text>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
@@ -125,14 +126,14 @@ export default function ImagePopoutModal({
   onLikeToggled,
 }: ImagePopoutModalProps) {
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.92)).current;
-  const isClosing = useRef(false);
-  const isOpen = useRef(false);
+  const scaleAnim  = useRef(new Animated.Value(0.92)).current;
+  const isClosing  = useRef(false);
+  const isOpen     = useRef(false);
 
   const [internalVisible, setInternalVisible] = useState(false);
-  const [showReactions, setShowReactions] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(0);
+  const [showReactions, setShowReactions]     = useState(false);
+  const [isLiked, setIsLiked]                 = useState(false);
+  const [likesCount, setLikesCount]           = useState(0);
 
   useEffect(() => {
     if (post) {
@@ -143,10 +144,10 @@ export default function ImagePopoutModal({
 
   const targetUri = post ? post.mediaUrl : imageUri;
 
-  // Open animation
+  // ── Open ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (visible && targetUri && !isOpen.current) {
-      isOpen.current = true;
+      isOpen.current    = true;
       isClosing.current = false;
       setShowReactions(false);
       setInternalVisible(true);
@@ -155,7 +156,7 @@ export default function ImagePopoutModal({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       Animated.parallel([
         Animated.timing(opacityAnim, { toValue: 1, duration: 220, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
-        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, bounciness: 10, speed: 14 }),
+        Animated.spring(scaleAnim,  { toValue: 1, useNativeDriver: true, bounciness: 10, speed: 14 }),
       ]).start();
     }
 
@@ -164,18 +165,19 @@ export default function ImagePopoutModal({
     }
   }, [visible, targetUri]);
 
+  // ── Close ─────────────────────────────────────────────────────────────
   const performClose = useCallback(() => {
     if (isClosing.current) return;
     isClosing.current = true;
-    isOpen.current = false;
+    isOpen.current    = false;
     setShowReactions(false);
 
     Animated.parallel([
       Animated.timing(opacityAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 0.94, duration: 180, useNativeDriver: true }),
+      Animated.timing(scaleAnim,   { toValue: 0.94, duration: 180, useNativeDriver: true }),
     ]).start(() => {
-      setInternalVisible(false);
       isClosing.current = false;
+      setInternalVisible(false);
       onClose();
     });
   }, [onClose]);
@@ -183,10 +185,10 @@ export default function ImagePopoutModal({
   const toggleLike = async () => {
     if (!post) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const newLikedState = !isLiked;
-    setIsLiked(newLikedState);
-    setLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
-    if (onLikeToggled) onLikeToggled(post.id, newLikedState);
+    const newLiked = !isLiked;
+    setIsLiked(newLiked);
+    setLikesCount(prev => newLiked ? prev + 1 : Math.max(0, prev - 1));
+    if (onLikeToggled) onLikeToggled(post.id, newLiked);
     try { await api.post(`/interactions/${post.id}/like`); } catch (_) {}
   };
 
@@ -200,9 +202,9 @@ export default function ImagePopoutModal({
       statusBarTranslucent
       onRequestClose={performClose}
     >
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
 
-        {/* Blurred backdrop - tap to close */}
+        {/* Blurred backdrop — tap to close */}
         <Animated.View style={{ position: 'absolute', inset: 0, opacity: opacityAnim }}>
           <BlurView intensity={80} tint="dark" style={{ flex: 1 }}>
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={performClose} />
@@ -227,21 +229,23 @@ export default function ImagePopoutModal({
             shadowRadius: 30,
           }}
         >
-          {/* Main image - tap to close */}
+          {/* ── Main image with pinch-to-zoom. Single-tap closes. ── */}
           {targetUri && (
-            <TouchableOpacity activeOpacity={1} onPress={performClose} style={{ position: 'absolute', inset: 0 }}>
-              <Image source={{ uri: targetUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-            </TouchableOpacity>
+            <PinchableImage uri={targetUri} onSingleTap={performClose} />
           )}
 
           {/* Front camera overlay (BeReal thumbnail) */}
           {post?.frontMediaUrl && (
             <View style={{ position: 'absolute', top: 20, right: 20, width: 100, height: 130, borderRadius: 16, borderWidth: 2, borderColor: 'white', overflow: 'hidden', zIndex: 10 }}>
-              <Image source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} />
+              {post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov') ? (
+                <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
+              ) : (
+                <Image source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} />
+              )}
             </View>
           )}
 
-          {/* Gradient overlay */}
+          {/* Gradient overlays */}
           <LinearGradient
             colors={['rgba(0,0,0,0.55)', 'transparent', 'rgba(0,0,0,0.75)']}
             locations={[0, 0.4, 1]}
@@ -249,7 +253,7 @@ export default function ImagePopoutModal({
             pointerEvents="none"
           />
 
-          {/* Top: close button */}
+          {/* Close button (top-right) */}
           <TouchableOpacity
             onPress={performClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -258,7 +262,7 @@ export default function ImagePopoutModal({
             <Ionicons name="close" size={18} color="white" />
           </TouchableOpacity>
 
-          {/* Top: author info */}
+          {/* Author info (top-left) */}
           {post?.author && (
             <View style={{ position: 'absolute', top: 16, left: 16, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 20 }}>
               <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
@@ -273,7 +277,7 @@ export default function ImagePopoutModal({
             </View>
           )}
 
-          {/* Bottom: caption + interactions */}
+          {/* Footer: caption + interactions */}
           {post && (
             <View style={{ position: 'absolute', bottom: 20, left: 20, right: 20, zIndex: 20 }}>
               {post.caption && (
@@ -282,7 +286,8 @@ export default function ImagePopoutModal({
                 </Text>
               )}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                {/* Left actions */}
+
+                {/* Left: like, comment, react */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
                   <TouchableOpacity onPress={toggleLike} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
                     <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={28} color={isLiked ? '#ff4b4b' : 'white'} />
@@ -313,7 +318,7 @@ export default function ImagePopoutModal({
 
                 {/* Right: reactions + calories */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  {(post.recentReactions?.length > 0) && post.type !== 'REEL' && (
+                  {post.recentReactions?.length > 0 && post.type !== 'REEL' && (
                     <TouchableOpacity onPress={() => setShowReactions(true)} style={{ flexDirection: 'row' }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
                       {post.recentReactions.slice(0, 3).map((uri: string, idx: number) => (
                         <View key={idx} style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden', marginLeft: idx > 0 ? -10 : 0 }}>
@@ -333,7 +338,7 @@ export default function ImagePopoutModal({
             </View>
           )}
 
-          {/* Inline Reactions Panel (avoids nested Modal crash) */}
+          {/* Inline Reactions Panel — no nested Modal */}
           {showReactions && post?.id && (
             <ReactionsPanel postId={post.id} onClose={() => setShowReactions(false)} />
           )}
