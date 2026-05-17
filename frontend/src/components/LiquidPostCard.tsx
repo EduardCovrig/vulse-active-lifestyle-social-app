@@ -6,13 +6,14 @@ import * as Haptics from 'expo-haptics';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode } from 'expo-av';
 import BouncyPressable from './BouncyPressable';
 import ReactionListModal from './ReactionListModal';
 
 interface LiquidPostCardProps {
   post: any;
   cardHeight?: number; 
-  onOpenComments: (postId: string) => void;
+  onOpenComments?: (postId: string) => void;
   onPostDeleted: (postId: string) => void;
   onUserBlocked: (userId: string) => void;
   onEditCaption: (postId: string, currentCaption: string) => void;
@@ -147,12 +148,20 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           delayLongPress={350}
           style={{ flex: 1, position: 'relative' }}
         >
-          <Image source={{ uri: post.mediaUrl }} className="w-full h-full object-cover" />
+          {post.mediaUrl && (post.mediaUrl.toLowerCase().endsWith('.mp4') || post.mediaUrl.toLowerCase().endsWith('.mov')) ? (
+            <Video source={{ uri: post.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={false} />
+          ) : (
+            <Image source={{ uri: post.mediaUrl }} className="w-full h-full object-cover" />
+          )}
           <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.85)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none" />
 
           {post.frontMediaUrl && (
             <View className={`absolute right-4 w-24 h-32 rounded-2xl border-[1.5px] border-white/20 overflow-hidden shadow-2xl z-10 bg-black/40 ${isFullScreenReel ? 'top-24' : 'top-16'}`}>
-               <Image source={{ uri: post.frontMediaUrl }} className="w-full h-full object-cover" />
+               {post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov') ? (
+                 <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
+               ) : (
+                 <Image source={{ uri: post.frontMediaUrl }} className="w-full h-full object-cover" />
+               )}
             </View>
           )}
 
@@ -214,10 +223,12 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
                   <Text className={`font-bold text-[14px] ${isLiked ? 'text-white' : 'text-white/80'}`}>{likesCount}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => onOpenComments(post.id)} className="flex-row items-center gap-1.5">
-                  <Ionicons name="chatbubble-outline" size={24} color="rgba(255,255,255,0.95)" />
-                  <Text className="text-white/90 font-bold text-[14px]">{post.commentsCount || 0}</Text>
-                </TouchableOpacity>
+                {post.type !== 'DAILY' && (
+                  <TouchableOpacity onPress={() => onOpenComments && onOpenComments(post.id)} className="flex-row items-center gap-1.5">
+                    <Ionicons name="chatbubble-outline" size={24} color="rgba(255,255,255,0.95)" />
+                    <Text className="text-white/90 font-bold text-[14px]">{post.commentsCount || 0}</Text>
+                  </TouchableOpacity>
+                )}
 
                 {/* ASCUNDEM REACTIILE LA REELS */}
                 {post.type !== 'REEL' && (

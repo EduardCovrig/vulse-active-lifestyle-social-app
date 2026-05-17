@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface LockedFeedViewProps {
   circle: any[];
@@ -10,67 +12,89 @@ interface LockedFeedViewProps {
 }
 
 export default function LockedFeedView({ circle, onOpenCamera }: LockedFeedViewProps) {
-  // Filter out the current user and simulate friends' posts
   const friendsToSimulate = circle.filter(c => !c.isMe);
-  
-  // if there are no friends, show a default message card
   const displayFriends = friendsToSimulate.length > 0 ? friendsToSimulate : [
     { id: 'mock1', name: 'Add friends to see their snaps!', img: null },
   ];
 
   return (
-    <View className="px-5 mt-2 mb-20">
-      <Text className="text-white text-[28px] font-black text-center mb-2 tracking-tight px-4 leading-8">
+    // No horizontal padding here — the parent FlatList already provides px-5 on each card
+    // Use explicit width calculation to ensure cards stay within screen bounds
+    <View style={{ width: '100%', marginTop: 8, marginBottom: 80, paddingHorizontal: 20 }}>
+      <Text style={{ color: 'white', fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 8, letterSpacing: -0.5, lineHeight: 32 }}>
         See what your friends are doing.
       </Text>
-      <Text className="text-white/70 text-center mb-8 text-[15px] px-4">
-        Share your active <Text className="text-[#7dd3fc] font-black">moment of the day</Text> with them!
+      <Text style={{ color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginBottom: 28, fontSize: 15, lineHeight: 22, paddingHorizontal: 16 }}>
+        Share your active{' '}
+        <Text style={{ color: '#7dd3fc', fontWeight: '900' }}>moment of the day</Text>
+        {' '}with them!
       </Text>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           if (onOpenCamera) onOpenCamera();
-        }} 
-        className="w-full mb-10"
+        }}
+        activeOpacity={0.85}
+        style={{ width: '100%', marginBottom: 32 }}
       >
-        <LinearGradient 
-          colors={['#7ad7c6', '#7dd3fc']} 
-          start={{x:0, y:0}} 
-          end={{x:1, y:1}} 
-          className="rounded-[24px] items-center justify-center h-[64px] shadow-[0_0_30px_rgba(125,211,252,0.3)] border border-white/20"
+        <LinearGradient
+          colors={['#7ad7c6', '#7dd3fc']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            borderRadius: 24,
+            height: 64,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#7dd3fc',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.3,
+            shadowRadius: 16,
+          }}
         >
-          <Text className="text-[#090E17] font-black text-[17px] tracking-widest">POST NOW</Text>
+          <Text style={{ color: '#090E17', fontWeight: '900', fontSize: 17, letterSpacing: 2 }}>POST NOW</Text>
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* BLURRED CARDS SIMULATION */}
-      <View className="flex-col gap-6">
+      {/* Locked friend cards */}
+      <View style={{ gap: 20 }}>
         {displayFriends.map((f, i) => (
-          <View key={f.id || i} className="w-full h-[400px] rounded-[36px] overflow-hidden bg-[#06090E] border border-white/10 relative items-center justify-center shadow-2xl">
-            
-            {/* Poza de profil pe fundal - Acum se foloseste transform scale pentru centrare perfecta */}
+          <View
+            key={f.id || i}
+            style={{
+              width: '100%',
+              height: 380,
+              borderRadius: 32,
+              overflow: 'hidden',
+              backgroundColor: '#06090E',
+              borderWidth: 0.5,
+              borderColor: 'rgba(255,255,255,0.08)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             {f.img ? (
-              <Image 
-                source={{ uri: f.img }} 
-                className="absolute inset-0 w-full h-full opacity-60"
-                style={{ transform: [{ scale: 1.6 }] }} // Mărește poza cu 60% pornind exact din centru
-                blurRadius={15}
+              <Image
+                source={{ uri: f.img }}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.5 }}
+                blurRadius={14}
                 resizeMode="cover"
               />
             ) : (
-              <View className="absolute inset-0 w-full h-full bg-white/[0.03] items-center justify-center">
-                 <Text className="text-white/10 font-bold text-6xl">{f.name.charAt(0).toUpperCase()}</Text>
+              <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.02)', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.06)', fontWeight: 'bold', fontSize: 80 }}>
+                  {f.name.charAt(0).toUpperCase()}
+                </Text>
               </View>
             )}
-            
-            {/* Overlay negru pentru a face textul lizibil */}
-            <View className="absolute inset-0 bg-black/40" />
-            
-            <View className="w-20 h-20 rounded-full bg-white/10 items-center justify-center border border-white/20 mb-4 backdrop-blur-md shadow-lg z-10">
-              <Ionicons name="lock-closed" size={32} color="rgba(255,255,255,0.9)" />
+            <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
+            <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginBottom: 14, zIndex: 10 }}>
+              <Ionicons name="lock-closed" size={30} color="rgba(255,255,255,0.85)" />
             </View>
-            <Text className="text-white/70 font-black tracking-[4px] uppercase text-xs text-center px-4 z-10">{f.name}</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.65)', fontWeight: '800', letterSpacing: 3, textTransform: 'uppercase', fontSize: 11, textAlign: 'center', paddingHorizontal: 24, zIndex: 10 }}>
+              {f.name}
+            </Text>
           </View>
         ))}
       </View>

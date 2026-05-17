@@ -9,12 +9,13 @@ import BouncyPressable from '../components/BouncyPressable';
 import ManualLogModal from '../components/ManualLogModal';
 import ConcentricRings from '../components/ConcentricRings';
 import FriendNutritionModal from '../components/FriendNutritionModal';
+import NutritionCalendarModal from '../components/NutritionCalendarModal';
 
 const { width, height } = Dimensions.get('window');
 
 export default function NutritionScreen() {
   const insets = useSafeAreaInsets();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const enterAnim = useRef(new Animated.Value(0)).current;
   
   const [loading, setLoading] = useState(true);
   const [meals, setMeals] = useState<any[]>([]);
@@ -34,6 +35,10 @@ export default function NutritionScreen() {
   const [friendsNutrition, setFriendsNutrition] = useState<any[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<any>(null);
   
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarHistory, setCalendarHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   const dialValueRef = useRef(0);
   const dialTypeRef = useRef<'cal'|'pro'|'carb'|'fat'>('cal');
   const startValueRef = useRef(0);
@@ -71,7 +76,7 @@ export default function NutritionScreen() {
   };
 
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    Animated.spring(enterAnim, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }).start();
     fetchNutritionData();
   }, [currentDate]);
 
@@ -80,6 +85,22 @@ export default function NutritionScreen() {
     const newDate = new Date(currentDate);
     newDate.setDate(newDate.getDate() + days);
     setCurrentDate(newDate);
+  };
+
+  const openCalendar = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowCalendarModal(true);
+    setLoadingHistory(true);
+    try {
+      const res = await api.get(`/nutrition/history?days=30`);
+      // res.data is list of Map with date, cal, pro, carbs, fat, calGoal, etc.
+      // concentric rings expects friend object with these fields, which matches the map
+      setCalendarHistory(res.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const openEditModal = (meal: any) => {
@@ -209,17 +230,19 @@ export default function NutritionScreen() {
   const uiParams = macroDial.visible ? getDialUIParams() : { currentColor: '#fff', rotationDegrees: 0, laps: 0 };
 
   return (
-    <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: '#090E17', paddingTop: insets.top }}>
+    <Animated.View style={{ flex: 1, opacity: enterAnim, transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }], backgroundColor: '#090E17', paddingTop: insets.top }}>
       
       {/* HEADER */}
       <View className="flex-row items-center justify-between px-6 mb-6 mt-4">
         <TouchableOpacity onPress={() => changeDate(-1)} className="w-10 h-10 bg-white/5 rounded-full items-center justify-center border border-white/10">
           <Ionicons name="chevron-back" size={20} color="white" />
         </TouchableOpacity>
-        <View className="items-center">
-          <Text className="text-white/50 text-[10px] uppercase font-bold tracking-widest mb-1">Daily Log</Text>
+        <TouchableOpacity onPress={openCalendar} className="items-center" activeOpacity={0.7}>
+          <Text className="text-white/50 text-[10px] uppercase font-bold tracking-widest mb-1 flex-row items-center">
+            <Ionicons name="calendar-outline" size={10} color="#7ad7c6" /> Daily Log
+          </Text>
           <Text className="text-white font-black text-xl">{currentDate.toDateString() === new Date().toDateString() ? 'Today' : formatDateForApi(currentDate)}</Text>
-        </View>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => changeDate(1)} disabled={currentDate.toDateString() === new Date().toDateString()} className={`w-10 h-10 rounded-full items-center justify-center border border-white/10 ${currentDate.toDateString() === new Date().toDateString() ? 'opacity-30 bg-transparent' : 'bg-white/5'}`}>
           <Ionicons name="chevron-forward" size={20} color="white" />
         </TouchableOpacity>
@@ -352,6 +375,13 @@ export default function NutritionScreen() {
 
       <FriendNutritionModal 
         visible={selectedFriend !== null} onClose={() => setSelectedFriend(null)} friend={selectedFriend}
+      />
+
+      <NutritionCalendarModal 
+        visible={showCalendarModal} 
+        onClose={() => setShowCalendarModal(false)} 
+        loading={loadingHistory} 
+        history={calendarHistory} 
       />
 
       {/* DIAL MODAL */}

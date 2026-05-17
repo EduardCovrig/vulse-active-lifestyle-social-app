@@ -1,5 +1,8 @@
 import React, { useRef } from 'react';
-import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { Animated, PanResponder, StyleSheet, View, Image } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
+
+const AnimatedVideo = Animated.createAnimatedComponent(Video);
 
 interface PinchableImageProps {
   uri: string;
@@ -100,11 +103,21 @@ export default function PinchableImage({ uri, onSingleTap }: PinchableImageProps
 
   return (
     <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers} collapsable={false}>
-      <Animated.Image 
-        source={{ uri }} 
-        style={[StyleSheet.absoluteFill, { transform: [{ translateX }, { translateY }, { scale }] }]} 
-        resizeMode="cover" 
-      />
+      {uri && (uri.toLowerCase().endsWith('.mp4') || uri.toLowerCase().endsWith('.mov')) ? (
+        <AnimatedVideo
+          source={{ uri }}
+          style={[StyleSheet.absoluteFill, { transform: [{ translateX }, { translateY }, { scale }] }]}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay
+          isLooping
+        />
+      ) : (
+        <Animated.Image 
+          source={{ uri }} 
+          style={[StyleSheet.absoluteFill, { transform: [{ translateX }, { translateY }, { scale }] }]} 
+          resizeMode="cover" 
+        />
+      )}
     </View>
   );
 }
