@@ -17,9 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -112,29 +110,45 @@ public class PostService {
 
     /**
      * Deletes a post, all its interactions, and its associated media from Cloudinary.
-     * Fully GDPR and DB Foreign Key compliant.
+     * Cloudinary HTTP calls are performed AFTER the DB transaction commits to avoid
+     * holding a DB connection during potentially slow external HTTP calls.
+     */
+    public void deletePost(UUID postId, User user) {
+        // Phase 1: DB operations inside a transaction; collect Cloudinary IDs to purge
+        List<String> cloudinaryIdsToDelete = deletePostDbWork(postId, user);
+
+        // Phase 2: Cloudinary cleanup OUTSIDE the transaction
+        for (String publicId : cloudinaryIdsToDelete) {
+            try {
+                cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+            } catch (IOException e) {
+                System.err.println("Warning: Cloudinary asset failed to delete: " + publicId);
+            }
+        }
+    }
+
+    /**
+     * Transactional phase of deletePost — does all DB work and returns Cloudinary public IDs to clean up.
      */
     @Transactional
-    public void deletePost(UUID postId, User user) {
+    protected List<String> deletePostDbWork(UUID postId, User user) {
         Post post = getPostById(postId);
         if (!post.getUser().getId().equals(user.getId())) {
             throw new IllegalStateException("Unauthorized: You don't own this post.");
         }
 
-        // 1. Delete Reactions - MULT MAI EFICIENT (Doar query pe DB, nu pe tot tabelul)
+        List<String> cloudinaryIds = new ArrayList<>();
+
+        // 1. Collect & delete Reactions
         List<Reaction> postReactions = reactionRepository.findByPostId(postId);
         for (Reaction reaction : postReactions) {
-            try {
-                if (reaction.getMediaPublicId() != null) {
-                    cloudinary.uploader().destroy(reaction.getMediaPublicId(), ObjectUtils.emptyMap());
-                }
-            } catch (IOException e) {
-                System.err.println("Warning: Cloudinary asset failed to delete for reaction: " + reaction.getId());
+            if (reaction.getMediaPublicId() != null) {
+                cloudinaryIds.add(reaction.getMediaPublicId());
             }
-            reactionRepository.delete(reaction);
         }
+        reactionRepository.deleteAll(postReactions);
 
-        // 2. Delete Comments and Likes
+        // 2. Delete Comments, Likes, Reports
         reportRepository.deleteAll(reportRepository.findByPostId(postId));
         commentRepository.deleteAll(commentRepository.findByPostId(postId));
         likeRepository.deleteAll(likeRepository.findByPostId(postId));
@@ -146,47 +160,45 @@ public class PostService {
             savedMealRepository.save(meal);
         }
 
-        // 4. Clean up Post's Cloudinary media
-        try {
-            if (post.getMediaPublicId() != null) {
-                cloudinary.uploader().destroy(post.getMediaPublicId(), ObjectUtils.emptyMap());
-            }
-            if (post.getFrontMediaPublicId() != null) {
-                cloudinary.uploader().destroy(post.getFrontMediaPublicId(), ObjectUtils.emptyMap());
-            }
-        } catch (IOException e) {
-            System.err.println("Warning: Cloudinary assets failed to delete for post: " + postId);
+        // 4. Collect Post's Cloudinary media IDs
+        if (post.getMediaPublicId() != null) {
+            cloudinaryIds.add(post.getMediaPublicId());
+        }
+        if (post.getFrontMediaPublicId() != null) {
+            cloudinaryIds.add(post.getFrontMediaPublicId());
         }
 
         // 5. Delete post
         postRepository.delete(post);
+
+        return cloudinaryIds;
     }
 
     /**
      * Fetches the feed.
      * REELS: Global content (TikTok style).
      * DAILY/MEAL: Friends only content (BeReal style).
+     *
+     * Uses batch-loading to avoid N+1 queries for likes/comments counts.
      */
     public Page<PostResponse> getFeedByType(User user, PostType type, Pageable pageable) {
+        Page<Post> postPage;
         if (type == PostType.REEL) {
-            // Simplified global feed for Reels
-            return postRepository.findAllByTypeOrderByCreatedAtDesc(type, pageable)
-                    .map(post -> mapToResponse(post, user));
+            postPage = postRepository.findAllByTypeOrderByCreatedAtDesc(type, pageable);
+        } else {
+            postPage = postRepository.findFriendsFeed(user.getId(), type, pageable);
         }
 
-        // Friends feed for social types
-        return postRepository.findFriendsFeed(user.getId(), type, pageable)
-                .map(post -> mapToResponse(post, user));
+        List<PostResponse> responses = mapToResponseBatch(postPage.getContent(), user);
+        return new PageImpl<>(responses, pageable, postPage.getTotalElements());
     }
 
     /**
      * Fetches posts created by the authenticated user.
      */
     public List<PostResponse> getMyPosts(User user) {
-        return postRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
-                .stream()
-                .map(post -> mapToResponse(post, user))
-                .toList();
+        List<Post> posts = postRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+        return mapToResponseBatch(posts, user);
     }
 
     /**
@@ -203,13 +215,15 @@ public class PostService {
 
         return mapToResponse(post, currentUser);
     }
+
     private Post getPostById(UUID id) {
         return postRepository.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Post not found."));
     }
 
     /**
-     * Maps Entity to DTO with all social counts and status flags.
+     * Maps a single Entity to DTO with all social counts and status flags.
+     * Used for single-post endpoints where N+1 is not a concern (N=1).
      */
     private PostResponse mapToResponse(Post post, User currentUser) {
         PostAuthorDto authorDto = PostAuthorDto.builder()
@@ -248,6 +262,68 @@ public class PostService {
     }
 
     /**
+     * Batch-maps a list of Post entities to DTOs, using only 3 aggregate queries
+     * instead of 3×N individual queries (N+1 fix).
+     */
+    private List<PostResponse> mapToResponseBatch(List<Post> posts, User currentUser) {
+        if (posts.isEmpty()) return List.of();
+
+        List<UUID> postIds = posts.stream().map(Post::getId).toList();
+
+        // Batch fetch: like counts per post
+        Map<UUID, Long> likeCountMap = likeRepository.countGroupedByPostIds(postIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (UUID) row[0],
+                        row -> (Long) row[1]
+                ));
+
+        // Batch fetch: comment counts per post
+        Map<UUID, Long> commentCountMap = commentRepository.countGroupedByPostIds(postIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (UUID) row[0],
+                        row -> (Long) row[1]
+                ));
+
+        // Batch fetch: which posts the current user has liked
+        Set<UUID> likedPostIds = new HashSet<>(likeRepository.findLikedPostIdsByUser(currentUser.getId(), postIds));
+
+        // Build responses using pre-fetched data
+        return posts.stream().map(post -> {
+            PostAuthorDto authorDto = PostAuthorDto.builder()
+                    .id(post.getUser().getId())
+                    .username(post.getUser().getRealUsername())
+                    .profilePicUrl(post.getUser().getProfilePicUrl())
+                    .build();
+
+            // Top 3 reactions still per-post (small N, and reaction media URLs are needed)
+            List<String> reactions = reactionRepository.findTop3ByPostIdOrderByCreatedAtDesc(post.getId())
+                    .stream()
+                    .map(Reaction::getMediaUrl)
+                    .toList();
+
+            return PostResponse.builder()
+                    .id(post.getId())
+                    .mediaUrl(post.getMediaUrl())
+                    .frontMediaUrl(post.getFrontMediaUrl())
+                    .calories(post.getCalories())
+                    .proteinGrams(post.getProteinGrams())
+                    .carbsGrams(post.getCarbsGrams())
+                    .fatGrams(post.getFatGrams())
+                    .caption(post.getCaption())
+                    .type(post.getType())
+                    .createdAt(post.getCreatedAt())
+                    .author(authorDto)
+                    .isLiked(likedPostIds.contains(post.getId()))
+                    .likesCount(likeCountMap.getOrDefault(post.getId(), 0L))
+                    .commentsCount(commentCountMap.getOrDefault(post.getId(), 0L))
+                    .recentReactions(reactions)
+                    .build();
+        }).toList();
+    }
+
+    /**
      * Fetches posts by a specific user (for viewing other user profiles).
      */
     public List<PostResponse> getUserPosts(String username, User currentUser) {
@@ -260,9 +336,7 @@ public class PostService {
             throw new IllegalStateException("Content unavailable.");
         }
 
-        return postRepository.findByUserIdOrderByCreatedAtDesc(targetUser.getId())
-                .stream()
-                .map(post -> mapToResponse(post, currentUser))
-                .toList();
+        List<Post> posts = postRepository.findByUserIdOrderByCreatedAtDesc(targetUser.getId());
+        return mapToResponseBatch(posts, currentUser);
     }
 }
