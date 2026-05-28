@@ -98,10 +98,8 @@ export default function FeedScreen() {
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 pagingEnabled
-                snapToInterval={height}
                 snapToAlignment="start"
                 decelerationRate="fast"
-                contentContainerStyle={{ paddingBottom: 0 }}
                 removeClippedSubviews={true}
                 initialNumToRender={3}
                 maxToRenderPerBatch={3}

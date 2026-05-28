@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode } from 'expo-av';
 import BouncyPressable from './BouncyPressable';
 import ReactionListModal from './ReactionListModal';
+import { optimizedImageUrl, optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 interface LiquidPostCardProps {
   post: any;
@@ -151,7 +152,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           {post.mediaUrl && (post.mediaUrl.toLowerCase().endsWith('.mp4') || post.mediaUrl.toLowerCase().endsWith('.mov')) ? (
             <Video source={{ uri: post.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={false} />
           ) : (
-            <Image source={{ uri: post.mediaUrl }} className="w-full h-full object-cover" />
+            <Image source={{ uri: optimizedImageUrl(post.mediaUrl) }} className="w-full h-full object-cover" />
           )}
           <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.85)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none" />
 
@@ -160,7 +161,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
                {post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov') ? (
                  <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
                ) : (
-                 <Image source={{ uri: post.frontMediaUrl }} className="w-full h-full object-cover" />
+                 <Image source={{ uri: optimizedThumbUrl(post.frontMediaUrl) }} className="w-full h-full object-cover" />
                )}
             </View>
           )}
@@ -176,7 +177,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
             <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} style={{ zIndex: 100, elevation: 100 }} className="absolute top-5 left-5 flex-row items-center gap-2.5">
               <View className="w-9 h-9 rounded-full bg-white/10 items-center justify-center overflow-hidden border-[0.5px] border-white/20">
                 {post.author?.profilePicUrl ? (
-                  <Image source={{ uri: post.author.profilePicUrl }} className="w-full h-full" />
+                  <Image source={{ uri: optimizedThumbUrl(post.author.profilePicUrl, 100) }} className="w-full h-full" />
                 ) : (
                   <Text className="text-white font-semibold text-xs">{post.author?.username?.charAt(0).toUpperCase()}</Text>
                 )}
@@ -200,7 +201,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
               <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} className="flex-row items-center gap-3 mb-3">
                 <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center overflow-hidden border-[1px] border-white/30">
                   {post.author?.profilePicUrl ? (
-                    <Image source={{ uri: post.author.profilePicUrl }} className="w-full h-full" />
+                    <Image source={{ uri: optimizedThumbUrl(post.author.profilePicUrl, 100) }} className="w-full h-full" />
                   ) : (
                     <Text className="text-white font-bold text-sm">{post.author?.username?.charAt(0).toUpperCase()}</Text>
                   )}
@@ -243,7 +244,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
                   <TouchableOpacity onPress={() => setShowReactions(true)} className="flex-row-reverse">
                     {recentReactions.slice(0, 3).map((uri: string, index: number) => (
                       <View key={index} style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.1)', marginRight: index > 0 ? -12 : 0 }}>
-                         <Image source={{ uri }} className="w-full h-full object-cover" />
+                         <Image source={{ uri: optimizedThumbUrl(uri, 100) }} className="w-full h-full object-cover" />
                       </View>
                     ))}
                   </TouchableOpacity>

@@ -13,6 +13,7 @@ import UserListModal from '../components/UserListModal';
 import ImagePopoutModal from '../components/ImagePopoutModal';
 import SwipeableModal from '../components/SwipeableModal';
 import CameraScreen from './CameraScreen';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 const HEADER_HEIGHT = 180;
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -204,7 +205,7 @@ export default function UserProfileScreen() {
           <Animated.View style={{ transform: [{ scale: profilePicScale }] }} className="mb-4">
             <View className="p-[2px] rounded-full bg-white/15 shadow-xl shadow-black/50">
               <View className="w-[100px] h-[100px] rounded-full bg-[#0c1018] overflow-hidden items-center justify-center">
-                {profile?.profilePicUrl ? <Image source={{ uri: profile.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white font-bold text-4xl">{profile?.username?.charAt(0).toUpperCase()}</Text>}
+                {profile?.profilePicUrl ? <Image source={{ uri: optimizedThumbUrl(profile.profilePicUrl, 200) }} className="w-full h-full" /> : <Text className="text-white font-bold text-4xl">{profile?.username?.charAt(0).toUpperCase()}</Text>}
               </View>
             </View>
           </Animated.View>
@@ -270,7 +271,7 @@ export default function UserProfileScreen() {
                    className="bg-white/[0.03] rounded-lg overflow-hidden relative items-center justify-center"
                  >
                    <Image 
-                     source={{ uri: post.mediaUrl }} 
+                     source={{ uri: optimizedThumbUrl(post.mediaUrl) }} 
                      className="absolute inset-0 w-full h-full" 
                      resizeMode="cover" 
                      blurRadius={isLocked ? 12 : 0}

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -66,27 +67,50 @@ public class UserService {
 
     /**
      * Fully cascades deletions to prevent DB crashes and cleans Cloudinary to prevent billing issues.
+     * Cloudinary HTTP calls are performed AFTER the DB transaction commits to avoid
+     * holding a DB connection during potentially slow external HTTP calls.
+     */
+    public void deleteAccount(User user) {
+        // Phase 1: All DB operations inside a transaction; collect Cloudinary IDs
+        List<String> cloudinaryIdsToDelete = deleteAccountDbWork(user);
+
+        // Phase 2: Cloudinary cleanup OUTSIDE the transaction
+        for (String publicId : cloudinaryIdsToDelete) {
+            try {
+                cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+            } catch (Exception ignored) {}
+        }
+    }
+
+    /**
+     * Transactional phase of deleteAccount — does all DB work and returns Cloudinary public IDs to clean up.
      */
     @Transactional
-    public void deleteAccount(User user) {
+    protected List<String> deleteAccountDbWork(User user) {
         User dbUser = userRepository.findById(user.getId())
                 .orElseThrow(() -> new IllegalStateException("User not found"));
 
+        List<String> cloudinaryIds = new ArrayList<>();
+
+        // Collect profile pic Cloudinary ID
         if (dbUser.getProfilePicPublicId() != null) {
-            try {
-                cloudinary.uploader().destroy(dbUser.getProfilePicPublicId(), ObjectUtils.emptyMap());
-            } catch (Exception ignored) {}
+            cloudinaryIds.add(dbUser.getProfilePicPublicId());
         }
 
+        // Delete all user's posts (which also collects their Cloudinary IDs)
         List<Post> userPosts = postRepository.findByUserIdOrderByCreatedAtDesc(dbUser.getId());
         for (Post post : userPosts) {
-            postService.deletePost(post.getId(), dbUser);
+            List<String> postCloudinaryIds = postService.deletePostDbWork(post.getId(), dbUser);
+            cloudinaryIds.addAll(postCloudinaryIds);
         }
 
-        // 3. DELETE REMAINING INTERACTIONS EFFICIENTLY
+        // Delete remaining reactions and collect their Cloudinary IDs
         List<Reaction> userReactions = reactionRepository.findByUserId(dbUser.getId());
         for (Reaction reaction : userReactions) {
-            interactionService.deleteReaction(dbUser, reaction.getId());
+            if (reaction.getMediaPublicId() != null) {
+                cloudinaryIds.add(reaction.getMediaPublicId());
+            }
+            reactionRepository.delete(reaction);
         }
 
         likeRepository.deleteAll(likeRepository.findByUserId(dbUser.getId()));
@@ -103,5 +127,7 @@ public class UserService {
         blocks.addAll(blockRepository.findByBlockedId(dbUser.getId()));
         blockRepository.deleteAll(blocks);
         userRepository.delete(dbUser);
+
+        return cloudinaryIds;
     }
 }
