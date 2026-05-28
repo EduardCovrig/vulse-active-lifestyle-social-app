@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { View, Text, Image, TouchableOpacity, Alert, TextInput, Dimensions, Animated, ActivityIndicator, Modal, FlatList, Share } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +20,7 @@ import CalendarModal from '../components/CalendarModal';
 import ImagePopoutModal from '../components/ImagePopoutModal';
 import SwipeableModal from '../components/SwipeableModal';
 import NotificationListModal from '../components/NotificationListModal';
+import { optimizedImageUrl, optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 const HEADER_HEIGHT = 180;
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -32,7 +33,7 @@ interface ProfileScreenProps {
 
 export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = {}) {
   const insets = useSafeAreaInsets();
-  const navigation = require('@react-navigation/native').useNavigation();
+  const navigation = useNavigation<any>();
   const { logout, username } = useContext(AuthContext);
 
   const [profile, setProfile] = useState<any>(null);
@@ -479,7 +480,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                   {isUploadingPic ? (
                     <ActivityIndicator color="white" />
                   ) : profile?.profilePicUrl ? (
-                    <Image source={{ uri: profile.profilePicUrl }} className="w-full h-full" />
+                    <Image source={{ uri: optimizedThumbUrl(profile.profilePicUrl, 200) }} className="w-full h-full" />
                   ) : (
                     <Text className="text-white/80 text-5xl font-black">{profile?.username?.charAt(0).toUpperCase()}</Text>
                   )}
@@ -605,7 +606,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                   style={{ width: ITEM_WIDTH, height: ITEM_WIDTH, marginBottom: GRID_GAP }} 
                   className="overflow-hidden bg-white/[0.03] rounded-lg relative"
                 >
-                  <Image source={{ uri: post.mediaUrl }} className="w-full h-full" resizeMode="cover" />
+                  <Image source={{ uri: optimizedThumbUrl(post.mediaUrl) }} className="w-full h-full" resizeMode="cover" />
                   
                   <View className="absolute bottom-1.5 left-1.5 flex-row gap-1">
                     {post.calories && (

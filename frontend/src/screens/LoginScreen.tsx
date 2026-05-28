@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, useColorScheme, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, useColorScheme, ActivityIndicator, ScrollView } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
@@ -37,6 +37,7 @@ export default function LoginScreen({ navigation }: any) {
       <View className="absolute bottom-[-10%] right-[-20%] w-72 h-72 bg-secondary/10 rounded-full" />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="w-full max-w-md">
+        <ScrollView bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View className="mb-10 items-center">
           <Text className="text-4xl font-extrabold text-white tracking-widest uppercase mb-2">Vulse</Text>
           <Text className="text-on-surface-variant text-base tracking-wider">Enter your healthy era.</Text>
@@ -96,6 +97,7 @@ export default function LoginScreen({ navigation }: any) {
 
           </View>
         </BlurView>
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
