@@ -28,6 +28,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode } from 'expo-av';
 import { api } from '../services/api';
 import PinchableImage from './PinchableImage';
+import { optimizedImageUrl, optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 const { width, height } = Dimensions.get('window');
 
@@ -92,7 +93,7 @@ function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => vo
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.04)' }}>
                   <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)', marginRight: 12, alignItems: 'center', justifyContent: 'center' }}>
                     {item.profilePicUrl
-                      ? <Image source={{ uri: item.profilePicUrl }} style={{ width: '100%', height: '100%' }} />
+                      ? <Image source={{ uri: optimizedThumbUrl(item.profilePicUrl, 100) }} style={{ width: '100%', height: '100%' }} />
                       : <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 14 }}>{item.username?.charAt(0)?.toUpperCase()}</Text>
                     }
                   </View>
@@ -103,7 +104,7 @@ function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => vo
                   </View>
                   {item.mediaUrl && (
                     <View style={{ width: 48, height: 48, borderRadius: 12, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' }}>
-                      <Image source={{ uri: item.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      <Image source={{ uri: optimizedThumbUrl(item.mediaUrl, 200) }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     </View>
                   )}
                 </View>
@@ -142,7 +143,7 @@ export default function ImagePopoutModal({
     }
   }, [post?.id, post?.isLiked, post?.likesCount]);
 
-  const targetUri = post ? post.mediaUrl : imageUri;
+  const targetUri = post ? optimizedImageUrl(post.mediaUrl) : optimizedImageUrl(imageUri);
 
   // ── Open ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -240,7 +241,7 @@ export default function ImagePopoutModal({
               {post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov') ? (
                 <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
               ) : (
-                <Image source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} />
+                <Image source={{ uri: optimizedThumbUrl(post.frontMediaUrl) }} style={{ width: '100%', height: '100%' }} />
               )}
             </View>
           )}
@@ -267,7 +268,7 @@ export default function ImagePopoutModal({
             <View style={{ position: 'absolute', top: 16, left: 16, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 20 }}>
               <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
                 {post.author.profilePicUrl
-                  ? <Image source={{ uri: post.author.profilePicUrl }} style={{ width: '100%', height: '100%' }} />
+                  ? <Image source={{ uri: optimizedThumbUrl(post.author.profilePicUrl, 100) }} style={{ width: '100%', height: '100%' }} />
                   : <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{post.author.username?.charAt(0)?.toUpperCase() || 'V'}</Text>
                 }
               </View>
@@ -322,7 +323,7 @@ export default function ImagePopoutModal({
                     <TouchableOpacity onPress={() => setShowReactions(true)} style={{ flexDirection: 'row' }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
                       {post.recentReactions.slice(0, 3).map((uri: string, idx: number) => (
                         <View key={idx} style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden', marginLeft: idx > 0 ? -10 : 0 }}>
-                          <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
+                          <Image source={{ uri: optimizedThumbUrl(uri, 100) }} style={{ width: '100%', height: '100%' }} />
                         </View>
                       ))}
                     </TouchableOpacity>
