@@ -433,10 +433,15 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
 
       {/* TOP CONTROLS */}
       <View className="absolute z-50 flex-row justify-between w-full px-6" style={{ top: insets.top + 10 }}>
-        <BouncyPressable onPress={onClose} className="w-12 h-12 bg-black/40 rounded-full items-center justify-center backdrop-blur-md border border-white/20">
+        <BouncyPressable 
+          onPress={() => !isUploading && onClose()} 
+          className="w-12 h-12 bg-black/40 rounded-full items-center justify-center backdrop-blur-md border border-white/20"
+          style={{ opacity: isUploading ? 0.3 : 1 }}
+        >
           <Ionicons name="chevron-down" size={28} color="white" />
         </BouncyPressable>
-        {mode !== 'reaction' && (
+        
+        {mode !== 'reaction' && !isUploading && (
           <BouncyPressable onPress={toggleFlash} className="w-12 h-12 bg-black/40 rounded-full items-center justify-center backdrop-blur-md border border-white/20">
             <Ionicons name={flash === 'on' ? 'flash' : 'flash-off'} size={22} color={flash === 'on' ? '#fde047' : 'white'} />
           </BouncyPressable>
@@ -447,9 +452,10 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
       <View className="absolute bottom-12 inset-x-0 items-center px-10">
         <View className="flex-row justify-between items-center w-full">
           <View className="flex-1 items-start" />
+          
           {/* CAPTURE BUTTON */}
-          <BouncyPressable onPress={cameraMode === 'picture' ? takePicture : toggleRecording} scaleTo={0.85}>
-            <View className="relative items-center justify-center">
+          <BouncyPressable onPress={isUploading ? undefined : (cameraMode === 'picture' ? takePicture : toggleRecording)} scaleTo={0.85}>
+            <View className="relative items-center justify-center" style={{ opacity: isUploading ? 0.3 : 1 }}>
               {cameraMode === 'picture' && (
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }} className="absolute w-24 h-24 rounded-full border-[3px] border-[#7dd3fc]/50" />
               )}
@@ -461,9 +467,10 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
               </View>
             </View>
           </BouncyPressable>
+
           {/* FLIP CAMERA */}
           <View className="flex-1 items-end">
-            {mode !== 'reaction' && (
+            {mode !== 'reaction' && !isUploading && (
               <BouncyPressable onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')} className="w-14 h-14 bg-black/40 rounded-full items-center justify-center backdrop-blur-md border border-white/20">
                 <Ionicons name="sync" size={26} color="white" />
               </BouncyPressable>

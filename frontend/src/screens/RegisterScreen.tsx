@@ -109,6 +109,11 @@ export default function RegisterScreen({ navigation }: any) {
               </LinearGradient>
             </TouchableOpacity>
 
+            {/* gdpr compliance terms of services */}
+            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textAlign: 'center', marginTop: 8, paddingHorizontal: 10, lineHeight: 16 }}>
+              By signing up, you agree to our <Text style={{ color: '#7dd3fc', fontWeight: 'bold' }}>Terms of Service</Text> and acknowledge our <Text style={{ color: '#7dd3fc', fontWeight: 'bold' }}>Privacy Policy</Text>. We do not tolerate abusive content.
+            </Text>
+
             <View className="flex-row justify-center mt-4 gap-2">
               <Text className="text-on-surface-variant">Already a VULSE member?</Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')}>

@@ -553,9 +553,9 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
               </View>
               {profile?.streak > 0 && (
                 <TouchableOpacity onPress={animateStreak} activeOpacity={1}>
-                  <Animated.View style={{ transform: [{ scale: streakScale }, { rotate: spinInterpolate }] }} className="bg-orange-500/20 border border-orange-500/30 px-3 py-1 rounded-full flex-row items-center justify-center gap-1.5 shadow-[0_0_10px_rgba(255,138,0,0.2)]">
-                     <Ionicons name="flame" size={12} color="#ff8a00" />
-                     <Text className="text-[#ff8a00] font-black text-[10px] uppercase pt-0.5">{profile.streak} STREAK</Text>
+                  <Animated.View style={{ transform: [{ scale: streakScale }, { rotate: spinInterpolate }] }} className="bg-orange-500/20 border border-orange-500/30 px-2.5 rounded-full flex-row items-center justify-center py-2.5 gap-x-1.5 shadow-[0_0_10px_rgba(255,138,0,0.2)]">
+                     <Ionicons name="flame" size={11} color="#ff8a00" />
+                     <Text className="text-[#ff8a00] font-black text-[10px] uppercase pt-0.5">{profile.streak} STREAK  </Text>
                   </Animated.View>
                 </TouchableOpacity>
               )}
