@@ -12,6 +12,7 @@ import SwipeableModal from '../components/SwipeableModal';
 import { api } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,6 +25,18 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [hideTabBar, setHideTabBar] = useState(false);
   const feedEnterAnim = useRef(new Animated.Value(0)).current;
+
+  const [activePostId, setActivePostId] = useState<string | null>(null);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      setActivePostId(viewableItems[0].item.id);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
 
   useEffect(() => {
     if (activeTab === 'feed') {
@@ -106,6 +119,8 @@ export default function FeedScreen() {
                 windowSize={5}
                 onRefresh={fetchGlobalFeed}
                 refreshing={loading}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
                 renderItem={({ item }) => (
                   <View style={{ height, width }}>
                     <LiquidPostCard 
@@ -117,6 +132,7 @@ export default function FeedScreen() {
                       onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
                       onLikeToggled={handleLikeToggled}
                       onEditCaption={(id, text) => console.log("Edit")}
+                      shouldPlay={item.id === activePostId && activeTab === 'feed'}
                     />
                   </View>
                 )}
@@ -158,7 +174,7 @@ export default function FeedScreen() {
               <View className="flex-row gap-3 mb-4">
                 <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
                   {item?.user?.profilePicUrl ? (
-                    <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" />
+                    <Image source={{ uri: optimizedThumbUrl(item.user.profilePicUrl, 100) }} className="w-full h-full" />
                   ) : (
                     <Text className="text-white/60 text-xs font-semibold">
                       {item?.user?.username?.charAt(0)?.toUpperCase() || 'U'}

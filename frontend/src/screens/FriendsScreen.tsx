@@ -13,6 +13,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import LockedFeedView from '../components/LockedFeedView';
 import ImagePopoutModal from '../components/ImagePopoutModal';
+import { optimizedImageUrl, optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 interface FriendsScreenProps {
   onOpenCamera?: () => void;
@@ -200,7 +201,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
               {item.hasPosted ? (
                 <LinearGradient colors={['rgba(122,215,198,0.6)', 'rgba(125,211,252,0.6)']} className="absolute inset-0 rounded-full" style={{ padding: 1.5, borderRadius: 25 }}>
                   <View className="w-full h-full bg-[#090E17] rounded-full border-[1.5px] border-[#090E17] overflow-hidden items-center justify-center" style={{ borderRadius: 23 }}>
-                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} style={{ width: '100%', height: '100%', borderRadius: 23 }} resizeMode="cover" blurRadius={(!item.isMe && !iHavePosted) ? 10 : 0} /> : <View style={{ width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', borderRadius: 23 }}><Text className="text-white/80 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text></View>}
+                    {item.img || item.profilePicUrl ? <Image source={{ uri: optimizedThumbUrl(item.img || item.profilePicUrl, 100) }} style={{ width: '100%', height: '100%', borderRadius: 23 }} resizeMode="cover" blurRadius={(!item.isMe && !iHavePosted) ? 10 : 0} /> : <View style={{ width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', borderRadius: 23 }}><Text className="text-white/80 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text></View>}
                     {(!item.isMe && !iHavePosted) && (
                       <View className="absolute inset-0 bg-black/40 items-center justify-center" style={{ borderRadius: 23 }}>
                         <Ionicons name="lock-closed" size={16} color="white" />
@@ -211,7 +212,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
               ) : (
                 <View className="absolute inset-0 rounded-full border-[0.5px] border-white/10 p-[1.5px]" style={{ borderRadius: 25 }}>
                   <View className="w-full h-full rounded-full overflow-hidden opacity-30 bg-white/5 items-center justify-center" style={{ borderRadius: 23 }}>
-                    {item.img || item.profilePicUrl ? <Image source={{ uri: item.img || item.profilePicUrl }} style={{ width: '100%', height: '100%', borderRadius: 23 }} resizeMode="cover" /> : <Text className="text-white/40 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text>}
+                    {item.img || item.profilePicUrl ? <Image source={{ uri: optimizedThumbUrl(item.img || item.profilePicUrl, 100) }} style={{ width: '100%', height: '100%', borderRadius: 23 }} resizeMode="cover" /> : <Text className="text-white/40 font-bold text-xs">{item.name?.charAt(0)?.toUpperCase()}</Text>}
                   </View>
                 </View>
               )}
@@ -259,7 +260,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
                 <TouchableOpacity key={u.id} onPress={() => openUserProfile(u.username)} activeOpacity={0.7} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: i < searchResults.length - 1 ? 0.5 : 0, borderBottomColor: 'rgba(255,255,255,0.04)' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }}>
-                      {u.profilePicUrl ? <Image source={{ uri: u.profilePicUrl }} style={{ width: '100%', height: '100%' }} /> : <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 14 }}>{u.username.charAt(0).toUpperCase()}</Text>}
+                      {u.profilePicUrl ? <Image source={{ uri: optimizedThumbUrl(u.profilePicUrl, 100) }} style={{ width: '100%', height: '100%' }} /> : <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 14 }}>{u.username.charAt(0).toUpperCase()}</Text>}
                     </View>
                     <View>
                       <Text style={{ color: 'white', fontWeight: '600', fontSize: 15, letterSpacing: 0.3 }}>{u.username}</Text>
@@ -329,7 +330,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
       <Modal visible={activeStory !== null} animationType="fade" transparent={true} onRequestClose={closeStory}>
         <View className="flex-1 bg-black">
           {activeStory?.dailyPostUrl && (
-            <Image source={{ uri: activeStory.dailyPostUrl }} className="w-full h-full" resizeMode="cover" />
+            <Image source={{ uri: optimizedImageUrl(activeStory.dailyPostUrl, 800) }} className="w-full h-full" resizeMode="cover" />
           )}
           <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent']} className="absolute top-0 inset-x-0 h-40 pointer-events-none" />
 
@@ -342,7 +343,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
           <View className="absolute flex-row items-center justify-between w-full px-4" style={{ top: insets.top + 16 }}>
              <View className="flex-row items-center gap-3">
                <View className="w-10 h-10 rounded-full border border-white/30 overflow-hidden bg-white/10">
-                 {activeStory?.img && <Image source={{ uri: activeStory.img }} className="w-full h-full" />}
+                 {activeStory?.img && <Image source={{ uri: optimizedThumbUrl(activeStory.img, 100) }} className="w-full h-full" />}
                </View>
                <Text className="text-white font-bold shadow-md">{activeStory?.name}</Text>
              </View>

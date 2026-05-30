@@ -10,6 +10,7 @@ import ManualLogModal from '../components/ManualLogModal';
 import ConcentricRings from '../components/ConcentricRings';
 import FriendNutritionModal from '../components/FriendNutritionModal';
 import NutritionCalendarModal from '../components/NutritionCalendarModal';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 const { width, height } = Dimensions.get('window');
 
@@ -318,7 +319,7 @@ export default function NutritionScreen() {
               <View className="flex-row items-center gap-4">
                 <View className="w-14 h-14 rounded-2xl bg-[#06090E] border border-white/10 items-center justify-center overflow-hidden">
                   {item.originalPost?.mediaUrl ? (
-                    <Image source={{ uri: item.originalPost.mediaUrl }} className="w-full h-full" />
+                    <Image source={{ uri: optimizedThumbUrl(item.originalPost.mediaUrl, 200) }} className="w-full h-full" />
                   ) : (
                     <Ionicons name="restaurant" size={24} color="#7ad7c6" />
                   )}

@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, useColorScheme, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, useColorScheme, ActivityIndicator, ScrollView, Linking } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
@@ -111,7 +111,21 @@ export default function RegisterScreen({ navigation }: any) {
 
             {/* gdpr compliance terms of services */}
             <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textAlign: 'center', marginTop: 8, paddingHorizontal: 10, lineHeight: 16 }}>
-              By signing up, you agree to our <Text style={{ color: '#7dd3fc', fontWeight: 'bold' }}>Terms of Service</Text> and acknowledge our <Text style={{ color: '#7dd3fc', fontWeight: 'bold' }}>Privacy Policy</Text>. We do not tolerate abusive content.
+              By signing up, you agree to our{' '}
+              <Text 
+                onPress={() => Linking.openURL('https://vulse-app.com/terms')} 
+                style={{ color: '#7dd3fc', fontWeight: 'bold', textDecorationLine: 'underline' }}
+              >
+                Terms of Service
+              </Text>{' '}
+              and{' '}
+              <Text 
+                onPress={() => Linking.openURL('https://vulse-app.com/privacy')} 
+                style={{ color: '#7dd3fc', fontWeight: 'bold', textDecorationLine: 'underline' }}
+              >
+                Privacy Policy
+              </Text>
+              . We do not tolerate abusive content.
             </Text>
 
             <View className="flex-row justify-center mt-4 gap-2">

@@ -342,7 +342,7 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
 
       return (
         <View className="flex-1 bg-black relative">
-          <TouchableOpacity activeOpacity={1} onPress={() => setSwapped(!swapped)} style={{ flex: 1 }}>
+          <TouchableOpacity activeOpacity={1} onPress={() => !isUploading && setSwapped(!swapped)} style={{ flex: 1 }}>
             {(!swapped && mediaType === 'video') || (swapped && frontMediaUri && false) ? (
               <Video source={{ uri: primaryUri! }} style={{ flex: 1 }} resizeMode={ResizeMode.COVER} shouldPlay isLooping />
             ) : (
@@ -353,7 +353,7 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
           <View className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
           
           <View className="absolute z-50 flex-row justify-between w-full px-6" style={{ top: insets.top + 10 }}>
-            <BouncyPressable onPress={() => { setMediaUri(null); setFrontMediaUri(null); setCapturePhase('idle'); }} className="w-12 h-12 bg-black/40 rounded-full items-center justify-center border border-white/20 backdrop-blur-md">
+            <BouncyPressable onPress={() => { if (isUploading) return; setMediaUri(null); setFrontMediaUri(null); setCapturePhase('idle'); }} style={{ opacity: isUploading ? 0.3 : 1 }} className="w-12 h-12 bg-black/40 rounded-full items-center justify-center border border-white/20 backdrop-blur-md">
               <Ionicons name="close" size={24} color="white" />
             </BouncyPressable>
           </View>
@@ -362,7 +362,7 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
           {secondaryUri && (
             <TouchableOpacity 
               activeOpacity={0.9} 
-              onPress={() => setSwapped(!swapped)} 
+              onPress={() => !isUploading && setSwapped(!swapped)} 
               style={{ position: 'absolute', top: insets.top + 70, right: 24, width: 110, height: 150, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: 'white', shadowColor: 'black', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.5, shadowRadius: 10 }}
             >
                <Image source={{ uri: secondaryUri }} className="w-full h-full" resizeMode="cover" />
@@ -395,7 +395,7 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
         )}
         <View className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
         <View className="absolute z-50 flex-row justify-between w-full px-6" style={{ top: insets.top + 10 }}>
-          <BouncyPressable onPress={() => { setMediaUri(null); setCapturePhase('idle'); }} className="w-12 h-12 bg-black/40 rounded-full items-center justify-center border border-white/20 backdrop-blur-md">
+          <BouncyPressable onPress={() => { if (isUploading) return; setMediaUri(null); setCapturePhase('idle'); }} style={{ opacity: isUploading ? 0.3 : 1 }} className="w-12 h-12 bg-black/40 rounded-full items-center justify-center border border-white/20 backdrop-blur-md">
             <Ionicons name="close" size={24} color="white" />
           </BouncyPressable>
         </View>

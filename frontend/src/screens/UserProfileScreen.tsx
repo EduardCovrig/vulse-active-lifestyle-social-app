@@ -369,7 +369,7 @@ export default function UserProfileScreen() {
               <View className="flex-row gap-3 mb-4">
                 <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
                   {item?.user?.profilePicUrl ? (
-                    <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" />
+                    <Image source={{ uri: optimizedThumbUrl(item.user.profilePicUrl, 100) }} className="w-full h-full" />
                   ) : (
                     <Text className="text-white/60 text-xs font-semibold">{item?.user?.username?.charAt(0).toUpperCase() || 'U'}</Text>
                   )}

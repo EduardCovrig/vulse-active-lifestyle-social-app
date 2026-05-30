@@ -570,7 +570,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
                 return (
                   <View key={i} style={{ width: '12.5%', aspectRatio: 0.75, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 0.5, borderColor: snap ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' }}>
                     {snap ? (
-                      <Image source={{ uri: snap.mediaUrl }} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+                      <Image source={{ uri: optimizedThumbUrl(snap.mediaUrl, 150) }} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
                     ) : (
                       <Ionicons name="camera-outline" size={12} color="rgba(255,255,255,0.1)" />
                     )}
@@ -731,7 +731,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
               <View className="flex-row gap-3 mb-4">
                 <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
                   {item?.user?.profilePicUrl ? (
-                    <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" />
+                    <Image source={{ uri: optimizedThumbUrl(item.user.profilePicUrl, 100) }} className="w-full h-full" />
                   ) : (
                     <Text className="text-white/60 text-xs font-semibold">{item?.user?.username?.charAt(0).toUpperCase() || 'U'}</Text>
                   )}
