@@ -56,6 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
+            filterChain.doFilter(request, response); // Continuă normal
         } catch (io.jsonwebtoken.ExpiredJwtException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
@@ -67,8 +68,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"JWT token is invalid\", \"code\": \"TOKEN_INVALID\"}");
+            // FIX CRITIC: return explicit!
             return;
         }
-        filterChain.doFilter(request, response);
     }
 }

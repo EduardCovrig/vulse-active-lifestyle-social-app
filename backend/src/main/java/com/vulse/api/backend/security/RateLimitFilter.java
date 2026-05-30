@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
     private final Map<String, Bucket> cache = new ConcurrentHashMap<>(); //counts requests for every ip addresss
+    private long lastCleanupTime = System.currentTimeMillis();
 
     private Bucket createNewBucket() {
         // limit: 60 requests/minute/ip
@@ -30,6 +31,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        cleanupCacheIfNeeded();
+
         String ip = request.getRemoteAddr();
         Bucket bucket = cache.computeIfAbsent(ip, k -> createNewBucket());
 
@@ -41,6 +44,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
             response.getWriter().write("{\"error\": \"Too many requests\", \"message\": \"Please slow down.\"}");
+        }
+    }
+    //auto clears cache every hour
+    private void cleanupCacheIfNeeded() {
+        long now = System.currentTimeMillis();
+        if (now - lastCleanupTime > Duration.ofHours(1).toMillis()) {
+            cache.clear();
+            lastCleanupTime = now;
         }
     }
 }

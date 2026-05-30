@@ -19,8 +19,6 @@ import java.util.Map;
 public class UserService {
     private final UserRepository userRepository;
     private final Cloudinary cloudinary;
-
-    // Dependencies required for GDPR cleanup
     private final PostRepository postRepository;
     private final PostService postService;
     private final ReactionRepository reactionRepository;
@@ -31,10 +29,8 @@ public class UserService {
     private final FollowRepository followRepository;
     private final ReportRepository reportRepository;
     private final BlockRepository blockRepository;
+    private final NotificationRepository notificationRepository;
 
-    /**
-     * Updates bio and profile picture.
-     */
     @Transactional
     public void updateProfile(User user, String bio, MultipartFile profilePic,
                               Integer calGoal, Integer proGoal, Integer carbGoal, Integer fatGoal) throws IOException {
@@ -65,16 +61,9 @@ public class UserService {
         userRepository.save(dbUser);
     }
 
-    /**
-     * Fully cascades deletions to prevent DB crashes and cleans Cloudinary to prevent billing issues.
-     * Cloudinary HTTP calls are performed AFTER the DB transaction commits to avoid
-     * holding a DB connection during potentially slow external HTTP calls.
-     */
     public void deleteAccount(User user) {
-        // Phase 1: All DB operations inside a transaction; collect Cloudinary IDs
         List<String> cloudinaryIdsToDelete = deleteAccountDbWork(user);
 
-        // Phase 2: Cloudinary cleanup OUTSIDE the transaction
         for (String publicId : cloudinaryIdsToDelete) {
             try {
                 cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
@@ -82,9 +71,6 @@ public class UserService {
         }
     }
 
-    /**
-     * Transactional phase of deleteAccount — does all DB work and returns Cloudinary public IDs to clean up.
-     */
     @Transactional
     protected List<String> deleteAccountDbWork(User user) {
         User dbUser = userRepository.findById(user.getId())
@@ -92,19 +78,16 @@ public class UserService {
 
         List<String> cloudinaryIds = new ArrayList<>();
 
-        // Collect profile pic Cloudinary ID
         if (dbUser.getProfilePicPublicId() != null) {
             cloudinaryIds.add(dbUser.getProfilePicPublicId());
         }
 
-        // Delete all user's posts (which also collects their Cloudinary IDs)
         List<Post> userPosts = postRepository.findByUserIdOrderByCreatedAtDesc(dbUser.getId());
         for (Post post : userPosts) {
             List<String> postCloudinaryIds = postService.deletePostDbWork(post.getId(), dbUser);
             cloudinaryIds.addAll(postCloudinaryIds);
         }
 
-        // Delete remaining reactions and collect their Cloudinary IDs
         List<Reaction> userReactions = reactionRepository.findByUserId(dbUser.getId());
         for (Reaction reaction : userReactions) {
             if (reaction.getMediaPublicId() != null) {
@@ -112,6 +95,9 @@ public class UserService {
             }
             reactionRepository.delete(reaction);
         }
+
+        notificationRepository.deleteBySenderId(dbUser.getId());
+        notificationRepository.deleteByRecipientId(dbUser.getId());
 
         likeRepository.deleteAll(likeRepository.findByUserId(dbUser.getId()));
         commentRepository.deleteAll(commentRepository.findByUserId(dbUser.getId()));
@@ -126,6 +112,7 @@ public class UserService {
         List<Block> blocks = blockRepository.findByBlockerId(dbUser.getId());
         blocks.addAll(blockRepository.findByBlockedId(dbUser.getId()));
         blockRepository.deleteAll(blocks);
+
         userRepository.delete(dbUser);
 
         return cloudinaryIds;
