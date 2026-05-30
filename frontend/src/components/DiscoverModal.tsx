@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, TextInput,
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import SwipeableModal from './SwipeableModal';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 interface DiscoverModalProps {
   visible: boolean;
@@ -42,7 +43,7 @@ export default function DiscoverModal({ visible, onClose, searchQuery, setSearch
                 <TouchableOpacity key={friend.id} activeOpacity={0.7} onPress={() => { onClose(); navigation.navigate('UserProfile', { username: friend.username }); }} className="flex-row items-center justify-between py-3" style={{ borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.04)' }}>
                   <View className="flex-row items-center gap-3">
                     <View className="w-10 h-10 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.06]">
-                      {friend.profilePicUrl ? <Image source={{ uri: friend.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 font-semibold text-sm">{friend.username.charAt(0).toUpperCase()}</Text>}
+                      {friend.profilePicUrl ? <Image source={{ uri: optimizedThumbUrl(friend.profilePicUrl, 100) }} className="w-full h-full" /> : <Text className="text-white/60 font-semibold text-sm">{friend.username.charAt(0).toUpperCase()}</Text>}
                     </View>
                     <View>
                       <Text className="text-white font-semibold text-[15px]">{friend.username}</Text>

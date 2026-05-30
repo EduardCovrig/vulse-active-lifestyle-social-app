@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SwipeableModal from './SwipeableModal';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 interface UserListModalProps {
   visible: boolean;
@@ -36,7 +37,7 @@ export default function UserListModal({ visible, onClose, title, users, loading,
             >
               <View className="flex-row items-center gap-3">
                 <View className="w-10 h-10 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.06]">
-                  {item.profilePicUrl ? <Image source={{ uri: item.profilePicUrl }} className="w-full h-full" /> : <Text className="text-white/60 font-semibold text-sm">{item.username.charAt(0).toUpperCase()}</Text>}
+                  {item.profilePicUrl ? <Image source={{ uri: optimizedThumbUrl(item.profilePicUrl, 100) }} className="w-full h-full" /> : <Text className="text-white/60 font-semibold text-sm">{item.username.charAt(0).toUpperCase()}</Text>}
                 </View>
                 <Text className="text-white font-semibold text-[15px] tracking-wide">{item.username}</Text>
               </View>

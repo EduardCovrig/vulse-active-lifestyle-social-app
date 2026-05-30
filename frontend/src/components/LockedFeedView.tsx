@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { optimizedImageUrl } from '../utils/cloudinaryUrl';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -76,7 +77,7 @@ export default function LockedFeedView({ circle, onOpenCamera }: LockedFeedViewP
           >
             {f.img ? (
               <Image
-                source={{ uri: f.img }}
+                source={{ uri: optimizedImageUrl(f.img, 400) }}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.5 }}
                 blurRadius={14}
                 resizeMode="cover"

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Image, Text } from 'react-native';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 export default function ConcentricRings({ friend }: { friend: any }) {
   if (!friend) return null;
@@ -22,7 +23,7 @@ export default function ConcentricRings({ friend }: { friend: any }) {
 
       <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
         {friend.profilePicUrl ? (
-          <Image source={{ uri: friend.profilePicUrl }} style={{ width: '100%', height: '100%' }} />
+          <Image source={{ uri: optimizedThumbUrl(friend.profilePicUrl, 100) }} style={{ width: '100%', height: '100%' }} />
         ) : (
           <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>{initial}</Text>
         )}

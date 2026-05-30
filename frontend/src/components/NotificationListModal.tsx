@@ -5,6 +5,7 @@ import SwipeableModal from './SwipeableModal';
 import { api } from '../services/api';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 interface NotificationListModalProps {
   visible: boolean;
@@ -94,7 +95,7 @@ export default function NotificationListModal({ visible, onClose }: Notification
               <View className="relative mr-3">
                 <View className="w-12 h-12 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.06]">
                   {item.sender?.profilePicUrl ? (
-                    <Image source={{ uri: item.sender.profilePicUrl }} className="w-full h-full" />
+                    <Image source={{ uri: optimizedThumbUrl(item.sender.profilePicUrl, 100) }} className="w-full h-full" />
                   ) : (
                     <Text className="text-white/60 font-semibold text-sm">{item.sender?.username?.charAt(0).toUpperCase()}</Text>
                   )}
@@ -112,7 +113,7 @@ export default function NotificationListModal({ visible, onClose }: Notification
 
               {item.postMediaUrl && (
                  <View className="w-10 h-10 rounded-md overflow-hidden bg-white/10 ml-3">
-                    <Image source={{ uri: item.postMediaUrl }} className="w-full h-full" />
+                    <Image source={{ uri: optimizedThumbUrl(item.postMediaUrl, 100) }} className="w-full h-full" />
                  </View>
               )}
             </TouchableOpacity>

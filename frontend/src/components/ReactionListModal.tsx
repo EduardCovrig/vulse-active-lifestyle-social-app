@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import SwipeableModal from './SwipeableModal';
 import { api } from '../services/api';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 interface ReactionListModalProps {
   visible: boolean;
@@ -100,7 +101,7 @@ export default function ReactionListModal({ visible, onClose, postId }: Reaction
                 }}
               >
                 {item.profilePicUrl
-                  ? <Image source={{ uri: item.profilePicUrl }} style={{ width: '100%', height: '100%' }} />
+                  ? <Image source={{ uri: optimizedThumbUrl(item.profilePicUrl, 100) }} style={{ width: '100%', height: '100%' }} />
                   : <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 14 }}>{item.username?.charAt(0)?.toUpperCase()}</Text>
                 }
               </View>
@@ -117,7 +118,7 @@ export default function ReactionListModal({ visible, onClose, postId }: Reaction
               </View>
               {item.mediaUrl && (
                 <View style={{ width: 48, height: 48, borderRadius: 12, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
-                  <Image source={{ uri: item.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  <Image source={{ uri: optimizedThumbUrl(item.mediaUrl, 200) }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                 </View>
               )}
             </View>

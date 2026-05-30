@@ -22,6 +22,7 @@ interface LiquidPostCardProps {
   onReactRequest?: (postId: string) => void;
   onImageLongPress?: (uri?: string) => void; 
   onLikeToggled?: (postId: string, isLiked: boolean) => void;
+  shouldPlay?: boolean;
 }
 
 const getRelativeTime = (dateString?: string) => {
@@ -36,7 +37,7 @@ const getRelativeTime = (dateString?: string) => {
   return `${days}d ago`;
 };
 
-const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile, onReactRequest, onImageLongPress, onLikeToggled }: LiquidPostCardProps) => {
+const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDeleted, onUserBlocked, onEditCaption, onOpenProfile, onReactRequest, onImageLongPress, onLikeToggled, shouldPlay = false }: LiquidPostCardProps) => {
   const { username } = useContext(AuthContext);
 
   const [isLiked, setIsLiked] = useState<boolean>(post.isLiked || false);
@@ -150,7 +151,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           style={{ flex: 1, position: 'relative' }}
         >
           {post.mediaUrl && (post.mediaUrl.toLowerCase().endsWith('.mp4') || post.mediaUrl.toLowerCase().endsWith('.mov')) ? (
-            <Video source={{ uri: post.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={false} />
+            <Video source={{ uri: post.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay={shouldPlay} isLooping isMuted={!shouldPlay} />
           ) : (
             <Image source={{ uri: optimizedImageUrl(post.mediaUrl) }} className="w-full h-full object-cover" />
           )}
@@ -159,7 +160,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           {post.frontMediaUrl && (
             <View className={`absolute right-4 w-24 h-32 rounded-2xl border-[1.5px] border-white/20 overflow-hidden shadow-2xl z-10 bg-black/40 ${isFullScreenReel ? 'top-24' : 'top-16'}`}>
                {post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov') ? (
-                 <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
+                 <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay={shouldPlay} isLooping isMuted={true} />
                ) : (
                  <Image source={{ uri: optimizedThumbUrl(post.frontMediaUrl) }} className="w-full h-full object-cover" />
                )}
