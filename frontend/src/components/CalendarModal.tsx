@@ -12,7 +12,7 @@ import React, { useRef, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Image, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import SwipeableModal from './SwipeableModal';
+import SwipeableModal, { ModalScrollContext } from './SwipeableModal';
 import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -122,28 +122,32 @@ export default function CalendarModal({ visible, onClose, loading, snaps, onSnap
       subtitle="Daily snaps from the last 365 days"
       heightRatio={0.85}
     >
-      {loading ? (
-        <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
-      ) : (
-        <FlatList
-          data={days}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          numColumns={2}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 50, paddingHorizontal: 12 }}
-          columnWrapperStyle={{ justifyContent: 'center' }}
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={7}
-          removeClippedSubviews={true}
-          getItemLayout={(_, index) => ({
-            length: ITEM_WIDTH / 0.8 + (SCREEN_WIDTH * ITEM_MARGIN_PERCENT) / 100,
-            offset: (ITEM_WIDTH / 0.8 + (SCREEN_WIDTH * ITEM_MARGIN_PERCENT) / 100) * Math.floor(index / 2),
-            index,
-          })}
-        />
-      )}
+      <ModalScrollContext.Consumer>
+        {(scrollContext) => loading ? (
+          <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
+        ) : (
+          <FlatList
+            data={days}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            numColumns={2}
+            showsVerticalScrollIndicator={false}
+            onScroll={scrollContext?.onScroll}
+            scrollEventThrottle={scrollContext?.scrollEventThrottle}
+            contentContainerStyle={{ paddingBottom: 50, paddingHorizontal: 12 }}
+            columnWrapperStyle={{ justifyContent: 'center' }}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews={true}
+            getItemLayout={(_, index) => ({
+              length: ITEM_WIDTH / 0.8 + (SCREEN_WIDTH * ITEM_MARGIN_PERCENT) / 100,
+              offset: (ITEM_WIDTH / 0.8 + (SCREEN_WIDTH * ITEM_MARGIN_PERCENT) / 100) * Math.floor(index / 2),
+              index,
+            })}
+          />
+        )}
+      </ModalScrollContext.Consumer>
     </SwipeableModal>
   );
 }

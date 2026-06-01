@@ -24,8 +24,10 @@ export default function NutritionDialModal({
   saveMacroGoal,
   isSavingDial,
 }: NutritionDialModalProps) {
+  if (!macroDial.visible) return null;
+
   return (
-    <Modal visible={macroDial.visible} animationType="fade" transparent={true}>
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999 }}>
       <View className="flex-1 bg-[#090E17]/95 justify-center items-center relative" {...panResponder.panHandlers}>
         <TouchableOpacity onPress={() => setMacroDial({...macroDial, visible: false})} style={{ position: 'absolute', top: insets.top + 20, right: 20, zIndex: 100 }} className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20">
           <Ionicons name="close" size={24} color="white" />
@@ -60,6 +62,6 @@ export default function NutritionDialModal({
           </LinearGradient>
         </TouchableOpacity>
       </View>
-    </Modal>
+    </View>
   );
 }

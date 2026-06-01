@@ -200,39 +200,41 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         onSnapPress={(url) => setSelectedImage(url)}
       />
       
-      <Modal visible={showVibeModal} animationType="fade" transparent={true} onRequestClose={() => setShowVibeModal(false)}>
-        <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative p-6">
-          <View className="absolute inset-0 bg-[#090E17]/80" />
-          <TouchableOpacity onPress={() => setShowVibeModal(false)} style={{ top: insets.top + 10 }} className="absolute right-6 z-50 w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20">
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white font-black text-3xl mb-8 text-center tracking-tight">Your Visual Journey</Text>
-          <View className="flex-row flex-wrap justify-center gap-4">
-            {profile?.calendarSnaps?.map((img: string, i: number) => (
-              <View key={i} className="w-[28%] aspect-square rounded-2xl overflow-hidden border-2 border-white/10 shadow-lg shadow-black">
-                {img ? <Image source={{ uri: img }} className="w-full h-full" /> : <View className="flex-1 bg-white/5" />}
-              </View>
-            ))}
-          </View>
-        </BlurView>
-      </Modal>
+      {showVibeModal && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999 }}>
+          <BlurView intensity={95} tint="dark" className="flex-1 justify-center relative p-6">
+            <View className="absolute inset-0 bg-[#090E17]/80" />
+            <TouchableOpacity onPress={() => setShowVibeModal(false)} style={{ top: insets.top + 10 }} className="absolute right-6 z-50 w-10 h-10 bg-white/10 rounded-full items-center justify-center border border-white/20">
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
+            <Text className="text-white font-black text-3xl mb-8 text-center tracking-tight">Your Visual Journey</Text>
+            <View className="flex-row flex-wrap justify-center gap-4">
+              {profile?.calendarSnaps?.map((img: string, i: number) => (
+                <View key={i} className="w-[28%] aspect-square rounded-2xl overflow-hidden border-2 border-white/10 shadow-lg shadow-black">
+                  {img ? <Image source={{ uri: img }} className="w-full h-full" /> : <View className="flex-1 bg-white/5" />}
+                </View>
+              ))}
+            </View>
+          </BlurView>
+        </View>
+      )}
 
       <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} onOpenBlockedUsers={handleOpenBlockedUsers} onLogout={logout} onDeleteAccount={handleDeleteAccount} />
       <BlockedUsersModal visible={showBlockedUsers} onClose={() => setShowBlockedUsers(false)} blockedUsers={blockedUsers} loadingBlocked={loadingBlocked} onUnblockUser={handleUnblockUser} />
       
       <NotificationListModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
 
-      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }}>
-        <View style={{ flex: 1, backgroundColor: 'black' }}>
+      {reactingToPostId !== null && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, backgroundColor: 'black' }}>
           {reactingToPostId && <CameraScreen mode="reaction" onClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }} onCapture={handleReactionCapture} />}
         </View>
-      </Modal>
+      )}
 
-      <Modal visible={recordingReel} transparent={true} animationType="fade" onRequestClose={() => { setRecordingReel(false); if (onHideBottomBar) onHideBottomBar(false); }}>
-        <View style={{ flex: 1, backgroundColor: 'black' }}>
-          {recordingReel && <CameraScreen mode="reel" onClose={() => { setRecordingReel(false); if (onHideBottomBar) onHideBottomBar(false); fetchProfileData(); }} />}
+      {recordingReel && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, backgroundColor: 'black' }}>
+          <CameraScreen mode="reel" onClose={() => { setRecordingReel(false); if (onHideBottomBar) onHideBottomBar(false); fetchProfileData(); }} />
         </View>
-      </Modal>
+      )}
 
       <ImagePopoutModal 
         visible={selectedPost !== null || selectedImage !== null} 

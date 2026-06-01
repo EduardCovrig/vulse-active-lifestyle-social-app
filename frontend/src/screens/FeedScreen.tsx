@@ -8,7 +8,7 @@ import CameraScreen from './CameraScreen';
 import ProfileScreen from './ProfileScreen';
 import FriendsScreen from './FriendsScreen';
 import NutritionScreen from './NutritionScreen';
-import SwipeableModal from '../components/SwipeableModal';
+import SwipeableModal, { ModalScrollContext } from '../components/SwipeableModal';
 import { api } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -160,16 +160,18 @@ export default function FeedScreen() {
       )}
 
 
-      {/* COMMENTS MODAL FOR GLOBAL FEED - CU PROTECTII ?. ACTIVE */}
       <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>
-        {loadingComments ? (
-          <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
-        ) : (
-          <FlatList
-            data={comments}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+        <ModalScrollContext.Consumer>
+          {(scrollContext) => loadingComments ? (
+            <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
+          ) : (
+            <FlatList
+              data={comments}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              onScroll={scrollContext?.onScroll}
+              scrollEventThrottle={scrollContext?.scrollEventThrottle}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
             renderItem={({ item }) => (
               <View className="flex-row gap-3 mb-4">
                 <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
@@ -192,6 +194,7 @@ export default function FeedScreen() {
             ListEmptyComponent={<Text className="text-white/20 text-center mt-10 text-xs">No comments yet.</Text>}
           />
         )}
+        </ModalScrollContext.Consumer>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(9,14,23,0.95)' }}>
           <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.2)" keyboardAppearance="dark" style={{ flex: 1, height: 44, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 22, paddingHorizontal: 16, color: 'white', fontSize: 14, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />

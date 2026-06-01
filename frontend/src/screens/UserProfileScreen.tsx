@@ -115,11 +115,11 @@ export default function UserProfileScreen() {
         onUserTap={(u) => { setShowFollowing(false); navigation.navigate('UserProfile', { username: u }); }}
       />
 
-      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => { setReactingToPostId(null); }}>
-        <View style={{ flex: 1, backgroundColor: 'black' }}>
+      {reactingToPostId !== null && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, backgroundColor: 'black' }}>
           {reactingToPostId && <CameraScreen mode="reaction" onClose={() => { setReactingToPostId(null); }} onCapture={handleReactionCapture} />}
         </View>
-      </Modal>
+      )}
 
       <ImagePopoutModal 
         visible={selectedPost !== null || selectedImage !== null} 

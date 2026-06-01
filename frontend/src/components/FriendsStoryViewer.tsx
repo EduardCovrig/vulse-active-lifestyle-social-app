@@ -17,8 +17,10 @@ export default function FriendsStoryViewer({
   storyProgress,
   insets,
 }: FriendsStoryViewerProps) {
+  if (activeStory === null) return null;
+
   return (
-    <Modal visible={activeStory !== null} animationType="fade" transparent={true} onRequestClose={closeStory}>
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999 }}>
       <View className="flex-1 bg-black">
         {activeStory?.dailyPostUrl && (
           <Image source={{ uri: optimizedImageUrl(activeStory.dailyPostUrl, 800) }} className="w-full h-full" resizeMode="cover" />
@@ -43,6 +45,6 @@ export default function FriendsStoryViewer({
 
         <TouchableOpacity activeOpacity={1} onPress={closeStory} className="absolute inset-0 top-32 z-[-1]" />
       </View>
-    </Modal>
+    </View>
   );
 }

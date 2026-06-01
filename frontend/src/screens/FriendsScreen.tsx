@@ -132,11 +132,11 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         insets={insets}
       />
 
-      <Modal visible={reactingToPostId !== null} transparent={true} animationType="fade" onRequestClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }}>
-        <View style={{ flex: 1, backgroundColor: 'black' }}>
+      {reactingToPostId !== null && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, backgroundColor: 'black' }}>
           {reactingToPostId && <CameraScreen mode="reaction" onClose={() => { setReactingToPostId(null); if (onHideBottomBar) onHideBottomBar(false); }} onCapture={handleReactionCapture} />}
         </View>
-      </Modal>
+      )}
 
       {/* UNIFIED VIEWER MODAL */}
       <ImagePopoutModal 
