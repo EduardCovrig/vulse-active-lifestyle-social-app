@@ -29,11 +29,27 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return Bucket.builder().addLimit(limit).build();
     }
 
+    private String getClientIp(HttpServletRequest request) { //universal method which will be used with any cloud hosting
+        //to get the actual user ip.
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            if (ip.contains(",")) {
+                ip = ip.split(",")[0].trim();
+            }
+            return ip;
+        }
+        ip = request.getHeader("Proxy-Client-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+        return request.getRemoteAddr();
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         cleanupCacheIfNeeded();
 
-        String ip = request.getRemoteAddr();
+        String ip = getClientIp(request);
         Bucket bucket = cache.computeIfAbsent(ip, k -> createNewBucket());
 
         if (bucket.tryConsume(1)) {
