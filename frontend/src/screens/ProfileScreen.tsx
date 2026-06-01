@@ -15,7 +15,7 @@ import CalendarModal from '../components/CalendarModal';
 import ImagePopoutModal from '../components/ImagePopoutModal';
 import SwipeableModal from '../components/SwipeableModal';
 import NotificationListModal from '../components/NotificationListModal';
-import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
+import { optimizedImageUrl, optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 interface ProfileScreenProps {
   onHideBottomBar?: (hide: boolean) => void;
@@ -211,7 +211,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
             <View className="flex-row flex-wrap justify-center gap-4">
               {profile?.calendarSnaps?.map((img: string, i: number) => (
                 <View key={i} className="w-[28%] aspect-square rounded-2xl overflow-hidden border-2 border-white/10 shadow-lg shadow-black">
-                  {img ? <Image source={{ uri: img }} className="w-full h-full" /> : <View className="flex-1 bg-white/5" />}
+                  {img ? <Image source={{ uri: optimizedImageUrl(img) }} className="w-full h-full" /> : <View className="flex-1 bg-white/5" />}
                 </View>
               ))}
             </View>

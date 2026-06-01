@@ -130,12 +130,14 @@ export default function SwipeableModal({
         const modalTop = SCREEN_HEIGHT * (1 - heightRatio);
         const isHeaderTouch = pageY >= modalTop && pageY <= modalTop + 75;
 
-        // If swiping down and list is at the top
-        if (gs.dy > 4 && isScrollAtTop.current) {
-          return true;
+        // Absolute touch priority to the modal header grab area
+        if (isHeaderTouch) {
+          return Math.abs(gs.dy) > 2;
         }
-        // If swiping on the header grab area
-        if (Math.abs(gs.dy) > 4 && isHeaderTouch) {
+
+        // Only return true if the drag gesture is downward (gs.dy > 5)
+        // AND the internal list scroll position is strictly at the top (isScrollAtTop.current === true)
+        if (gs.dy > 5 && isScrollAtTop.current === true) {
           return true;
         }
         return false;
