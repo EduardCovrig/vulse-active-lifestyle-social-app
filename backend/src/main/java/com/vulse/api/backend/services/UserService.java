@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +36,7 @@ public class UserService {
     private final ReportRepository reportRepository;
     private final BlockRepository blockRepository;
     private final NotificationRepository notificationRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public void updateProfile(User user, String bio, MultipartFile profilePic,
@@ -62,6 +65,61 @@ public class UserService {
             dbUser.setProfilePicPublicId(uploadResult.get("public_id").toString());
         }
 
+        userRepository.save(dbUser);
+    }
+
+    @Transactional
+    public void updateProfileDetails(User user, UpdateProfileRequest request) {
+        User dbUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+
+        String newUsername = request.getUsername();
+        String newEmail = request.getEmail();
+
+        if (newUsername == null || newUsername.trim().isEmpty()) {
+            throw new IllegalArgumentException("Username cannot be empty");
+        }
+        if (newEmail == null || newEmail.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email cannot be empty");
+        }
+
+        if (!newUsername.equalsIgnoreCase(dbUser.getRealUsername())) {
+            if (userRepository.existsByUsername(newUsername)) {
+                throw new IllegalStateException("Username is already taken");
+            }
+            dbUser.setUsername(newUsername);
+        }
+
+        if (!newEmail.equalsIgnoreCase(dbUser.getEmail())) {
+            if (userRepository.existsByEmail(newEmail)) {
+                throw new IllegalStateException("Email is already taken");
+            }
+            dbUser.setEmail(newEmail);
+        }
+
+        userRepository.save(dbUser);
+    }
+
+    @Transactional
+    public void updatePassword(User user, UpdatePasswordRequest request) {
+        User dbUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+
+        String oldPassword = request.getOldPassword();
+        String newPassword = request.getNewPassword();
+
+        if (oldPassword == null || oldPassword.trim().isEmpty()) {
+            throw new IllegalArgumentException("Current password cannot be empty");
+        }
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            throw new IllegalArgumentException("New password cannot be empty");
+        }
+
+        if (!passwordEncoder.matches(oldPassword, dbUser.getPassword())) {
+            throw new IllegalArgumentException("Incorrect current password");
+        }
+
+        dbUser.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(dbUser);
     }
 
@@ -328,6 +386,7 @@ public class UserService {
                 .map(p -> CalendarSnapResponse.builder()
                         .date(p.getCreatedAt().toLocalDate().toString())
                         .mediaUrl(p.getMediaUrl())
+                        .frontMediaUrl(p.getFrontMediaUrl())
                         .build())
                 .collect(Collectors.toList());
     }

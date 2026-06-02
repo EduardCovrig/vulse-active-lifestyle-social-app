@@ -76,6 +76,22 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/me/profile")
+    public ResponseEntity<Void> updateProfileDetails(
+            @AuthenticationPrincipal User user,
+            @RequestBody UpdateProfileRequest request) {
+        userService.updateProfileDetails(user, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> updatePassword(
+            @AuthenticationPrincipal User user,
+            @RequestBody UpdatePasswordRequest request) {
+        userService.updatePassword(user, request);
+        return ResponseEntity.ok().build();
+    }
+
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal User user) {
         userService.deleteAccount(user);

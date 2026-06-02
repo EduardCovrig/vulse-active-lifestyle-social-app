@@ -9,4 +9,5 @@ import lombok.*;
 public class CalendarSnapResponse {
     private String date;
     private String mediaUrl;
+    private String frontMediaUrl;
 }

@@ -46,6 +46,12 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
                                  @Param("type") PostType type,
                                  Pageable pageable);
 
+    @Query(value = "SELECT p FROM Post p JOIN FETCH p.user WHERE p.type = :type " +
+            "AND p.user.id NOT IN (SELECT b.blocked.id FROM Block b WHERE b.blocker.id = :currentUserId) " +
+            "AND p.user.id NOT IN (SELECT b.blocker.id FROM Block b WHERE b.blocked.id = :currentUserId)")
+    List<Post> findAllSafeVideosList(@Param("currentUserId") UUID currentUserId,
+                                     @Param("type") PostType type);
+
     //last 30 posts for streak
     List<Post> findTop30ByUserIdAndTypeOrderByCreatedAtDesc(UUID userId, PostType type);
 

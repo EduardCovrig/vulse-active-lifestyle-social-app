@@ -1,5 +1,6 @@
 package com.vulse.api.backend.dtos.user;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 import java.util.UUID;
 
@@ -13,5 +14,7 @@ public class UserCircleResponse {
     private String img;
     private boolean hasPosted;
     private String dailyPostUrl;
+    
+    @JsonProperty("isMe")
     private boolean isMe;
 }
