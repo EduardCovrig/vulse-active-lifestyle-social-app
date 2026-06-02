@@ -19,7 +19,7 @@ interface UseUserProfileProps {
 export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { logout, username } = useContext(AuthContext);
+  const { logout, username, setHasPostedToday } = useContext(AuthContext);
 
   const [profile, setProfile] = useState<any>(null);
   const [myPosts, setMyPosts] = useState<any[]>([]);
@@ -60,6 +60,7 @@ export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
 
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFrontImage, setSelectedFrontImage] = useState<string | null>(null);
 
   const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
   const [comments, setComments] = useState<any[]>([]);
@@ -118,6 +119,15 @@ export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
       
       const unread = notifRes.data.filter((n: any) => !n.isRead).length;
       setUnreadCount(unread);
+
+      api.get('/users/circle')
+        .then(res => {
+          const me = res.data.find((c: any) => c.isMe);
+          if (me?.hasPosted) {
+            setHasPostedToday(true);
+          }
+        })
+        .catch(() => {});
 
       if (profileRes.data.username) {
         api.get(`/users/${profileRes.data.username}/calendar`)
@@ -320,7 +330,7 @@ export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert(
       "Upload Video",
-      "Choose a method to upload your reel",
+      "Choose a method to upload your video",
       [
         { text: "Record Video", onPress: () => {
             setRecordingReel(true);
@@ -518,6 +528,8 @@ export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
     setSelectedPost,
     selectedImage,
     setSelectedImage,
+    selectedFrontImage,
+    setSelectedFrontImage,
     activeCommentsPostId,
     setActiveCommentsPostId,
     comments,

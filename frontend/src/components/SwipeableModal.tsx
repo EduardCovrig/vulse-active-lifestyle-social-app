@@ -132,12 +132,13 @@ export default function SwipeableModal({
 
         // Absolute touch priority to the modal header grab area
         if (isHeaderTouch) {
-          return Math.abs(gs.dy) > 2;
+          return Math.abs(gs.dy) > 4 && Math.abs(gs.dy) > Math.abs(gs.dx);
         }
 
-        // Only return true if the drag gesture is downward (gs.dy > 5)
+        // Only return true if the drag gesture is downward (gs.dy > 12)
+        // AND vertical drag is dominant (Math.abs(gs.dy) > Math.abs(gs.dx) * 2)
         // AND the internal list scroll position is strictly at the top (isScrollAtTop.current === true)
-        if (gs.dy > 5 && isScrollAtTop.current === true) {
+        if (gs.dy > 12 && Math.abs(gs.dy) > Math.abs(gs.dx) * 2 && isScrollAtTop.current === true) {
           return true;
         }
         return false;

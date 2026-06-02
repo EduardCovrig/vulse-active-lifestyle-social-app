@@ -148,7 +148,7 @@ export default function CameraPreviewDone({
              {isUploading ? <ActivityIndicator color="#0b1326" /> : (
                <>
                  <Ionicons name="globe-outline" size={24} color="#0b1326" className="mr-3" />
-                 <Text className="text-[#0b1326] font-black text-lg tracking-widest">POST REEL</Text>
+                 <Text className="text-[#0b1326] font-black text-lg tracking-widest">POST AS VIDEO</Text>
                </>
              )}
            </LinearGradient>

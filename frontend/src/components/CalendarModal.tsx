@@ -25,24 +25,26 @@ interface CalendarModalProps {
   onClose: () => void;
   loading: boolean;
   snaps: any[];
-  onSnapPress?: (url: string) => void;
+  onSnapPress?: (url: string, frontUrl?: string | null) => void;
 }
 
 interface DayItem {
   dateStr: string;
   displayDate: string;
   url: string | null;
+  frontUrl: string | null;
 }
 
 export default function CalendarModal({ visible, onClose, loading, snaps, onSnapPress }: CalendarModalProps) {
   // Capture the pending URL to open after this modal fully closes
   const pendingUrl = useRef<string | null>(null);
+  const pendingFrontUrl = useRef<string | null>(null);
 
   const snapMap = useMemo(() => {
     return snaps.reduce((acc, curr) => {
-      acc[curr.date] = curr.mediaUrl;
+      acc[curr.date] = { mediaUrl: curr.mediaUrl, frontMediaUrl: curr.frontMediaUrl };
       return acc;
-    }, {} as Record<string, string>);
+    }, {} as Record<string, { mediaUrl: string; frontMediaUrl: string | null }>);
   }, [snaps]);
 
   const days: DayItem[] = useMemo(() => {
@@ -52,25 +54,28 @@ export default function CalendarModal({ visible, onClose, loading, snaps, onSnap
       const d = new Date(today);
       d.setDate(today.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
+      const snap = snapMap[dateStr];
       result.push({
         dateStr,
         displayDate: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        url: snapMap[dateStr] || null
+        url: snap ? snap.mediaUrl : null,
+        frontUrl: snap ? snap.frontMediaUrl : null
       });
     }
     return result;
   }, [snapMap]);
 
-  const handleSnapPress = useCallback((url: string) => {
+  const handleSnapPress = useCallback((url: string, frontUrl: string | null) => {
     if (onSnapPress) {
       pendingUrl.current = url;
+      pendingFrontUrl.current = frontUrl;
       onClose();
     }
   }, [onSnapPress, onClose]);
 
   const renderItem = useCallback(({ item }: { item: DayItem }) => (
     <TouchableOpacity
-      onPress={() => item.url && handleSnapPress(item.url)}
+      onPress={() => item.url && handleSnapPress(item.url, item.frontUrl)}
       disabled={!item.url}
       style={{
         width: ITEM_WIDTH, aspectRatio: 0.8,
@@ -83,7 +88,14 @@ export default function CalendarModal({ visible, onClose, loading, snaps, onSnap
       }}
     >
       {item.url ? (
-        <Image source={{ uri: optimizedThumbUrl(item.url) }} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+        <>
+          <Image source={{ uri: optimizedThumbUrl(item.url) }} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+          {item.frontUrl && (
+            <View style={{ position: 'absolute', top: 6, left: 6, width: '35%', aspectRatio: 1, borderRadius: 999, borderWidth: 1, borderColor: 'white', overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10 }}>
+              <Image source={{ uri: optimizedThumbUrl(item.frontUrl, 80) }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            </View>
+          )}
+        </>
       ) : (
         <Ionicons name="camera-outline" size={20} color="rgba(255,255,255,0.06)" />
       )}
@@ -114,8 +126,10 @@ export default function CalendarModal({ visible, onClose, loading, snaps, onSnap
       afterClose={() => {
         if (pendingUrl.current && onSnapPress) {
           const url = pendingUrl.current;
+          const frontUrl = pendingFrontUrl.current;
           pendingUrl.current = null;
-          onSnapPress(url);
+          pendingFrontUrl.current = null;
+          onSnapPress(url, frontUrl);
         }
       }}
       title="Your Calendar"

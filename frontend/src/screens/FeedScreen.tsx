@@ -57,7 +57,7 @@ export default function FeedScreen() {
       const response = await api.get('/posts/feed?type=REEL&page=0&size=10');
       setPosts(response.data.content);
     } catch (error) {
-      console.error("Error fetching Reels feed:", error);
+      console.error("Error fetching Videos feed:", error);
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ export default function FeedScreen() {
             {loading ? (
               <ActivityIndicator size="large" color="#7dd3fc" className="mt-20" />
             ) : posts.length === 0 ? (
-              <Text className="text-white/40 text-center mt-20 font-bold">No global reels found.</Text>
+              <Text className="text-white/40 text-center mt-20 font-bold">No global videos found.</Text>
             ) : (
               <FlatList 
                 data={posts}

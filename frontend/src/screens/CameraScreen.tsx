@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { CameraView } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import BouncyPressable from '../components/BouncyPressable';
@@ -20,6 +20,7 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
     setFacing,
     flash,
     cameraMode,
+    setCameraMode,
     permission,
     requestPermission,
     mediaUri,
@@ -69,7 +70,7 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
   if (capturePhase === 'done' && mediaUri) {
     return (
       <CameraPreviewDone
-        mode={mode}
+        mode={cameraMode === 'video' ? 'reel' : mode}
         mediaUri={mediaUri}
         frontMediaUri={frontMediaUri}
         mediaType={mediaType}
@@ -123,6 +124,21 @@ export default function CameraScreen({ onClose, mode = 'daily', onCapture }: Cam
 
       {/* BOTTOM CONTROLS */}
       <View className="absolute bottom-12 inset-x-0 items-center px-10">
+        {mode !== 'reaction' && !isUploading && (
+          <View style={{ flexDirection: 'row', gap: 24, marginBottom: 20, justifyContent: 'center', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => setCameraMode('picture')} activeOpacity={0.8}>
+              <Text className="text-white font-extrabold text-[12px] tracking-wider uppercase" style={{ opacity: cameraMode === 'picture' ? 1 : 0.4 }}>
+                Capture a Moment
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setCameraMode('video')} activeOpacity={0.8}>
+              <Text className="text-white font-extrabold text-[12px] tracking-wider uppercase" style={{ opacity: cameraMode === 'video' ? 1 : 0.4 }}>
+                Record a Video
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View className="flex-row justify-between items-center w-full">
           <View className="flex-1 items-start" />
           

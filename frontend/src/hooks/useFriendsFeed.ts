@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useContext, useCallback } from 'react';
 import { Animated, Keyboard, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { api } from '../services/api';
@@ -16,12 +16,13 @@ export function useFriendsFeed({ onOpenCamera, onHideBottomBar }: UseFriendsFeed
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const enterAnim = useRef(new Animated.Value(0)).current;
-  const { username: myUsername } = useContext(AuthContext); 
+  const { username: myUsername, hasPostedToday, setHasPostedToday } = useContext(AuthContext); 
 
   const [posts, setPosts] = useState<any[]>([]);
   const [circle, setCircle] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [suggestedFriends, setSuggestedFriends] = useState<any[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -44,16 +45,26 @@ export function useFriendsFeed({ onOpenCamera, onHideBottomBar }: UseFriendsFeed
       ]);
 
       if (feedRes.status === 'fulfilled') {
+        const rawContent = feedRes.value.data.content || [];
         const now = Date.now();
-        // FILTRU DE 24 DE ORE PENTRU FEED-UL DE PRIETENI (STERGE TOT CE E MAI VECHI DE 24H)
-        const recentPosts = feedRes.value.data.content.filter((p: any) => {
+        const recentPosts = rawContent.filter((p: any) => {
            return (now - new Date(p.createdAt).getTime()) < 24 * 60 * 60 * 1000;
         });
         setPosts(recentPosts);
+
+        if (feedRes.value.data.suggestedFriends) {
+          setSuggestedFriends(feedRes.value.data.suggestedFriends);
+        } else {
+          setSuggestedFriends([]);
+        }
       }
       
       if (circleRes.status === 'fulfilled') {
         setCircle(circleRes.value.data);
+        const me = circleRes.value.data.find((c: any) => c.isMe || c.me);
+        if (me?.hasPosted) {
+          setHasPostedToday(true);
+        }
       } else {
         setCircle([{ id: 'me', name: 'Your Daily', img: null, hasPosted: false, isMe: true }]);
       }
@@ -63,12 +74,17 @@ export function useFriendsFeed({ onOpenCamera, onHideBottomBar }: UseFriendsFeed
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [setHasPostedToday]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   useEffect(() => {
     Animated.spring(enterAnim, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }).start();
-    fetchData();
-  }, [fetchData, enterAnim]);
+  }, [enterAnim]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -154,7 +170,18 @@ export function useFriendsFeed({ onOpenCamera, onHideBottomBar }: UseFriendsFeed
     }
   };
 
-  const iHavePosted = circle.length > 0 ? (circle.find(c => c.isMe)?.hasPosted || false) : false;
+  const iHavePosted = hasPostedToday || (circle.length > 0 ? (circle.find(c => c.isMe || c.me)?.hasPosted || false) : false);
+
+  const handleFollowSuggestedFriend = async (userId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await api.post(`/users/${userId}/follow`);
+      setSuggestedFriends(curr => curr.filter(u => u.id !== userId));
+      fetchData();
+    } catch (e) {
+      handleError(e, 'Failed to follow user');
+    }
+  };
 
   const handleOpenStory = (friend: any) => {
     if (!friend.hasPosted || !friend.dailyPostUrl) return;
@@ -213,5 +240,7 @@ export function useFriendsFeed({ onOpenCamera, onHideBottomBar }: UseFriendsFeed
     iHavePosted,
     handleOpenStory,
     closeStory,
+    suggestedFriends,
+    handleFollowSuggestedFriend,
   };
 }

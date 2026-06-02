@@ -13,7 +13,7 @@ interface LockedFeedViewProps {
 }
 
 export default function LockedFeedView({ circle, onOpenCamera }: LockedFeedViewProps) {
-  const friendsToSimulate = circle.filter(c => !c.isMe);
+  const friendsToSimulate = circle.filter(c => !c.isMe && !c.me);
   const displayFriends = friendsToSimulate.length > 0 ? friendsToSimulate : [
     { id: 'mock1', name: 'Add friends to see their snaps!', img: null },
   ];

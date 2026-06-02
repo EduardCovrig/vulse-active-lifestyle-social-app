@@ -62,7 +62,14 @@ export default function ProfileGrid({
             return (
               <View key={i} style={{ width: '12.5%', aspectRatio: 0.75, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 0.5, borderColor: snap ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' }}>
                 {snap ? (
-                  <Image source={{ uri: optimizedThumbUrl(snap.mediaUrl, 150) }} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+                  <>
+                    <Image source={{ uri: optimizedThumbUrl(snap.mediaUrl, 150) }} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+                    {snap.frontMediaUrl && (
+                      <View style={{ position: 'absolute', top: 3, left: 3, width: '40%', aspectRatio: 1, borderRadius: 999, borderWidth: 1, borderColor: 'white', overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <Image source={{ uri: optimizedThumbUrl(snap.frontMediaUrl, 50) }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      </View>
+                    )}
+                  </>
                 ) : (
                   <Ionicons name="camera-outline" size={12} color="rgba(255,255,255,0.1)" />
                 )}

@@ -72,6 +72,8 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
     setSelectedPost,
     selectedImage,
     setSelectedImage,
+    selectedFrontImage,
+    setSelectedFrontImage,
     activeCommentsPostId,
     setActiveCommentsPostId,
     comments,
@@ -197,7 +199,10 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         onClose={() => setShowCalendar(false)} 
         loading={loadingCalendar} 
         snaps={calendarSnaps} 
-        onSnapPress={(url) => setSelectedImage(url)}
+        onSnapPress={(url, frontUrl) => {
+          setSelectedImage(url);
+          setSelectedFrontImage(frontUrl || null);
+        }}
       />
       
       {showVibeModal && (
@@ -219,7 +224,7 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         </View>
       )}
 
-      <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} onOpenBlockedUsers={handleOpenBlockedUsers} onLogout={logout} onDeleteAccount={handleDeleteAccount} />
+      <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} onOpenBlockedUsers={handleOpenBlockedUsers} onLogout={logout} onDeleteAccount={handleDeleteAccount} onOpenSettings={() => navigation.navigate('Settings')} />
       <BlockedUsersModal visible={showBlockedUsers} onClose={() => setShowBlockedUsers(false)} blockedUsers={blockedUsers} loadingBlocked={loadingBlocked} onUnblockUser={handleUnblockUser} />
       
       <NotificationListModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
@@ -240,9 +245,11 @@ export default function ProfileScreen({ onHideBottomBar }: ProfileScreenProps = 
         visible={selectedPost !== null || selectedImage !== null} 
         post={selectedPost} 
         imageUri={selectedImage}
+        frontImageUri={selectedFrontImage}
         onClose={() => {
            setSelectedPost(null);
            setSelectedImage(null);
+           setSelectedFrontImage(null);
         }} 
         onOpenComments={(id) => {
           setSelectedPost(null);

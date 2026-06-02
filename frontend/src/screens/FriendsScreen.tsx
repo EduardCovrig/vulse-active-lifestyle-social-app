@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TextInput, Animated, TouchableOpacity, Modal, FlatList, RefreshControl } from 'react-native';
+import { View, Text, TextInput, Animated, TouchableOpacity, Modal, FlatList, RefreshControl, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFriendsFeed } from '../hooks/useFriendsFeed';
 import FriendsCircleHeader from '../components/FriendsCircleHeader';
@@ -9,6 +9,8 @@ import LiquidPostCard from '../components/LiquidPostCard';
 import CameraScreen from './CameraScreen';
 import LockedFeedView from '../components/LockedFeedView';
 import ImagePopoutModal from '../components/ImagePopoutModal';
+import ReactionListModal from '../components/ReactionListModal';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 interface FriendsScreenProps {
   onOpenCamera?: () => void;
@@ -49,7 +51,11 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
     iHavePosted,
     handleOpenStory,
     closeStory,
+    suggestedFriends,
+    handleFollowSuggestedFriend,
   } = useFriendsFeed({ onOpenCamera, onHideBottomBar });
+
+  const [activeReactionsPostId, setActiveReactionsPostId] = React.useState<string | null>(null);
 
   const renderCircleHeader = () => (
     <FriendsCircleHeader
@@ -91,7 +97,36 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
         windowSize={5}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7dd3fc" />}
         ListEmptyComponent={
-          (loading || !iHavePosted) ? null : <Text className="text-white/40 text-center mt-20">No posts in your circle today.</Text>
+          (loading || !iHavePosted) ? null : (
+            suggestedFriends && suggestedFriends.length > 0 ? (
+              <View className="px-6 py-8 items-center">
+                <Ionicons name="people-outline" size={48} color="#7ad7c6" className="mb-4" />
+                <Text className="text-white font-extrabold text-lg text-center mb-2">Find Your Active Circle</Text>
+                <Text className="text-white/60 text-sm text-center mb-6 px-4">Follow active users on Vulse to start seeing their daily active drops and nutrition logs.</Text>
+                <View className="w-full gap-4">
+                  {suggestedFriends.map((friend: any) => (
+                    <View key={friend.id} className="flex-row items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4">
+                      <View className="flex-row items-center gap-3">
+                        <View className="w-12 h-12 rounded-full bg-white/10 overflow-hidden items-center justify-center border border-white/20">
+                          {friend.profilePicUrl ? (
+                            <Image source={{ uri: optimizedThumbUrl(friend.profilePicUrl, 100) }} className="w-full h-full" />
+                          ) : (
+                            <Text className="text-white font-bold text-base">{friend.username?.charAt(0).toUpperCase()}</Text>
+                          )}
+                        </View>
+                        <Text className="text-white font-bold text-base">@{friend.username}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => handleFollowSuggestedFriend(friend.id)} className="bg-[#7ad7c6] px-4 py-2.5 rounded-xl">
+                        <Text className="text-[#0b1326] font-black text-xs uppercase tracking-wider">Follow</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <Text className="text-white/40 text-center mt-20">No posts in your circle today.</Text>
+            )
+          )
         }
         renderItem={({ item }) => (
           <View className="px-5 mb-4">
@@ -114,6 +149,7 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
                 setReactingToPostId(id);
                 if (onHideBottomBar) onHideBottomBar(true);
               }}
+              onOpenReactions={(id) => setActiveReactionsPostId(id)}
               onEditCaption={(id, text) => {
                 setEditCaptionText(text);
                 setEditingPost(id);
@@ -150,6 +186,12 @@ export default function FriendsScreen({ onOpenCamera, onHideBottomBar }: Friends
               if (onHideBottomBar) onHideBottomBar(true);
           }, 300);
         }}
+      />
+
+      <ReactionListModal 
+        visible={activeReactionsPostId !== null} 
+        onClose={() => setActiveReactionsPostId(null)} 
+        postId={activeReactionsPostId} 
       />
 
     </Animated.View>

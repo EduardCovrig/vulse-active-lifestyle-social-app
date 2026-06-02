@@ -58,7 +58,7 @@ export default function ReactionListModal({ visible, onClose, postId }: Reaction
       visible={visible}
       onClose={onClose}
       title="Reactions"
-      heightRatio={0.75}
+      heightRatio={0.5}
     >
       <ModalScrollContext.Consumer>
         {(scrollContext) => loading ? (

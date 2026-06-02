@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useContext } from 'react';
 import { Animated, Alert } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../services/api';
+import { AuthContext } from '../context/AuthContext';
 
 interface UseCameraProps {
   onClose: () => void;
@@ -12,6 +13,7 @@ interface UseCameraProps {
 }
 
 export function useCamera({ onClose, mode = 'daily', onCapture }: UseCameraProps) {
+  const { setHasPostedToday } = useContext(AuthContext);
   const [facing, setFacing] = useState<'back' | 'front'>(mode === 'reaction' ? 'front' : 'back');
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [cameraMode, setCameraMode] = useState<'picture' | 'video'>(mode === 'reel' ? 'video' : 'picture');
@@ -116,6 +118,8 @@ export function useCamera({ onClose, mode = 'daily', onCapture }: UseCameraProps
     if (!mediaUri || isUploading) return;
     setIsUploading(true);
     
+    const finalType = mediaType === 'video' ? 'REEL' : type;
+    
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const formData = new FormData();
@@ -126,16 +130,16 @@ export function useCamera({ onClose, mode = 'daily', onCapture }: UseCameraProps
       
       formData.append('file', { uri: mediaUri, name: filename, type: mime } as any);
       
-      if (mode === 'daily' && frontMediaUri) {
+      if (finalType === 'DAILY' && mode === 'daily' && frontMediaUri) {
          const frontFilename = frontMediaUri.split('/').pop() || 'front.jpg';
          formData.append('frontFile', { uri: frontMediaUri, name: frontFilename, type: `image/jpeg` } as any);
       }
 
-      formData.append('type', type); 
+      formData.append('type', finalType); 
       
       let caption = "New post on Vulse! ⚡";
-      if (type === 'DAILY') caption = "My Daily Snap! 🚀";
-      if (type === 'REEL') caption = "Check this out! #GlobalDrop";
+      if (finalType === 'DAILY') caption = "My Daily Snap! 🚀";
+      if (finalType === 'REEL') caption = "Check this out! #GlobalDrop";
       
       formData.append('caption', caption);
 
@@ -143,6 +147,10 @@ export function useCamera({ onClose, mode = 'daily', onCapture }: UseCameraProps
         headers: { 'Content-Type': 'multipart/form-data' } 
       });
     
+      if (finalType === 'DAILY') {
+        setHasPostedToday(true);
+      }
+
       onClose(); 
       
     } catch (error: any) {

@@ -35,6 +35,7 @@ const { width, height } = Dimensions.get('window');
 interface ImagePopoutModalProps {
   visible: boolean;
   imageUri?: string | null;
+  frontImageUri?: string | null;
   post?: any;
   onClose: () => void;
   onOpenComments?: (postId: string) => void;
@@ -120,6 +121,7 @@ function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => vo
 export default function ImagePopoutModal({
   visible,
   imageUri,
+  frontImageUri,
   post,
   onClose,
   onOpenComments,
@@ -256,12 +258,12 @@ export default function ImagePopoutModal({
         )}
 
         {/* Front camera overlay (BeReal thumbnail) */}
-        {post?.frontMediaUrl && (
+        {(post?.frontMediaUrl || frontImageUri) && (
           <View style={{ position: 'absolute', top: 20, right: 20, width: 100, height: 130, borderRadius: 16, borderWidth: 2, borderColor: 'white', overflow: 'hidden', zIndex: 10 }}>
-            {post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov') ? (
-              <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
+            {((post?.frontMediaUrl || frontImageUri)!.toLowerCase().endsWith('.mp4') || (post?.frontMediaUrl || frontImageUri)!.toLowerCase().endsWith('.mov')) ? (
+              <Video source={{ uri: (post?.frontMediaUrl || frontImageUri)! }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
             ) : (
-              <Image source={{ uri: optimizedThumbUrl(post.frontMediaUrl) }} style={{ width: '100%', height: '100%' }} />
+              <Image source={{ uri: optimizedThumbUrl((post?.frontMediaUrl || frontImageUri)!) }} style={{ width: '100%', height: '100%' }} />
             )}
           </View>
         )}
