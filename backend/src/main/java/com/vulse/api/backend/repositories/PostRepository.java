@@ -21,22 +21,36 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
     // Check if a user has already posted a specific type of post after a given time
     boolean existsByUserIdAndTypeAndCreatedAtAfter(UUID userId, PostType type, LocalDateTime time);
 
-    @Query("SELECT p FROM Post p WHERE (p.user.id = :currentUserId OR p.user.id IN " +
+    @Query(value = "SELECT p FROM Post p JOIN FETCH p.user WHERE (p.user.id = :currentUserId OR p.user.id IN " +
             "(SELECT f.following.id FROM Follow f WHERE f.follower.id = :currentUserId)) " +
             "AND p.user.id NOT IN (SELECT b.blocked.id FROM Block b WHERE b.blocker.id = :currentUserId) " +
             "AND p.user.id NOT IN (SELECT b.blocker.id FROM Block b WHERE b.blocked.id = :currentUserId) " +
-            "AND p.type = :type ORDER BY p.createdAt DESC")
+            "AND p.type = :type ORDER BY p.createdAt DESC",
+           countQuery = "SELECT COUNT(p) FROM Post p WHERE (p.user.id = :currentUserId OR p.user.id IN " +
+            "(SELECT f.following.id FROM Follow f WHERE f.follower.id = :currentUserId)) " +
+            "AND p.user.id NOT IN (SELECT b.blocked.id FROM Block b WHERE b.blocker.id = :currentUserId) " +
+            "AND p.user.id NOT IN (SELECT b.blocker.id FROM Block b WHERE b.blocked.id = :currentUserId) " +
+            "AND p.type = :type")
     Page<Post> findFriendsFeed(@Param("currentUserId") UUID currentUserId,
                                @Param("type") PostType type,
                                Pageable pageable);
 
-    @Query("SELECT p FROM Post p WHERE p.type = :type " +
+    @Query(value = "SELECT p FROM Post p JOIN FETCH p.user WHERE p.type = :type " +
             "AND p.user.id NOT IN (SELECT b.blocked.id FROM Block b WHERE b.blocker.id = :currentUserId) " +
             "AND p.user.id NOT IN (SELECT b.blocker.id FROM Block b WHERE b.blocked.id = :currentUserId) " +
-            "ORDER BY p.createdAt DESC")
+            "ORDER BY p.createdAt DESC",
+           countQuery = "SELECT COUNT(p) FROM Post p WHERE p.type = :type " +
+            "AND p.user.id NOT IN (SELECT b.blocked.id FROM Block b WHERE b.blocker.id = :currentUserId) " +
+            "AND p.user.id NOT IN (SELECT b.blocker.id FROM Block b WHERE b.blocked.id = :currentUserId)")
     Page<Post> findSafeReelsFeed(@Param("currentUserId") UUID currentUserId,
                                  @Param("type") PostType type,
                                  Pageable pageable);
+
+    @Query(value = "SELECT p FROM Post p JOIN FETCH p.user WHERE p.type = :type " +
+            "AND p.user.id NOT IN (SELECT b.blocked.id FROM Block b WHERE b.blocker.id = :currentUserId) " +
+            "AND p.user.id NOT IN (SELECT b.blocker.id FROM Block b WHERE b.blocked.id = :currentUserId)")
+    List<Post> findAllSafeVideosList(@Param("currentUserId") UUID currentUserId,
+                                     @Param("type") PostType type);
 
     //last 30 posts for streak
     List<Post> findTop30ByUserIdAndTypeOrderByCreatedAtDesc(UUID userId, PostType type);

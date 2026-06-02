@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
     private final Map<String, Bucket> cache = new ConcurrentHashMap<>(); //counts requests for every ip addresss
+    private long lastCleanupTime = System.currentTimeMillis();
 
     private Bucket createNewBucket() {
         // limit: 60 requests/minute/ip
@@ -28,9 +29,27 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return Bucket.builder().addLimit(limit).build();
     }
 
+    private String getClientIp(HttpServletRequest request) { //universal method which will be used with any cloud hosting
+        //to get the actual user ip.
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            if (ip.contains(",")) {
+                ip = ip.split(",")[0].trim();
+            }
+            return ip;
+        }
+        ip = request.getHeader("Proxy-Client-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+        return request.getRemoteAddr();
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String ip = request.getRemoteAddr();
+        cleanupCacheIfNeeded();
+
+        String ip = getClientIp(request);
         Bucket bucket = cache.computeIfAbsent(ip, k -> createNewBucket());
 
         if (bucket.tryConsume(1)) {
@@ -41,6 +60,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
             response.getWriter().write("{\"error\": \"Too many requests\", \"message\": \"Please slow down.\"}");
+        }
+    }
+    //auto clears cache every hour
+    private void cleanupCacheIfNeeded() {
+        long now = System.currentTimeMillis();
+        if (now - lastCleanupTime > Duration.ofHours(1).toMillis()) {
+            cache.clear();
+            lastCleanupTime = now;
         }
     }
 }

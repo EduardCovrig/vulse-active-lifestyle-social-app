@@ -4,6 +4,8 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.vulse.api.backend.dtos.post.PostAuthorDto;
 import com.vulse.api.backend.dtos.post.PostResponse;
+import com.vulse.api.backend.dtos.post.FeedResponse;
+import com.vulse.api.backend.dtos.user.UserSuggestionResponse;
 import com.vulse.api.backend.models.*;
 import com.vulse.api.backend.repositories.*;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class PostService {
     private final ReportRepository reportRepository;
     private final BlockRepository blockRepository;
     private final UserRepository userRepository;
+    private final FollowRepository followRepository;
 
     /**
      * Creates a new post with optional dual-camera (DAILY) or AI analysis (MEAL).
@@ -174,23 +177,89 @@ public class PostService {
         return cloudinaryIds;
     }
 
-    /**
-     * Fetches the feed.
-     * REELS: Global content (TikTok style).
-     * DAILY/MEAL: Friends only content (BeReal style).
-     *
-     * Uses batch-loading to avoid N+1 queries for likes/comments counts.
-     */
-    public Page<PostResponse> getFeedByType(User user, PostType type, Pageable pageable) {
-        Page<Post> postPage;
+    public FeedResponse getFeedByType(User user, PostType type, Pageable pageable) {
         if (type == PostType.REEL) {
-            postPage = postRepository.findAllByTypeOrderByCreatedAtDesc(type, pageable);
+            List<Post> allReels = postRepository.findAllSafeVideosList(user.getId(), PostType.REEL);
+            
+            long dailySeed = LocalDate.now().hashCode() ^ user.getId().hashCode();
+            
+            List<Post> sortedReels = allReels.stream()
+                    .sorted((p1, p2) -> {
+                        double score1 = calculateReelScore(p1, dailySeed);
+                        double score2 = calculateReelScore(p2, dailySeed);
+                        return Double.compare(score2, score1);
+                    })
+                    .toList();
+            
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), sortedReels.size());
+            
+            List<Post> paginatedContent = new ArrayList<>();
+            if (start < sortedReels.size()) {
+                paginatedContent = sortedReels.subList(start, end);
+            }
+            
+            List<PostResponse> responses = mapToResponseBatch(paginatedContent, user);
+            
+            int totalPages = (int) Math.ceil((double) sortedReels.size() / pageable.getPageSize());
+            boolean last = (pageable.getPageNumber() >= totalPages - 1) || totalPages == 0;
+            
+            return FeedResponse.builder()
+                    .content(responses)
+                    .pageNumber(pageable.getPageNumber())
+                    .pageSize(pageable.getPageSize())
+                    .totalElements(sortedReels.size())
+                    .totalPages(totalPages)
+                    .last(last)
+                    .suggestedFriends(null)
+                    .build();
         } else {
-            postPage = postRepository.findFriendsFeed(user.getId(), type, pageable);
+            long followingCount = followRepository.countByFollowerId(user.getId());
+            long followersCount = followRepository.countByFollowingId(user.getId());
+            
+            List<UserSuggestionResponse> suggestedFriends = null;
+            if (followingCount == 0 && followersCount == 0) {
+                suggestedFriends = getSuggestedFriends(user);
+            }
+            
+            Page<Post> postPage = postRepository.findFriendsFeed(user.getId(), type, pageable);
+            List<PostResponse> responses = mapToResponseBatch(postPage.getContent(), user);
+            
+            return FeedResponse.builder()
+                    .content(responses)
+                    .pageNumber(pageable.getPageNumber())
+                    .pageSize(pageable.getPageSize())
+                    .totalElements(postPage.getTotalElements())
+                    .totalPages(postPage.getTotalPages())
+                    .last(postPage.isLast())
+                    .suggestedFriends(suggestedFriends)
+                    .build();
         }
+    }
 
-        List<PostResponse> responses = mapToResponseBatch(postPage.getContent(), user);
-        return new PageImpl<>(responses, pageable, postPage.getTotalElements());
+    private double calculateReelScore(Post post, long dailySeed) {
+        double ageInHours = java.time.Duration.between(post.getCreatedAt(), java.time.LocalDateTime.now()).toMinutes() / 60.0;
+        double decay = 1.0 / Math.pow(ageInHours + 2.0, 1.8);
+        long postSeed = dailySeed ^ post.getId().getMostSignificantBits();
+        double randomWeight = 0.5 + new Random(postSeed).nextDouble();
+        return decay * randomWeight;
+    }
+
+    private List<UserSuggestionResponse> getSuggestedFriends(User currentUser) {
+        List<User> allUsers = userRepository.findAll();
+        List<UserSuggestionResponse> suggestions = new ArrayList<>();
+        for (User u : allUsers) {
+            if (suggestions.size() >= 10) break;
+            if (!u.getId().equals(currentUser.getId())) {
+                suggestions.add(UserSuggestionResponse.builder()
+                        .id(u.getId())
+                        .username(u.getRealUsername())
+                        .profilePicUrl(u.getProfilePicUrl())
+                        .mutuals(0L)
+                        .build());
+            }
+        }
+        return suggestions;
     }
 
     /**

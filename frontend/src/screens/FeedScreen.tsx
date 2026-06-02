@@ -8,10 +8,11 @@ import CameraScreen from './CameraScreen';
 import ProfileScreen from './ProfileScreen';
 import FriendsScreen from './FriendsScreen';
 import NutritionScreen from './NutritionScreen';
-import SwipeableModal from '../components/SwipeableModal';
+import SwipeableModal, { ModalScrollContext } from '../components/SwipeableModal';
 import { api } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,6 +25,18 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [hideTabBar, setHideTabBar] = useState(false);
   const feedEnterAnim = useRef(new Animated.Value(0)).current;
+
+  const [activePostId, setActivePostId] = useState<string | null>(null);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      setActivePostId(viewableItems[0].item.id);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
 
   useEffect(() => {
     if (activeTab === 'feed') {
@@ -44,7 +57,7 @@ export default function FeedScreen() {
       const response = await api.get('/posts/feed?type=REEL&page=0&size=10');
       setPosts(response.data.content);
     } catch (error) {
-      console.error("Error fetching Reels feed:", error);
+      console.error("Error fetching Videos feed:", error);
     } finally {
       setLoading(false);
     }
@@ -91,7 +104,7 @@ export default function FeedScreen() {
             {loading ? (
               <ActivityIndicator size="large" color="#7dd3fc" className="mt-20" />
             ) : posts.length === 0 ? (
-              <Text className="text-white/40 text-center mt-20 font-bold">No global reels found.</Text>
+              <Text className="text-white/40 text-center mt-20 font-bold">No global videos found.</Text>
             ) : (
               <FlatList 
                 data={posts}
@@ -106,6 +119,8 @@ export default function FeedScreen() {
                 windowSize={5}
                 onRefresh={fetchGlobalFeed}
                 refreshing={loading}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
                 renderItem={({ item }) => (
                   <View style={{ height, width }}>
                     <LiquidPostCard 
@@ -117,6 +132,7 @@ export default function FeedScreen() {
                       onUserBlocked={(id) => setPosts(curr => curr.filter(p => p.author.id !== id))}
                       onLikeToggled={handleLikeToggled}
                       onEditCaption={(id, text) => console.log("Edit")}
+                      shouldPlay={item.id === activePostId && activeTab === 'feed'}
                     />
                   </View>
                 )}
@@ -144,21 +160,23 @@ export default function FeedScreen() {
       )}
 
 
-      {/* COMMENTS MODAL FOR GLOBAL FEED - CU PROTECTII ?. ACTIVE */}
       <SwipeableModal visible={activeCommentsPostId !== null} onClose={() => setActiveCommentsPostId(null)} title="Comments" heightRatio={0.65}>
-        {loadingComments ? (
-          <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
-        ) : (
-          <FlatList
-            data={comments}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+        <ModalScrollContext.Consumer>
+          {(scrollContext) => loadingComments ? (
+            <ActivityIndicator color="#7dd3fc" style={{ marginTop: 40 }} />
+          ) : (
+            <FlatList
+              data={comments}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              onScroll={scrollContext?.onScroll}
+              scrollEventThrottle={scrollContext?.scrollEventThrottle}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
             renderItem={({ item }) => (
               <View className="flex-row gap-3 mb-4">
                 <View className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center overflow-hidden border border-white/[0.04]">
                   {item?.user?.profilePicUrl ? (
-                    <Image source={{ uri: item.user.profilePicUrl }} className="w-full h-full" />
+                    <Image source={{ uri: optimizedThumbUrl(item.user.profilePicUrl, 100) }} className="w-full h-full" />
                   ) : (
                     <Text className="text-white/60 text-xs font-semibold">
                       {item?.user?.username?.charAt(0)?.toUpperCase() || 'U'}
@@ -176,6 +194,7 @@ export default function FeedScreen() {
             ListEmptyComponent={<Text className="text-white/20 text-center mt-10 text-xs">No comments yet.</Text>}
           />
         )}
+        </ModalScrollContext.Consumer>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.04)', backgroundColor: 'rgba(9,14,23,0.95)' }}>
           <TextInput value={newComment} onChangeText={setNewComment} placeholder="Add a comment..." placeholderTextColor="rgba(255,255,255,0.2)" keyboardAppearance="dark" style={{ flex: 1, height: 44, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 22, paddingHorizontal: 16, color: 'white', fontSize: 14, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />
