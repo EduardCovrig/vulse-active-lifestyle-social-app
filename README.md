@@ -6,11 +6,11 @@ Forget endless, passive doom-scrolling. Vulse is a social platform built specifi
 
 ## 📸 See It In Action
 
-| Feed | Camera & AI Analysis |
+| **Profile & Visual Calendar**  | Meal Tracker |
 | :---: | :---: |
-| ![Feed](docs/images/short-form.jpeg) | ![Calorie Plan](docs/images/calorie-plan.jpeg) |
-| **Profile & Visual Calendar** | **Liquid Glass UI** |
-| ![Profile](docs/images/user-profile.jpeg) | ![Protein Goal](docs/images/protein-goal.jpeg) |
+| ![Profile](docs/images/user-profile.jpeg) | ![Calorie Plan](docs/images/calorie-plan.jpeg) |
+| **Feed** | **Protein Goal** |
+| ![Feed](docs/images/short-form.jpeg) | ![Protein Goal](docs/images/protein-goal.jpeg) |
 
 ---
 
