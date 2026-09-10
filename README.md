@@ -8,11 +8,11 @@ Built for speed, safety, and a premium UX, Vulse is the place where genuine habi
 
 ## 📸 See It In Action (TODO)
 
-| Feed & Daily Snaps | Camera & AI Analysis |
+| Feed | Camera & AI Analysis |
 | :---: | :---: |
-| ![Feed](docs/images/feed.png) | ![Camera](docs/images/camera.png) |
+| ![Feed](docs/images/short-form.jpeg) | ![Calorie Plan](docs/images/calorie-plan.png) |
 | **Profile & Visual Calendar** | **Liquid Glass UI** |
-| ![Profile](docs/images/profile.png) | ![UI](docs/images/ui.png) |
+| ![Profile](docs/images/user-profile.jpeg) | ![Protein Goal](docs/images/protein-goal.jpeg) |
 
 ---
 
