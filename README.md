@@ -1,8 +1,6 @@
 # Vulse - The Active Lifestyle App ⚡
  
-Forget endless doom-scrolling. **Vulse** is a social media platform built from the ground up for the health and fitness community.
-
-Built for speed, safety, and a premium UX, Vulse is the place where genuine habits meet cutting-edge tech.
+Forget endless, passive doom-scrolling. Vulse is a social platform built specifically for the health and fitness community: a place to share authentic dual-camera daily moments with your close friends circle, track your daily nutrition, and explore short-form fitness & active lifestyle content from creators you love.
 
 ---
 
@@ -16,11 +14,11 @@ Built for speed, safety, and a premium UX, Vulse is the place where genuine habi
 
 ---
 
-## 💻 The Tech Engine
+## 💻 The Tech Stack
 
 * **Core Backend:** Java 26, Spring Boot 4, Spring Security (Stateless JWT).
 * **Database & ORM:** PostgreSQL with Hibernate / Spring Data JPA.
 * **Mobile App:** React Native via Expo, TypeScript, NativeWind for styling.
-* **External APIs:** Cloudinary (for optimized media streaming) & Groq/OpenAI (for AI computer vision).
+* **External APIs:** Cloudinary (for optimized media streaming) 
 
 ---
