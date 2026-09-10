@@ -195,7 +195,7 @@ export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
   const handleChangeProfilePic = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
@@ -336,7 +336,7 @@ export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
         }},
         { text: "Upload from Library", onPress: async () => {
             let result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              mediaTypes: ['videos'],
               allowsEditing: true,
               quality: 0.8,
             });

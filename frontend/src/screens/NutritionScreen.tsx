@@ -82,7 +82,7 @@ export default function NutritionScreen() {
                 <Text className="text-white/50 text-[11px] font-black tracking-[4px] uppercase ml-2">Meals Log</Text>
                 <TouchableOpacity onPress={() => setShowAddModal(true)} className="bg-[#7ad7c6]/20 px-3 py-1 rounded-full border border-[#7ad7c6]/30 flex-row items-center gap-1">
                   <Ionicons name="add" size={14} color="#7ad7c6" />
-                  <Text className="text-[#7ad7c6] text-[10px] font-bold uppercase tracking-widest">Manual</Text>
+                  <Text className="text-[#7ad7c6] text-[10px] font-bold uppercase tracking-widest">Add</Text>
                 </TouchableOpacity>
               </View>
             </View>
