@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, KeyboardAvoidingView, Platform, To
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import BouncyPressable from './BouncyPressable';
 
 interface CameraPreviewDoneProps {
@@ -37,6 +37,12 @@ export default function CameraPreviewDone({
   isUploading,
   handleUpload,
 }: CameraPreviewDoneProps) {
+  const isVideo = mediaType === 'video' && !!mediaUri;
+  const player = useVideoPlayer(isVideo ? mediaUri : '', (p) => {
+    p.loop = true;
+    p.play();
+  });
+
   if (mode === 'reaction' && mediaUri) {
     return (
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -44,7 +50,7 @@ export default function CameraPreviewDone({
           <View className="flex-1 bg-black relative justify-center items-center">
             <View className="w-full aspect-[3/4] rounded-[40px] overflow-hidden border-2 border-white/10">
               {mediaType === 'video' ? (
-                <Video source={{ uri: mediaUri }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={false} />
+                <VideoView player={player} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
               ) : (
                 <Image source={{ uri: mediaUri }} className="w-full h-full" resizeMode="cover" />
               )}
@@ -86,8 +92,8 @@ export default function CameraPreviewDone({
     return (
       <View className="flex-1 bg-black relative">
         <TouchableOpacity activeOpacity={1} onPress={() => !isUploading && setSwapped(!swapped)} style={{ flex: 1 }}>
-          {(!swapped && mediaType === 'video') || (swapped && frontMediaUri && false) ? (
-            <Video source={{ uri: primaryUri! }} style={{ flex: 1 }} resizeMode={ResizeMode.COVER} shouldPlay isLooping />
+          {(!swapped && mediaType === 'video') ? (
+            <VideoView player={player} style={{ flex: 1 }} contentFit="cover" nativeControls={false} />
           ) : (
             <Image source={{ uri: primaryUri! }} className="flex-1" resizeMode="cover" />
           )}
@@ -101,7 +107,6 @@ export default function CameraPreviewDone({
           </BouncyPressable>
         </View>
 
-        {/* Secondary small image (BeReal style) */}
         {secondaryUri && (
           <TouchableOpacity 
             activeOpacity={0.9} 
@@ -132,7 +137,7 @@ export default function CameraPreviewDone({
   return (
     <View className="flex-1 bg-black relative">
       {mediaUri && mediaType === 'video' ? (
-        <Video source={{ uri: mediaUri }} style={{ flex: 1 }} resizeMode={ResizeMode.COVER} shouldPlay isLooping />
+        <VideoView player={player} style={{ flex: 1 }} contentFit="cover" nativeControls={false} />
       ) : (
         mediaUri && <Image source={{ uri: mediaUri }} className="flex-1" resizeMode="cover" />
       )}
@@ -145,12 +150,12 @@ export default function CameraPreviewDone({
       <View className="absolute bottom-0 inset-x-0 z-50 pb-10 pt-6 px-4">
          <TouchableOpacity onPress={() => handleUpload('REEL')} disabled={isUploading} className="w-full">
            <LinearGradient colors={['#7ad7c6', '#7dd3fc']} start={{x:0, y:0}} end={{x:1, y:1}} className="rounded-full p-4 flex-row items-center justify-center h-16 shadow-[0_0_20px_rgba(122,215,198,0.3)]">
-             {isUploading ? <ActivityIndicator color="#0b1326" /> : (
-               <>
-                 <Ionicons name="globe-outline" size={24} color="#0b1326" className="mr-3" />
-                 <Text className="text-[#0b1326] font-black text-lg tracking-widest">POST AS VIDEO</Text>
-               </>
-             )}
+              {isUploading ? <ActivityIndicator color="#0b1326" /> : (
+                <>
+                  <Ionicons name="globe-outline" size={24} color="#0b1326" className="mr-3" />
+                  <Text className="text-[#0b1326] font-black text-lg tracking-widest">POST AS VIDEO</Text>
+                </>
+              )}
            </LinearGradient>
          </TouchableOpacity>
       </View>
