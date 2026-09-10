@@ -79,10 +79,11 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericExceptions(Exception ex) {
+        ex.printStackTrace();
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
-                "Something went wrong. Please try again later.",
+                ex.getMessage() != null ? ex.getMessage() : "Something went wrong. Please try again later.",
                 LocalDateTime.now()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
