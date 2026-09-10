@@ -1,12 +1,12 @@
 # Vulse - The Active Lifestyle App ⚡
  
-Forget endless doom-scrolling. **Vulse** is a social media platform built from the ground up for the health and fitness community. We combined the authenticity of daily photo drops with the utility of AI macro-tracking to create an app that actually adds value to your day.
+Forget endless doom-scrolling. **Vulse** is a social media platform built from the ground up for the health and fitness community.
 
 Built for speed, safety, and a premium UX, Vulse is the place where genuine habits meet cutting-edge tech.
 
 ---
 
-## 📸 See It In Action (TODO)
+## 📸 See It In Action
 
 | Feed | Camera & AI Analysis |
 | :---: | :---: |
