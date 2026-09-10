@@ -23,7 +23,7 @@ public class InteractionService {
     private final ReactionRepository reactionRepository;
     private final PostRepository postRepository;
     private final Cloudinary cloudinary;
-    private final NotificationRepository notificationRepository; // ADĂUGAT AICI
+    private final NotificationRepository notificationRepository;
 
     @Transactional
     public void toggleLike(User user, UUID postId) {
@@ -69,8 +69,29 @@ public class InteractionService {
         reactionRepository.save(reaction);
     }
 
-    @Transactional
+    /**
+     * Deletes a reaction. Cloudinary HTTP calls are performed AFTER the DB transaction
+     * commits to avoid holding a DB connection during potentially slow external HTTP calls.
+     */
     public void deleteReaction(User user, UUID reactionId) {
+        // Phase 1: DB work inside transaction; collect Cloudinary ID
+        String mediaPublicId = deleteReactionDbWork(user, reactionId);
+
+        // Phase 2: Cloudinary cleanup OUTSIDE the transaction
+        if (mediaPublicId != null) {
+            try {
+                cloudinary.uploader().destroy(mediaPublicId, ObjectUtils.emptyMap());
+            } catch (IOException e) {
+                System.err.println("Warning: Failed to delete reaction media from Cloudinary.");
+            }
+        }
+    }
+
+    /**
+     * Transactional phase of deleteReaction — does DB work and returns the Cloudinary public ID to clean up.
+     */
+    @Transactional
+    protected String deleteReactionDbWork(User user, UUID reactionId) {
         Reaction reaction = reactionRepository.findById(reactionId)
                 .orElseThrow(() -> new IllegalStateException("Reaction not found"));
 
@@ -78,14 +99,8 @@ public class InteractionService {
             throw new IllegalStateException("Unauthorized: You can only delete your own reactions");
         }
 
-        try {
-            if (reaction.getMediaPublicId() != null) {
-                cloudinary.uploader().destroy(reaction.getMediaPublicId(), ObjectUtils.emptyMap());
-            }
-        } catch (IOException e) {
-            System.err.println("Warning: Failed to delete reaction media from Cloudinary.");
-        }
-
+        String publicId = reaction.getMediaPublicId();
         reactionRepository.delete(reaction);
+        return publicId;
     }
 }

@@ -9,6 +9,8 @@ interface AuthContextType {
   login: (data: any) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
+  hasPostedToday: boolean;
+  setHasPostedToday: (val: boolean) => void;
 }
 
 export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -17,6 +19,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasPostedToday, setHasPostedToday] = useState(false);
 
   //checks if we already have a saved token on app start, if yes, we are authenticated and we can fetch user data (like username) from secure storage.
   useEffect(() => {
@@ -67,8 +70,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUsername(null);
   };
 
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        if (error.response && error.response.status === 401) {
+          try {
+            await logout();
+          } catch (logoutError) {
+            console.error("Error during auto-logout:", logoutError);
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => {
+      api.interceptors.response.eject(interceptor);
+    };
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, username, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, username, isLoading, login, register, logout, hasPostedToday, setHasPostedToday }}>
       {children}
     </AuthContext.Provider>
   );

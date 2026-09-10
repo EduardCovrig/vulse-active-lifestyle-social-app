@@ -1,16 +1,6 @@
-/**
- * ImagePopoutModal - A self-contained, crash-safe image viewer with pinch-to-zoom.
- *
- * KEY DESIGN DECISIONS:
- * - Never renders nested Modals (they fight gesture responders)
- * - Uses isClosing + isOpen refs to guarantee onClose fires exactly once
- * - ReactionsPanel is an absolute overlay inside the same Modal (not a nested Modal)
- * - PinchableImage handles all zoom/pan gestures, single-tap closes the modal
- */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
-  Modal,
   TouchableOpacity,
   Dimensions,
   Animated,
@@ -25,15 +15,17 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { api } from '../services/api';
 import PinchableImage from './PinchableImage';
+import { optimizedImageUrl, optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
 const { width, height } = Dimensions.get('window');
 
 interface ImagePopoutModalProps {
   visible: boolean;
   imageUri?: string | null;
+  frontImageUri?: string | null;
   post?: any;
   onClose: () => void;
   onOpenComments?: (postId: string) => void;
@@ -41,8 +33,6 @@ interface ImagePopoutModalProps {
   onLikeToggled?: (postId: string, isLiked: boolean) => void;
 }
 
-// Inline Reactions Panel — rendered as an absolute view inside the SAME Modal.
-// This avoids the nested-Modal gesture-responder freeze entirely.
 function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => void }) {
   const [reactions, setReactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +82,7 @@ function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => vo
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.04)' }}>
                   <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)', marginRight: 12, alignItems: 'center', justifyContent: 'center' }}>
                     {item.profilePicUrl
-                      ? <Image source={{ uri: item.profilePicUrl }} style={{ width: '100%', height: '100%' }} />
+                      ? <Image source={{ uri: optimizedThumbUrl(item.profilePicUrl, 100) }} style={{ width: '100%', height: '100%' }} />
                       : <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 14 }}>{item.username?.charAt(0)?.toUpperCase()}</Text>
                     }
                   </View>
@@ -103,7 +93,7 @@ function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => vo
                   </View>
                   {item.mediaUrl && (
                     <View style={{ width: 48, height: 48, borderRadius: 12, overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' }}>
-                      <Image source={{ uri: item.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      <Image source={{ uri: optimizedThumbUrl(item.mediaUrl, 200) }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     </View>
                   )}
                 </View>
@@ -119,6 +109,7 @@ function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => vo
 export default function ImagePopoutModal({
   visible,
   imageUri,
+  frontImageUri,
   post,
   onClose,
   onOpenComments,
@@ -131,6 +122,7 @@ export default function ImagePopoutModal({
   const isOpen     = useRef(false);
 
   const [internalVisible, setInternalVisible] = useState(false);
+  const [touchable, setTouchable] = useState(true);
   const [showReactions, setShowReactions]     = useState(false);
   const [isLiked, setIsLiked]                 = useState(false);
   const [likesCount, setLikesCount]           = useState(0);
@@ -142,21 +134,40 @@ export default function ImagePopoutModal({
     }
   }, [post?.id, post?.isLiked, post?.likesCount]);
 
-  const targetUri = post ? post.mediaUrl : imageUri;
+  const targetUri = post ? optimizedImageUrl(post.mediaUrl) : optimizedImageUrl(imageUri);
+  const frontUri = post?.frontMediaUrl || frontImageUri;
+  const isFrontVideo = !!(frontUri && (frontUri.toLowerCase().endsWith('.mp4') || frontUri.toLowerCase().endsWith('.mov')));
 
-  // ── Open ──────────────────────────────────────────────────────────────
+  const frontPlayer = useVideoPlayer(isFrontVideo ? frontUri : null, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+
   useEffect(() => {
     if (visible && targetUri && !isOpen.current) {
       isOpen.current    = true;
       isClosing.current = false;
       setShowReactions(false);
+      setTouchable(true);
       setInternalVisible(true);
       opacityAnim.setValue(0);
       scaleAnim.setValue(0.92);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 220, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
-        Animated.spring(scaleAnim,  { toValue: 1, useNativeDriver: true, bounciness: 10, speed: 14 }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.cubic),
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          damping: 18,
+          mass: 0.8,
+          stiffness: 130,
+        }),
       ]).start();
     }
 
@@ -165,16 +176,27 @@ export default function ImagePopoutModal({
     }
   }, [visible, targetUri]);
 
-  // ── Close ─────────────────────────────────────────────────────────────
   const performClose = useCallback(() => {
     if (isClosing.current) return;
     isClosing.current = true;
     isOpen.current    = false;
+    setTouchable(false);
     setShowReactions(false);
 
     Animated.parallel([
-      Animated.timing(opacityAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(scaleAnim,   { toValue: 0.94, duration: 180, useNativeDriver: true }),
+      Animated.timing(opacityAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.ease),
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 0.92,
+        useNativeDriver: true,
+        damping: 22,
+        mass: 0.8,
+        stiffness: 150,
+      }),
     ]).start(() => {
       isClosing.current = false;
       setInternalVisible(false);
@@ -195,155 +217,137 @@ export default function ImagePopoutModal({
   if (!internalVisible) return null;
 
   return (
-    <Modal
-      visible={internalVisible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={performClose}
-    >
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <View 
+      pointerEvents={touchable ? 'auto' : 'none'}
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, justifyContent: 'center', alignItems: 'center' }}>
 
-        {/* Blurred backdrop — tap to close */}
-        <Animated.View style={{ position: 'absolute', inset: 0, opacity: opacityAnim }}>
-          <BlurView intensity={80} tint="dark" style={{ flex: 1 }}>
-            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={performClose} />
-          </BlurView>
-        </Animated.View>
+      <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: opacityAnim }}>
+        <BlurView intensity={80} tint="dark" style={{ flex: 1 }}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={performClose} />
+        </BlurView>
+      </Animated.View>
 
-        {/* Image card */}
-        <Animated.View
-          style={{
-            width: width * 0.94,
-            height: height * 0.80,
-            transform: [{ scale: scaleAnim }],
-            opacity: opacityAnim,
-            borderRadius: 36,
-            overflow: 'hidden',
-            backgroundColor: '#06090E',
-            borderWidth: 0.5,
-            borderColor: 'rgba(255,255,255,0.12)',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 12 },
-            shadowOpacity: 0.6,
-            shadowRadius: 30,
-          }}
+      <Animated.View
+        style={{
+          width: width * 0.94,
+          height: height * 0.80,
+          transform: [{ scale: scaleAnim }],
+          opacity: opacityAnim,
+          borderRadius: 36,
+          overflow: 'hidden',
+          backgroundColor: '#06090E',
+          borderWidth: 0.5,
+          borderColor: 'rgba(255,255,255,0.12)',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 12 },
+          shadowOpacity: 0.6,
+          shadowRadius: 30,
+        }}
+      >
+        {targetUri && (
+          <PinchableImage uri={targetUri} onSingleTap={performClose} />
+        )}
+
+        {frontUri && (
+          <View style={{ position: 'absolute', top: 20, right: 20, width: 100, height: 130, borderRadius: 16, borderWidth: 2, borderColor: 'white', overflow: 'hidden', zIndex: 10 }}>
+            {isFrontVideo && frontPlayer ? (
+              <VideoView player={frontPlayer} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
+            ) : (
+              <Image source={{ uri: optimizedThumbUrl(frontUri) }} style={{ width: '100%', height: '100%' }} />
+            )}
+          </View>
+        )}
+
+        <LinearGradient
+          colors={['rgba(0,0,0,0.55)', 'transparent', 'rgba(0,0,0,0.75)']}
+          locations={[0, 0.4, 1]}
+          style={{ position: 'absolute', inset: 0 }}
+          pointerEvents="none"
+        />
+
+        <TouchableOpacity
+          onPress={performClose}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={{ position: 'absolute', top: 16, right: 16, zIndex: 50, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)' }}
         >
-          {/* ── Main image with pinch-to-zoom. Single-tap closes. ── */}
-          {targetUri && (
-            <PinchableImage uri={targetUri} onSingleTap={performClose} />
-          )}
+          <Ionicons name="close" size={18} color="white" />
+        </TouchableOpacity>
 
-          {/* Front camera overlay (BeReal thumbnail) */}
-          {post?.frontMediaUrl && (
-            <View style={{ position: 'absolute', top: 20, right: 20, width: 100, height: 130, borderRadius: 16, borderWidth: 2, borderColor: 'white', overflow: 'hidden', zIndex: 10 }}>
-              {post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov') ? (
-                <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
-              ) : (
-                <Image source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} />
-              )}
+        {post?.author && (
+          <View style={{ position: 'absolute', top: 16, left: 16, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 20 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+              {post.author.profilePicUrl
+                ? <Image source={{ uri: optimizedThumbUrl(post.author.profilePicUrl, 100) }} style={{ width: '100%', height: '100%' }} />
+                : <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{post.author.username?.charAt(0)?.toUpperCase() || 'V'}</Text>
+              }
             </View>
-          )}
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16, textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>
+              {post.author.username}
+            </Text>
+          </View>
+        )}
 
-          {/* Gradient overlays */}
-          <LinearGradient
-            colors={['rgba(0,0,0,0.55)', 'transparent', 'rgba(0,0,0,0.75)']}
-            locations={[0, 0.4, 1]}
-            style={{ position: 'absolute', inset: 0 }}
-            pointerEvents="none"
-          />
-
-          {/* Close button (top-right) */}
-          <TouchableOpacity
-            onPress={performClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ position: 'absolute', top: 16, right: 16, zIndex: 50, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)' }}
-          >
-            <Ionicons name="close" size={18} color="white" />
-          </TouchableOpacity>
-
-          {/* Author info (top-left) */}
-          {post?.author && (
-            <View style={{ position: 'absolute', top: 16, left: 16, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 20 }}>
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                {post.author.profilePicUrl
-                  ? <Image source={{ uri: post.author.profilePicUrl }} style={{ width: '100%', height: '100%' }} />
-                  : <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{post.author.username?.charAt(0)?.toUpperCase() || 'V'}</Text>
-                }
-              </View>
-              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16, textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>
-                {post.author.username}
+        {post && (
+          <View style={{ position: 'absolute', bottom: 20, left: 20, right: 20, zIndex: 20 }}>
+            {post.caption && (
+              <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '500', marginBottom: 16, lineHeight: 20 }}>
+                {post.caption}
               </Text>
-            </View>
-          )}
+            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+                <TouchableOpacity onPress={toggleLike} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                  <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={28} color={isLiked ? '#ff4b4b' : 'white'} />
+                  <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{likesCount}</Text>
+                </TouchableOpacity>
 
-          {/* Footer: caption + interactions */}
-          {post && (
-            <View style={{ position: 'absolute', bottom: 20, left: 20, right: 20, zIndex: 20 }}>
-              {post.caption && (
-                <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '500', marginBottom: 16, lineHeight: 20 }}>
-                  {post.caption}
-                </Text>
-              )}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-
-                {/* Left: like, comment, react */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
-                  <TouchableOpacity onPress={toggleLike} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
-                    <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={28} color={isLiked ? '#ff4b4b' : 'white'} />
-                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{likesCount}</Text>
+                {post.type !== 'DAILY' && onOpenComments && (
+                  <TouchableOpacity
+                    onPress={() => { performClose(); setTimeout(() => onOpenComments(post.id), 300); }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                  >
+                    <Ionicons name="chatbubble-outline" size={26} color="white" />
+                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{post.commentsCount || 0}</Text>
                   </TouchableOpacity>
+                )}
 
-                  {post.type !== 'DAILY' && onOpenComments && (
-                    <TouchableOpacity
-                      onPress={() => { performClose(); setTimeout(() => onOpenComments(post.id), 300); }}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    >
-                      <Ionicons name="chatbubble-outline" size={26} color="white" />
-                      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>{post.commentsCount || 0}</Text>
-                    </TouchableOpacity>
-                  )}
+                {post.type !== 'REEL' && onReactRequest && (
+                  <TouchableOpacity
+                    onPress={() => { performClose(); setTimeout(() => onReactRequest(post.id), 300); }}
+                    style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' }}
+                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                  >
+                    <Ionicons name="camera-outline" size={18} color="white" />
+                  </TouchableOpacity>
+                )}
+              </View>
 
-                  {post.type !== 'REEL' && onReactRequest && (
-                    <TouchableOpacity
-                      onPress={() => { performClose(); setTimeout(() => onReactRequest(post.id), 300); }}
-                      style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' }}
-                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                    >
-                      <Ionicons name="camera-outline" size={18} color="white" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Right: reactions + calories */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  {post.recentReactions?.length > 0 && post.type !== 'REEL' && (
-                    <TouchableOpacity onPress={() => setShowReactions(true)} style={{ flexDirection: 'row' }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
-                      {post.recentReactions.slice(0, 3).map((uri: string, idx: number) => (
-                        <View key={idx} style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden', marginLeft: idx > 0 ? -10 : 0 }}>
-                          <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
-                        </View>
-                      ))}
-                    </TouchableOpacity>
-                  )}
-                  {post.calories && (
-                    <View style={{ backgroundColor: 'rgba(122,215,198,0.2)', borderWidth: 0.5, borderColor: 'rgba(122,215,198,0.5)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="flame" size={12} color="#7ad7c6" />
-                      <Text style={{ color: '#7ad7c6', fontWeight: '900', fontSize: 11 }}>{post.calories}</Text>
-                    </View>
-                  )}
-                </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                {post.recentReactions?.length > 0 && post.type !== 'REEL' && (
+                  <TouchableOpacity onPress={() => setShowReactions(true)} style={{ flexDirection: 'row' }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                    {post.recentReactions.slice(0, 3).map((uri: string, idx: number) => (
+                      <View key={idx} style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden', marginLeft: idx > 0 ? -10 : 0 }}>
+                        <Image source={{ uri: optimizedThumbUrl(uri, 100) }} style={{ width: '100%', height: '100%' }} />
+                      </View>
+                    ))}
+                  </TouchableOpacity>
+                )}
+                {post.calories && (
+                  <View style={{ backgroundColor: 'rgba(122,215,198,0.2)', borderWidth: 0.5, borderColor: 'rgba(122,215,198,0.5)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="flame" size={12} color="#7ad7c6" />
+                    <Text style={{ color: '#7ad7c6', fontWeight: '900', fontSize: 11 }}>{post.calories}</Text>
+                  </View>
+                )}
               </View>
             </View>
-          )}
+          </View>
+        )}
 
-          {/* Inline Reactions Panel — no nested Modal */}
-          {showReactions && post?.id && (
-            <ReactionsPanel postId={post.id} onClose={() => setShowReactions(false)} />
-          )}
-        </Animated.View>
-      </View>
-    </Modal>
+        {showReactions && post?.id && (
+          <ReactionsPanel postId={post.id} onClose={() => setShowReactions(false)} />
+        )}
+      </Animated.View>
+    </View>
   );
 }

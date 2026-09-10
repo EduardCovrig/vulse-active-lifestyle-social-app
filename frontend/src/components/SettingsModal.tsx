@@ -11,10 +11,12 @@ interface SettingsModalProps {
   onOpenBlockedUsers: () => void;
   onLogout: () => void;
   onDeleteAccount: () => void;
+  onOpenSettings: () => void;
 }
 
-export default function SettingsModal({ visible, onClose, onOpenBlockedUsers, onLogout, onDeleteAccount }: SettingsModalProps) {
+export default function SettingsModal({ visible, onClose, onOpenBlockedUsers, onLogout, onDeleteAccount, onOpenSettings }: SettingsModalProps) {
   const settingsItems = [
+    { icon: 'settings-outline' as const, label: 'Account Settings', color: 'rgba(255,255,255,0.7)', onPress: () => { onClose(); onOpenSettings(); } },
     { icon: 'shield-half-outline' as const, label: 'Blocked Users', color: 'rgba(255,255,255,0.7)', onPress: onOpenBlockedUsers },
     { icon: 'log-out-outline' as const, label: 'Sign Out', color: 'rgba(255,255,255,0.7)', onPress: () => { onClose(); onLogout(); } },
     { icon: 'trash-outline' as const, label: 'Delete Account', color: '#ff6b6b', onPress: () => { onClose(); onDeleteAccount(); }, danger: true },

@@ -1,6 +1,6 @@
 package com.vulse.api.backend.controllers;
 
-import com.vulse.api.backend.models.Comment;
+import com.vulse.api.backend.dtos.comment.CommentResponse;
 import com.vulse.api.backend.models.User;
 import com.vulse.api.backend.services.CommentService;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ public class CommentController {
     }
 
     @GetMapping("/{postId}")
-    public ResponseEntity<Page<Comment>> getComments(
+    public ResponseEntity<Page<CommentResponse>> getComments(
             @PathVariable UUID postId,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {

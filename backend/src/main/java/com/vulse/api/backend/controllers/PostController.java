@@ -1,6 +1,7 @@
 package com.vulse.api.backend.controllers;
 
 import com.vulse.api.backend.dtos.post.PostResponse;
+import com.vulse.api.backend.dtos.post.FeedResponse;
 import com.vulse.api.backend.models.PostType;
 import com.vulse.api.backend.models.User;
 import com.vulse.api.backend.services.PostService;
@@ -55,7 +56,7 @@ public class PostController {
     }
 
     @GetMapping("/feed")
-    public ResponseEntity<Page<PostResponse>> getFeed(
+    public ResponseEntity<FeedResponse> getFeed(
             @AuthenticationPrincipal User user,
             @RequestParam("type") PostType type,
             @RequestParam(value = "page", defaultValue = "0") int page,

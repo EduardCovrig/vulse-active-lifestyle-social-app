@@ -1,5 +1,7 @@
 package com.vulse.api.backend.services;
 
+import com.vulse.api.backend.dtos.comment.CommentResponse;
+import com.vulse.api.backend.dtos.post.PostAuthorDto;
 import com.vulse.api.backend.models.Comment;
 import com.vulse.api.backend.models.Notification;
 import com.vulse.api.backend.models.NotificationType;
@@ -63,8 +65,23 @@ public class CommentService {
         }
     }
 
-    public Page<Comment> getCommentsForPost(UUID postId, Pageable pageable) {
-        return commentRepository.findByPostIdOrderByCreatedAtDesc(postId, pageable);
+    public Page<CommentResponse> getCommentsForPost(UUID postId, Pageable pageable) {
+        return commentRepository.findByPostIdOrderByCreatedAtDesc(postId, pageable)
+                .map(this::mapToResponse);
+    }
+
+    private CommentResponse mapToResponse(Comment comment) {
+        return CommentResponse.builder()
+                .id(comment.getId())
+                .user(PostAuthorDto.builder()
+                        .id(comment.getUser().getId())
+                        .username(comment.getUser().getRealUsername())
+                        .profilePicUrl(comment.getUser().getProfilePicUrl())
+                        .build())
+                .text(comment.getText())
+                .createdAt(comment.getCreatedAt())
+                .parentId(comment.getParentId())
+                .build();
     }
 
     public void deleteComment(User user, UUID commentId) {
