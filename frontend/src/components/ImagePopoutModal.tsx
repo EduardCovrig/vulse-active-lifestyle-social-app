@@ -1,16 +1,6 @@
-/**
- * ImagePopoutModal - A self-contained, crash-safe image viewer with pinch-to-zoom.
- *
- * KEY DESIGN DECISIONS:
- * - Never renders nested Modals (they fight gesture responders)
- * - Uses isClosing + isOpen refs to guarantee onClose fires exactly once
- * - ReactionsPanel is an absolute overlay inside the same Modal (not a nested Modal)
- * - PinchableImage handles all zoom/pan gestures, single-tap closes the modal
- */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
-  Modal,
   TouchableOpacity,
   Dimensions,
   Animated,
@@ -25,7 +15,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { api } from '../services/api';
 import PinchableImage from './PinchableImage';
 import { optimizedImageUrl, optimizedThumbUrl } from '../utils/cloudinaryUrl';
@@ -43,8 +33,6 @@ interface ImagePopoutModalProps {
   onLikeToggled?: (postId: string, isLiked: boolean) => void;
 }
 
-// Inline Reactions Panel — rendered as an absolute view inside the SAME Modal.
-// This avoids the nested-Modal gesture-responder freeze entirely.
 function ReactionsPanel({ postId, onClose }: { postId: string; onClose: () => void }) {
   const [reactions, setReactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,8 +135,15 @@ export default function ImagePopoutModal({
   }, [post?.id, post?.isLiked, post?.likesCount]);
 
   const targetUri = post ? optimizedImageUrl(post.mediaUrl) : optimizedImageUrl(imageUri);
+  const frontUri = post?.frontMediaUrl || frontImageUri;
+  const isFrontVideo = !!(frontUri && (frontUri.toLowerCase().endsWith('.mp4') || frontUri.toLowerCase().endsWith('.mov')));
 
-  // ── Open ──────────────────────────────────────────────────────────────
+  const frontPlayer = useVideoPlayer(isFrontVideo ? frontUri : null, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+
   useEffect(() => {
     if (visible && targetUri && !isOpen.current) {
       isOpen.current    = true;
@@ -181,7 +176,6 @@ export default function ImagePopoutModal({
     }
   }, [visible, targetUri]);
 
-  // ── Close ─────────────────────────────────────────────────────────────
   const performClose = useCallback(() => {
     if (isClosing.current) return;
     isClosing.current = true;
@@ -227,14 +221,12 @@ export default function ImagePopoutModal({
       pointerEvents={touchable ? 'auto' : 'none'}
       style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, justifyContent: 'center', alignItems: 'center' }}>
 
-      {/* Blurred backdrop — tap to close */}
       <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: opacityAnim }}>
         <BlurView intensity={80} tint="dark" style={{ flex: 1 }}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={performClose} />
         </BlurView>
       </Animated.View>
 
-      {/* Image card */}
       <Animated.View
         style={{
           width: width * 0.94,
@@ -252,23 +244,20 @@ export default function ImagePopoutModal({
           shadowRadius: 30,
         }}
       >
-        {/* ── Main image with pinch-to-zoom. Single-tap closes. ── */}
         {targetUri && (
           <PinchableImage uri={targetUri} onSingleTap={performClose} />
         )}
 
-        {/* Front camera overlay (BeReal thumbnail) */}
-        {(post?.frontMediaUrl || frontImageUri) && (
+        {frontUri && (
           <View style={{ position: 'absolute', top: 20, right: 20, width: 100, height: 130, borderRadius: 16, borderWidth: 2, borderColor: 'white', overflow: 'hidden', zIndex: 10 }}>
-            {((post?.frontMediaUrl || frontImageUri)!.toLowerCase().endsWith('.mp4') || (post?.frontMediaUrl || frontImageUri)!.toLowerCase().endsWith('.mov')) ? (
-              <Video source={{ uri: (post?.frontMediaUrl || frontImageUri)! }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={true} />
+            {isFrontVideo && frontPlayer ? (
+              <VideoView player={frontPlayer} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
             ) : (
-              <Image source={{ uri: optimizedThumbUrl((post?.frontMediaUrl || frontImageUri)!) }} style={{ width: '100%', height: '100%' }} />
+              <Image source={{ uri: optimizedThumbUrl(frontUri) }} style={{ width: '100%', height: '100%' }} />
             )}
           </View>
         )}
 
-        {/* Gradient overlays */}
         <LinearGradient
           colors={['rgba(0,0,0,0.55)', 'transparent', 'rgba(0,0,0,0.75)']}
           locations={[0, 0.4, 1]}
@@ -276,7 +265,6 @@ export default function ImagePopoutModal({
           pointerEvents="none"
         />
 
-        {/* Close button (top-right) */}
         <TouchableOpacity
           onPress={performClose}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -285,7 +273,6 @@ export default function ImagePopoutModal({
           <Ionicons name="close" size={18} color="white" />
         </TouchableOpacity>
 
-        {/* Author info (top-left) */}
         {post?.author && (
           <View style={{ position: 'absolute', top: 16, left: 16, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 20 }}>
             <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
@@ -300,7 +287,6 @@ export default function ImagePopoutModal({
           </View>
         )}
 
-        {/* Footer: caption + interactions */}
         {post && (
           <View style={{ position: 'absolute', bottom: 20, left: 20, right: 20, zIndex: 20 }}>
             {post.caption && (
@@ -309,8 +295,6 @@ export default function ImagePopoutModal({
               </Text>
             )}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-
-              {/* Left: like, comment, react */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
                 <TouchableOpacity onPress={toggleLike} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
                   <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={28} color={isLiked ? '#ff4b4b' : 'white'} />
@@ -339,7 +323,6 @@ export default function ImagePopoutModal({
                 )}
               </View>
 
-              {/* Right: reactions + calories */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 {post.recentReactions?.length > 0 && post.type !== 'REEL' && (
                   <TouchableOpacity onPress={() => setShowReactions(true)} style={{ flexDirection: 'row' }} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
@@ -361,7 +344,6 @@ export default function ImagePopoutModal({
           </View>
         )}
 
-        {/* Inline Reactions Panel — no nested Modal */}
         {showReactions && post?.id && (
           <ReactionsPanel postId={post.id} onClose={() => setShowReactions(false)} />
         )}

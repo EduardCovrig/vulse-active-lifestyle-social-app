@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import BouncyPressable from './BouncyPressable';
 import { optimizedImageUrl, optimizedThumbUrl } from '../utils/cloudinaryUrl';
 
@@ -53,9 +53,36 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
   const cardScale = useRef(new Animated.Value(1)).current;
   const bigHeartScale = useRef(new Animated.Value(0)).current;
   const lastTapRef = useRef(0);
-  const [showReactions, setShowReactions] = useState(false);
 
   const isFullScreenVideo = post.type === 'REEL' && cardHeight === Dimensions.get('window').height;
+  const isVideo = !!(post.mediaUrl && (post.mediaUrl.toLowerCase().endsWith('.mp4') || post.mediaUrl.toLowerCase().endsWith('.mov')));
+  const isFrontVideo = !!(post.frontMediaUrl && (post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov')));
+
+  const player = useVideoPlayer(isVideo ? post.mediaUrl : null, (p) => {
+    p.loop = true;
+    p.muted = !shouldPlay;
+    if (shouldPlay) p.play();
+    else p.pause();
+  });
+
+  const frontPlayer = useVideoPlayer(isFrontVideo ? post.frontMediaUrl : null, (p) => {
+    p.loop = true;
+    p.muted = true;
+    if (shouldPlay) p.play();
+    else p.pause();
+  });
+
+  useEffect(() => {
+    if (isVideo && player) {
+      player.muted = !shouldPlay;
+      if (shouldPlay) player.play();
+      else player.pause();
+    }
+    if (isFrontVideo && frontPlayer) {
+      if (shouldPlay) frontPlayer.play();
+      else frontPlayer.pause();
+    }
+  }, [shouldPlay, isVideo, isFrontVideo]);
 
   const toggleLike = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -150,8 +177,8 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           delayLongPress={350}
           style={{ flex: 1, position: 'relative' }}
         >
-          {post.mediaUrl && (post.mediaUrl.toLowerCase().endsWith('.mp4') || post.mediaUrl.toLowerCase().endsWith('.mov')) ? (
-            <Video source={{ uri: post.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay={shouldPlay} isLooping isMuted={!shouldPlay} />
+          {isVideo && player ? (
+            <VideoView player={player} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
           ) : (
             <Image source={{ uri: optimizedImageUrl(post.mediaUrl) }} className="w-full h-full object-cover" />
           )}
@@ -159,8 +186,8 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
 
           {post.frontMediaUrl && (
             <View className={`absolute right-4 w-24 h-32 rounded-2xl border-[1.5px] border-white/20 overflow-hidden shadow-2xl z-10 bg-black/40 ${isFullScreenVideo ? 'top-24' : 'top-16'}`}>
-               {post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov') ? (
-                 <Video source={{ uri: post.frontMediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay={shouldPlay} isLooping isMuted={true} />
+               {isFrontVideo && frontPlayer ? (
+                 <VideoView player={frontPlayer} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
                ) : (
                  <Image source={{ uri: optimizedThumbUrl(post.frontMediaUrl) }} className="w-full h-full object-cover" />
                )}
@@ -173,7 +200,6 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
             </BlurView>
           </Animated.View>
 
-          {/* DACA NU E VIDEO FULL SCREEN, APARE SUS */}
           {!isFullScreenVideo && (
             <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} style={{ zIndex: 100, elevation: 100 }} className="absolute top-5 left-5 flex-row items-center gap-2.5">
               <View className="w-9 h-9 rounded-full bg-white/10 items-center justify-center overflow-hidden border-[0.5px] border-white/20">
@@ -194,10 +220,8 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
             <Ionicons name="ellipsis-horizontal" size={16} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
 
-          {/* DACA E VIDEO FULL SCREEN: RIGHT SIDE OVERLAY COLUMN (LIKE & COMMENT) */}
           {isFullScreenVideo && (
             <View style={{ position: 'absolute', right: 16, bottom: 200, alignItems: 'center', gap: 20, zIndex: 100 }}>
-              {/* Like Button */}
               <TouchableOpacity onPress={toggleLike} style={{ alignItems: 'center' }}>
                 <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' }}>
                   <Ionicons name={isLiked ? "heart" : "heart-outline"} size={26} color={isLiked ? "#ff4b4b" : "white"} />
@@ -205,7 +229,6 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 13, marginTop: 4, textShadowColor: 'black', textShadowRadius: 3 }}>{likesCount}</Text>
               </TouchableOpacity>
 
-              {/* Comment Button */}
               <TouchableOpacity onPress={() => onOpenComments && onOpenComments(post.id)} style={{ alignItems: 'center' }}>
                 <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' }}>
                   <Ionicons name="chatbubble-outline" size={24} color="white" />
@@ -215,7 +238,6 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
             </View>
           )}
 
-          {/* DACA E VIDEO FULL SCREEN: BOTTOM-LEFT CONTENT OVERLAY (USERNAME, TIME, CAPTION) */}
           {isFullScreenVideo && (
             <View style={{ position: 'absolute', left: 20, bottom: 120, right: 80, zIndex: 100 }}>
               <BouncyPressable onPress={() => onOpenProfile && onOpenProfile(post.author.username)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -235,7 +257,6 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
             </View>
           )}
 
-          {/* STANDARD BOTTOM SECTION (DACA NU E FULL SCREEN VIDEO) */}
           {!isFullScreenVideo && (
             <View className="absolute inset-x-5 z-20" style={{ bottom: 20 }}>
               {post.caption && post.type !== 'DAILY' && (

@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -419,7 +420,7 @@ public class UserService {
     }
 
     public int calculateStreak(UUID userId) {
-        List<java.time.LocalDate> postDates = postRepository.findTop30ByUserIdAndTypeOrderByCreatedAtDesc(userId, PostType.DAILY)
+        List<LocalDate> postDates = postRepository.findTop30ByUserIdAndTypeOrderByCreatedAtDesc(userId, PostType.DAILY)
                 .stream().map(p -> p.getCreatedAt().toLocalDate()).distinct().toList();
 
         if (postDates.isEmpty()) return 0;

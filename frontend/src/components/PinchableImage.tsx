@@ -1,8 +1,6 @@
 import React, { useRef } from 'react';
-import { Animated, PanResponder, StyleSheet, View, Image } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
-
-const AnimatedVideo = Animated.createAnimatedComponent(Video);
+import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 interface PinchableImageProps {
   uri: string;
@@ -13,6 +11,12 @@ export default function PinchableImage({ uri, onSingleTap }: PinchableImageProps
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
+
+  const isVideo = !!(uri && (uri.toLowerCase().endsWith('.mp4') || uri.toLowerCase().endsWith('.mov')));
+  const player = useVideoPlayer(isVideo ? uri : null, (p) => {
+    p.loop = true;
+    p.play();
+  });
 
   const pinchData = useRef({
     isPinching: false,
@@ -70,7 +74,6 @@ export default function PinchableImage({ uri, onSingleTap }: PinchableImageProps
           translateX.setValue(gs.dx);
           translateY.setValue(gs.dy);
         } else if (touches.length === 1 && pinchData.isPinching) {
-          // Permite mutarea imaginii daca ramane un deget pe ecran dupa pinch
           translateX.setValue(gs.dx);
           translateY.setValue(gs.dy);
         }
@@ -83,7 +86,6 @@ export default function PinchableImage({ uri, onSingleTap }: PinchableImageProps
           onSingleTap();
         }
 
-        // Ricoșeu fluid înapoi la dimensiunea inițială
         Animated.parallel([
           Animated.spring(scale, { toValue: 1, useNativeDriver: true, bounciness: 12, speed: 20 }),
           Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 12, speed: 20 }),
@@ -103,21 +105,22 @@ export default function PinchableImage({ uri, onSingleTap }: PinchableImageProps
 
   return (
     <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers} collapsable={false}>
-      {uri && (uri.toLowerCase().endsWith('.mp4') || uri.toLowerCase().endsWith('.mov')) ? (
-        <AnimatedVideo
-          source={{ uri }}
-          style={[StyleSheet.absoluteFill, { transform: [{ translateX }, { translateY }, { scale }] }]}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping
-        />
-      ) : (
-        <Animated.Image 
-          source={{ uri }} 
-          style={[StyleSheet.absoluteFill, { transform: [{ translateX }, { translateY }, { scale }] }]} 
-          resizeMode="cover" 
-        />
-      )}
+      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX }, { translateY }, { scale }] }]}>
+        {isVideo && player ? (
+          <VideoView
+            player={player}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            nativeControls={false}
+          />
+        ) : (
+          <Animated.Image 
+            source={{ uri }} 
+            style={StyleSheet.absoluteFill} 
+            resizeMode="cover" 
+          />
+        )}
+      </Animated.View>
     </View>
   );
 }

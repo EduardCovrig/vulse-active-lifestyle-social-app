@@ -442,7 +442,7 @@ export default function RegisterScreen({ navigation }: any) {
               {currentStep === 2 && (
                 <View className="flex-col gap-5">
                   <View className="flex-col gap-2">
-                    <Text className="text-white/40 text-[10px] font-black tracking-widest uppercase ml-1">Security</Text>
+                    <Text className="text-white/40 text-[10px] font-black tracking-widest uppercase ml-1">Password</Text>
                     <View className="relative justify-center">
                       <TextInput
                         className="w-full h-14 bg-white/[0.02] rounded-2xl px-5 text-white border border-white/[0.06] focus:border-[#7ad7c6] font-bold text-base"
