@@ -12,8 +12,8 @@ export default function PinchableImage({ uri, onSingleTap }: PinchableImageProps
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
 
-  const isVideo = uri && (uri.toLowerCase().endsWith('.mp4') || uri.toLowerCase().endsWith('.mov'));
-  const player = useVideoPlayer(isVideo ? uri : '', (p) => {
+  const isVideo = !!(uri && (uri.toLowerCase().endsWith('.mp4') || uri.toLowerCase().endsWith('.mov')));
+  const player = useVideoPlayer(isVideo ? uri : null, (p) => {
     p.loop = true;
     p.play();
   });
@@ -106,7 +106,7 @@ export default function PinchableImage({ uri, onSingleTap }: PinchableImageProps
   return (
     <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers} collapsable={false}>
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX }, { translateY }, { scale }] }]}>
-        {isVideo ? (
+        {isVideo && player ? (
           <VideoView
             player={player}
             style={StyleSheet.absoluteFill}

@@ -4,7 +4,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import * as Contacts from 'expo-contacts';
+import * as Contacts from 'expo-contacts/legacy';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { handleError } from '../utils/errorHandler';
@@ -72,7 +72,6 @@ export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
   const enterAnim = useRef(new Animated.Value(0)).current;
   const spinAnim = useRef(new Animated.Value(0)).current;
 
-  // Streak Animation Refs
   const streakScale = useRef(new Animated.Value(1)).current;
   const streakRotate = useRef(new Animated.Value(0)).current;
 
@@ -178,7 +177,7 @@ export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
   const handleOpenNotifications = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowNotifications(true);
-    setUnreadCount(0); // Reset UI optimistic
+    setUnreadCount(0);
   };
 
   const handleSaveBio = async () => {
@@ -302,7 +301,6 @@ export function useUserProfile({ onHideBottomBar }: UseUserProfileProps = {}) {
      try {
        await api.post(`/users/${userId}/follow`);
        setSuggestedFriends(curr => curr.filter(u => u.id !== userId));
-       // Optimistically update followings count if viewing own profile
        setProfile((prev: any) => prev ? { ...prev, followingCount: prev.followingCount + 1 } : prev);
      } catch (e) {
        handleError(e, 'Failed to follow user');

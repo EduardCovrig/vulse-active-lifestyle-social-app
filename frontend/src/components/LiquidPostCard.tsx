@@ -55,17 +55,17 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
   const lastTapRef = useRef(0);
 
   const isFullScreenVideo = post.type === 'REEL' && cardHeight === Dimensions.get('window').height;
-  const isVideo = post.mediaUrl && (post.mediaUrl.toLowerCase().endsWith('.mp4') || post.mediaUrl.toLowerCase().endsWith('.mov'));
-  const isFrontVideo = post.frontMediaUrl && (post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov'));
+  const isVideo = !!(post.mediaUrl && (post.mediaUrl.toLowerCase().endsWith('.mp4') || post.mediaUrl.toLowerCase().endsWith('.mov')));
+  const isFrontVideo = !!(post.frontMediaUrl && (post.frontMediaUrl.toLowerCase().endsWith('.mp4') || post.frontMediaUrl.toLowerCase().endsWith('.mov')));
 
-  const player = useVideoPlayer(isVideo ? post.mediaUrl : '', (p) => {
+  const player = useVideoPlayer(isVideo ? post.mediaUrl : null, (p) => {
     p.loop = true;
     p.muted = !shouldPlay;
     if (shouldPlay) p.play();
     else p.pause();
   });
 
-  const frontPlayer = useVideoPlayer(isFrontVideo ? post.frontMediaUrl : '', (p) => {
+  const frontPlayer = useVideoPlayer(isFrontVideo ? post.frontMediaUrl : null, (p) => {
     p.loop = true;
     p.muted = true;
     if (shouldPlay) p.play();
@@ -177,7 +177,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
           delayLongPress={350}
           style={{ flex: 1, position: 'relative' }}
         >
-          {isVideo ? (
+          {isVideo && player ? (
             <VideoView player={player} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
           ) : (
             <Image source={{ uri: optimizedImageUrl(post.mediaUrl) }} className="w-full h-full object-cover" />
@@ -186,7 +186,7 @@ const LiquidPostCard = React.memo(({ post, cardHeight, onOpenComments, onPostDel
 
           {post.frontMediaUrl && (
             <View className={`absolute right-4 w-24 h-32 rounded-2xl border-[1.5px] border-white/20 overflow-hidden shadow-2xl z-10 bg-black/40 ${isFullScreenVideo ? 'top-24' : 'top-16'}`}>
-               {isFrontVideo ? (
+               {isFrontVideo && frontPlayer ? (
                  <VideoView player={frontPlayer} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
                ) : (
                  <Image source={{ uri: optimizedThumbUrl(post.frontMediaUrl) }} className="w-full h-full object-cover" />

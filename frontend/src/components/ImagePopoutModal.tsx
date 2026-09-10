@@ -1,6 +1,3 @@
-/**
- * ImagePopoutModal - A self-contained, crash-safe image viewer with pinch-to-zoom.
- */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
@@ -139,9 +136,9 @@ export default function ImagePopoutModal({
 
   const targetUri = post ? optimizedImageUrl(post.mediaUrl) : optimizedImageUrl(imageUri);
   const frontUri = post?.frontMediaUrl || frontImageUri;
-  const isFrontVideo = frontUri && (frontUri.toLowerCase().endsWith('.mp4') || frontUri.toLowerCase().endsWith('.mov'));
+  const isFrontVideo = !!(frontUri && (frontUri.toLowerCase().endsWith('.mp4') || frontUri.toLowerCase().endsWith('.mov')));
 
-  const frontPlayer = useVideoPlayer(isFrontVideo ? frontUri : '', (p) => {
+  const frontPlayer = useVideoPlayer(isFrontVideo ? frontUri : null, (p) => {
     p.loop = true;
     p.muted = true;
     p.play();
@@ -253,7 +250,7 @@ export default function ImagePopoutModal({
 
         {frontUri && (
           <View style={{ position: 'absolute', top: 20, right: 20, width: 100, height: 130, borderRadius: 16, borderWidth: 2, borderColor: 'white', overflow: 'hidden', zIndex: 10 }}>
-            {isFrontVideo ? (
+            {isFrontVideo && frontPlayer ? (
               <VideoView player={frontPlayer} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
             ) : (
               <Image source={{ uri: optimizedThumbUrl(frontUri) }} style={{ width: '100%', height: '100%' }} />

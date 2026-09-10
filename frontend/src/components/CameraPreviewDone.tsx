@@ -38,7 +38,7 @@ export default function CameraPreviewDone({
   handleUpload,
 }: CameraPreviewDoneProps) {
   const isVideo = mediaType === 'video' && !!mediaUri;
-  const player = useVideoPlayer(isVideo ? mediaUri : '', (p) => {
+  const player = useVideoPlayer(isVideo ? mediaUri : null, (p) => {
     p.loop = true;
     p.play();
   });
@@ -49,7 +49,7 @@ export default function CameraPreviewDone({
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View className="flex-1 bg-black relative justify-center items-center">
             <View className="w-full aspect-[3/4] rounded-[40px] overflow-hidden border-2 border-white/10">
-              {mediaType === 'video' ? (
+              {isVideo && player ? (
                 <VideoView player={player} style={{ width: '100%', height: '100%' }} contentFit="cover" nativeControls={false} />
               ) : (
                 <Image source={{ uri: mediaUri }} className="w-full h-full" resizeMode="cover" />
@@ -88,11 +88,12 @@ export default function CameraPreviewDone({
   if (mode === 'daily' && mediaUri) {
     const primaryUri = swapped ? frontMediaUri : mediaUri;
     const secondaryUri = swapped ? mediaUri : frontMediaUri;
+    const isPrimaryVideo = (!swapped && mediaType === 'video');
 
     return (
       <View className="flex-1 bg-black relative">
         <TouchableOpacity activeOpacity={1} onPress={() => !isUploading && setSwapped(!swapped)} style={{ flex: 1 }}>
-          {(!swapped && mediaType === 'video') ? (
+          {isPrimaryVideo && player ? (
             <VideoView player={player} style={{ flex: 1 }} contentFit="cover" nativeControls={false} />
           ) : (
             <Image source={{ uri: primaryUri! }} className="flex-1" resizeMode="cover" />
@@ -133,10 +134,9 @@ export default function CameraPreviewDone({
     );
   }
 
-  // Reel mode preview
   return (
     <View className="flex-1 bg-black relative">
-      {mediaUri && mediaType === 'video' ? (
+      {isVideo && player ? (
         <VideoView player={player} style={{ flex: 1 }} contentFit="cover" nativeControls={false} />
       ) : (
         mediaUri && <Image source={{ uri: mediaUri }} className="flex-1" resizeMode="cover" />
